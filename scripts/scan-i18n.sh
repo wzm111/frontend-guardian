@@ -56,7 +56,8 @@ detect_i18n_setup() {
 
   echo "framework:$framework"
   echo "locales_count:${#locale_files[@]}"
-  for f in "${locale_files[@]}"; do
+  for f in "${locale_files[@]:+${locale_files[@]}}"; do
+    [[ -n "$f" ]] || continue
     echo "locale_file:$f"
   done
 }
@@ -69,22 +70,27 @@ scan_hardcoded() {
   local pattern='["'\''`]([一-鿿]+[^"'\''`]*|[a-zA-Z][a-zA-Z\s]{2,}[^"'\''`]*)["'\''`]'
   local files=()
 
-  # 收集源码文件
+  # 收集源码文件（排除语言包、测试、配置目录）
   while IFS= read -r line; do
     [[ -n "$line" ]] && files+=("$line")
   done < <(find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.vue" \) \
-    ! -path "*/node_modules/*" ! -path "*/dist/*" 2>/dev/null)
+    ! -path "*/node_modules/*" ! -path "*/dist/*" \
+    ! -path "*/i18n/*" ! -path "*/locales/*" ! -path "*/lang/*" \
+    ! -path "*/tests/*" ! -path "*/test/*" 2>/dev/null)
 
   for file in "${files[@]}"; do
-    # 跳过测试文件和配置文件
+    # 跳过测试文件、配置文件、语言包文件
     [[ "$file" == *".test."* || "$file" == *".spec."* || "$file" == *".config."* ]] && continue
+    [[ "$file" == *"/i18n/"* || "$file" == *"/locales/"* || "$file" == *"/lang/"* ]] && continue
 
     local line_num=0
     while IFS= read -r line; do
       line_num=$((line_num + 1))
 
-      # 跳过注释行
-      [[ "$line" =~ ^\s*// || "$line" =~ ^\s*\* || "$line" =~ ^\s*/\* ]] && continue
+      # 跳过注释行（JS/TS 行注释、JSDoc、块注释、HTML/Vue 注释）
+      # bash [[ =~ ]] 不支持 \s，改用 grep 检测
+      echo "$line" | grep -qE '^[[:space:]]*//|^[[:space:]]*\*|^[[:space:]]*/\*' && continue
+      echo "$line" | grep -qE '<!--|-->' && continue
 
       # 检测中文文案
       if echo "$line" | grep -qE '[一-鿿]'; then

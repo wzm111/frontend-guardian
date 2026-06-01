@@ -146,7 +146,7 @@ detect_stack() {
   fi
 
   echo "$stack"
-  echo "检测到的平台: ${platforms[*]}"
+  echo "检测到的平台: ${platforms[*]+"${platforms[*]}"}"
 }
 
 # ---------------------------------------------------------------------------
@@ -197,11 +197,14 @@ run_scanner() {
     "$SCRIPT_DIR/$script" "$PROJECT_DIR" > "$output_file" 2>&1 || true
     cat "$output_file"
 
-    # 统计问题数
+    # 统计问题数（head -1 防止多行输出）
     local c w s
-    c=$(grep -cE "❌|🔴|Critical|严重" "$output_file" 2>/dev/null || echo 0)
-    w=$(grep -cE "⚠️|🟡|Warning|警告" "$output_file" 2>/dev/null || echo 0)
-    s=$(grep -cE "💡|Suggestion|建议" "$output_file" 2>/dev/null || echo 0)
+    c=$(grep -cE "❌|🔴|Critical|严重" "$output_file" 2>/dev/null | head -1 | tr -d '\n')
+    c=${c:-0}
+    w=$(grep -cE "⚠️|🟡|Warning|警告" "$output_file" 2>/dev/null | head -1 | tr -d '\n')
+    w=${w:-0}
+    s=$(grep -cE "💡|Suggestion|建议" "$output_file" 2>/dev/null | head -1 | tr -d '\n')
+    s=${s:-0}
     CRITICAL_COUNT=$((CRITICAL_COUNT + c))
     WARNING_COUNT=$((WARNING_COUNT + w))
     SUGGESTION_COUNT=$((SUGGESTION_COUNT + s))
