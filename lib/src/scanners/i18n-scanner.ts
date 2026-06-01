@@ -14,6 +14,9 @@ import type { ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import type { Rule, RuleContext, Issue } from '../types.js';
 import { parseAST } from '../utils/ast-parser.js';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { resolve, dirname, extname } from 'node:path';
+import { globby } from 'globby';
 
 /** 中文字符正则（包含中文标点） */
 const CHINESE_REGEX = /[一-龥　-〿＀-￯]/;
@@ -162,9 +165,47 @@ export const i18nRules: Rule[] = [
     category: 'i18n',
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
-      // TODO: 需要加载语言包文件，对比 key 存在性
-      // 这需要先扫描语言包目录，建立 key 索引
-      return [];
+      const issues: Issue[] = [];
+
+      // 跳过非源码文件
+      const ext = extname(context.filePath).toLowerCase();
+      if (!['.js', '.ts', '.jsx', '.tsx', '.vue'].includes(ext)) return issues;
+
+      // 收集语言包 key（模块级缓存）
+      const projectDir = context.filePath.split('/src/')[0] || dirname(context.filePath);
+      const localeKeys = collectLocaleKeys(projectDir, context.config);
+
+      if (localeKeys.size === 0) return issues;
+
+      // 解析 AST
+      const ast = context.utils.parseAST(context.source, {
+        ext: getFileExt(context.filePath),
+      }) as ParseResult<any> | null;
+
+      if (!ast) return issues;
+
+      // 提取代码中引用的 key
+      const codeKeys = extractCodeKeys(ast);
+
+      for (const { key, line, column } of codeKeys) {
+        // 跳过动态 key（含变量）
+        if (!key || key.includes('${') || key.includes('{{')) continue;
+
+        if (!localeKeys.has(key)) {
+          issues.push({
+            ruleId: 'i18n-missing-key',
+            title: `语言包缺失 Key: ${key}`,
+            description: `代码引用的国际化 key "${key}" 在语言包中未找到`,
+            severity: 'critical',
+            file: context.filePath,
+            line,
+            column,
+            source: key,
+          });
+        }
+      }
+
+      return issues;
     },
   },
 
@@ -278,6 +319,168 @@ function isInComment(path: any, source: string): boolean {
     }
   }
   return false;
+}
+
+// ============================================================================
+// 语言包 Key 索引（模块级缓存）
+// ============================================================================
+
+let localeKeyCache: Set<string> | null = null;
+let localeKeyCacheProject: string | null = null;
+
+/** 扫描语言包目录，收集所有 key */
+function collectLocaleKeys(projectDir: string, config: any): Set<string> {
+  if (localeKeyCache && localeKeyCacheProject === projectDir) {
+    return localeKeyCache;
+  }
+
+  const keys = new Set<string>();
+  const sourceLocale = config?.i18n?.sourceLocale || 'zh-CN';
+  const format = config?.i18n?.format || 'json';
+
+  // 常见语言包目录
+  const localeDirs = [
+    resolve(projectDir, 'locales'),
+    resolve(projectDir, 'i18n'),
+    resolve(projectDir, 'lang'),
+    resolve(projectDir, 'messages'),
+    resolve(projectDir, 'src/locales'),
+    resolve(projectDir, 'src/i18n'),
+    resolve(projectDir, 'src/lang'),
+  ];
+
+  for (const dir of localeDirs) {
+    if (!existsSync(dir)) continue;
+
+    try {
+      const files = readdirSync(dir, { recursive: true, encoding: 'utf-8' }) as string[];
+      for (const file of files) {
+        const fullPath = resolve(dir, file);
+        const ext = extname(file).toLowerCase();
+
+        if (ext === '.json') {
+          extractKeysFromJSON(fullPath, keys);
+        } else if (ext === '.js' || ext === '.ts') {
+          extractKeysFromJS(fullPath, keys);
+        } else if (ext === '.yaml' || ext === '.yml') {
+          // TODO: YAML 解析
+        }
+      }
+    } catch {
+      // 目录读取失败，跳过
+    }
+  }
+
+  localeKeyCache = keys;
+  localeKeyCacheProject = projectDir;
+  return keys;
+}
+
+/** 从 JSON 文件提取 key（递归） */
+function extractKeysFromJSON(filePath: string, keys: Set<string>): void {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(content);
+    extractKeysRecursive(data, '', keys);
+  } catch {
+    // 解析失败，跳过
+  }
+}
+
+/** 从 JS/TS 文件提取 key */
+function extractKeysFromJS(filePath: string, keys: Set<string>): void {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    // 简单提取 export default { ... } 中的 key
+    const match = content.match(/export\s+default\s*\{([\s\S]*?)\}/);
+    if (match) {
+      const objContent = match[1];
+      const keyRegex = /['"]([^'"]+)['"]\s*:/g;
+      let m;
+      while ((m = keyRegex.exec(objContent)) !== null) {
+        keys.add(m[1]);
+      }
+    }
+  } catch {
+    // 解析失败，跳过
+  }
+}
+
+/** 递归提取对象 key */
+function extractKeysRecursive(obj: any, prefix: string, keys: Set<string>): void {
+  if (typeof obj !== 'object' || obj === null) return;
+
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === 'string') {
+      keys.add(fullKey);
+    } else if (typeof value === 'object' && value !== null) {
+      extractKeysRecursive(value, fullKey, keys);
+    }
+  }
+}
+
+// ============================================================================
+// 代码中 i18n Key 提取
+// ============================================================================
+
+/** 从 AST 中提取代码中引用的 i18n key */
+function extractCodeKeys(ast: ParseResult<any> | null): Array<{ key: string; line: number; column: number }> {
+  const keys: Array<{ key: string; line: number; column: number }> = [];
+  if (!ast) return keys;
+
+  traverse(ast, {
+    // t('key') / $t('key') / formatMessage({ id: 'key' })
+    CallExpression(path) {
+      const callee = path.node.callee;
+      const calleeName = getCalleeName(callee);
+
+      if (!calleeName) return;
+
+      // 匹配 t(), $t(), i18n.t(), translate()
+      if (I18N_FUNCTION_NAMES.some(fn => calleeName.endsWith(fn) || calleeName === fn)) {
+        const firstArg = path.node.arguments[0];
+        if (firstArg?.type === 'StringLiteral') {
+          const { line, column } = firstArg.loc?.start || { line: 0, column: 0 };
+          keys.push({ key: firstArg.value, line, column });
+        }
+      }
+
+      // 匹配 formatMessage({ id: 'key' })
+      if (calleeName === 'formatMessage' || calleeName === 'intl.formatMessage') {
+        const firstArg = path.node.arguments[0];
+        if (firstArg?.type === 'ObjectExpression') {
+          for (const prop of firstArg.properties) {
+            if (prop.type === 'ObjectProperty' &&
+                prop.key.type === 'Identifier' &&
+                prop.key.name === 'id' &&
+                prop.value.type === 'StringLiteral') {
+              const { line, column } = prop.value.loc?.start || { line: 0, column: 0 };
+              keys.push({ key: prop.value.value, line, column });
+            }
+          }
+        }
+      }
+    },
+
+    // JSX: <FormattedMessage id="key" />
+    JSXOpeningElement(path) {
+      const name = path.node.name;
+      if (name.type === 'Identifier' && name.name === 'FormattedMessage') {
+        for (const attr of path.node.attributes) {
+          if (attr.type === 'JSXAttribute' &&
+              attr.name.type === 'JSXIdentifier' &&
+              attr.name.name === 'id' &&
+              attr.value?.type === 'StringLiteral') {
+            const { line, column } = attr.value.loc?.start || { line: 0, column: 0 };
+            keys.push({ key: attr.value.value, line, column });
+          }
+        }
+      }
+    },
+  });
+
+  return keys;
 }
 
 /** 获取 callee 名称 */

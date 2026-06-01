@@ -257,6 +257,81 @@ run_knip() {
 }
 
 # ---------------------------------------------------------------------------
+# Node.js AST 引擎扫描
+# ---------------------------------------------------------------------------
+run_node_engine() {
+  # 检测 Node.js 引擎是否可用
+  local engine_path=""
+  local has_node=false
+
+  if command -v node &>/dev/null; then
+    has_node=true
+  fi
+
+  # 检测引擎路径优先级：node_modules > 本地 lib
+  if [[ -x "$PROJECT_DIR/node_modules/.bin/fg-core" ]]; then
+    engine_path="$PROJECT_DIR/node_modules/.bin/fg-core"
+  elif [[ -f "$SCRIPT_DIR/../lib/bin/fg-core.js" ]] && $has_node; then
+    engine_path="node $SCRIPT_DIR/../lib/bin/fg-core.js"
+  elif [[ -f "$SCRIPT_DIR/../lib/dist/index.js" ]] && $has_node; then
+    engine_path="node $SCRIPT_DIR/../lib/dist/index.js"
+  fi
+
+  if [[ -z "$engine_path" ]]; then
+    return
+  fi
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🔍 AST 深度分析 (Node.js 引擎)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  local modules=("i18n" "performance" "a11y" "security")
+  local total_ast_issues=0
+
+  for module in "${modules[@]}"; do
+    local module_output="/tmp/fg-ast-$module.json"
+    echo "   🔬 $module ..."
+
+    if $engine_path "$PROJECT_DIR" --module "$module" --severity "${SEVERITY:-suggestion}" --json > "$module_output" 2>/dev/null; then
+      if [[ -s "$module_output" ]]; then
+        local ast_c ast_w ast_s
+        ast_c=$(node -e "
+          const data = require('$module_output');
+          console.log(data.issues?.critical?.length || 0);
+        " 2>/dev/null || echo 0)
+        ast_w=$(node -e "
+          const data = require('$module_output');
+          console.log(data.issues?.warning?.length || 0);
+        " 2>/dev/null || echo 0)
+        ast_s=$(node -e "
+          const data = require('$module_output');
+          console.log(data.issues?.suggestion?.length || 0);
+        " 2>/dev/null || echo 0)
+
+        ast_c=${ast_c:-0}
+        ast_w=${ast_w:-0}
+        ast_s=${ast_s:-0}
+
+        if [[ $((ast_c + ast_w + ast_s)) -gt 0 ]]; then
+          echo "      🔴 Critical: $ast_c | 🟡 Warning: $ast_w | 💡 Suggestion: $ast_s"
+          CRITICAL_COUNT=$((CRITICAL_COUNT + ast_c))
+          WARNING_COUNT=$((WARNING_COUNT + ast_w))
+          SUGGESTION_COUNT=$((SUGGESTION_COUNT + ast_s))
+          total_ast_issues=$((total_ast_issues + ast_c + ast_w + ast_s))
+        fi
+      fi
+    fi
+  done
+
+  if [[ $total_ast_issues -eq 0 ]]; then
+    echo "   ✅ AST 分析未发现问题"
+  else
+    echo "   📊 AST 分析共发现 $total_ast_issues 个问题"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # 执行子扫描脚本
 # ---------------------------------------------------------------------------
 run_scanner() {
@@ -413,6 +488,9 @@ main() {
 
   # Knip 代码库瘦身扫描
   run_knip
+
+  # Node.js AST 引擎扫描（如果可用）
+  run_node_engine
 
   # 生成报告
   generate_report "$STACK"
