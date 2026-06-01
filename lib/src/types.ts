@@ -1,0 +1,257 @@
+/**
+ * Core type definitions for frontend-guardian rule engine
+ */
+
+export type Severity = 'critical' | 'warning' | 'suggestion';
+export type Platform = 'pc' | 'h5' | 'wechat-mp' | 'alipay-mp' | 'douyin-mp' | 'app' | 'harmony' | 'flutter' | 'react-native';
+export type Framework = 'react' | 'vue' | 'nextjs' | 'nuxt' | 'uniapp' | 'taro' | 'flutter' | 'react-native' | 'harmony';
+export type ComponentLib = 'antd' | 'element-plus' | 'mui' | 'vuetify' | 'nutui' | 'tdesign' | 'shadcn' | 'none';
+
+export interface Issue {
+  /** Unique rule identifier */
+  ruleId: string;
+  /** Human-readable title */
+  title: string;
+  /** Detailed description */
+  description: string;
+  /** Severity level */
+  severity: Severity;
+  /** File path (relative to project root) */
+  file: string;
+  /** Line number (1-based) */
+  line: number;
+  /** Column number (1-based) */
+  column: number;
+  /** End line number */
+  endLine?: number;
+  /** End column number */
+  endColumn?: number;
+  /** Raw source code snippet */
+  source?: string;
+  /** Suggested fix */
+  fix?: Fix;
+  /** Additional metadata */
+  meta?: Record<string, unknown>;
+}
+
+export interface Fix {
+  /** Replacement text */
+  text: string;
+  /** Start position in file */
+  start: Position;
+  /** End position in file */
+  end: Position;
+}
+
+export interface Position {
+  line: number;
+  column: number;
+}
+
+export interface ScanResult {
+  /** Module name */
+  module: string;
+  /** Total issues found */
+  total: number;
+  /** Issues grouped by severity */
+  issues: Record<Severity, Issue[]>;
+  /** Scan duration in ms */
+  duration: number;
+  /** Files scanned */
+  filesScanned: number;
+  /** Files with issues */
+  filesWithIssues: number;
+}
+
+export interface Rule {
+  /** Rule ID (kebab-case) */
+  id: string;
+  /** Rule name */
+  name: string;
+  /** Rule description */
+  description: string;
+  /** Default severity */
+  severity: Severity;
+  /** Category */
+  category: RuleCategory;
+  /** Whether rule is enabled by default */
+  defaultEnabled: boolean;
+  /** Frameworks this rule applies to */
+  frameworks?: Framework[];
+  /** Component libs this rule applies to */
+  componentLibs?: ComponentLib[];
+  /** Platforms this rule applies to */
+  platforms?: Platform[];
+  /** Execute rule on a file */
+  execute(context: RuleContext): Issue[] | Promise<Issue[]>;
+}
+
+export type RuleCategory =
+  | 'i18n'
+  | 'component'
+  | 'hooks'
+  | 'platform'
+  | 'performance'
+  | 'accessibility'
+  | 'security'
+  | 'style'
+  | 'architecture';
+
+export interface RuleContext {
+  /** Absolute path to the file being analyzed */
+  filePath: string;
+  /** File content */
+  source: string;
+  /** Parsed AST (if applicable) */
+  ast?: unknown;
+  /** Project configuration */
+  config: ProjectConfig;
+  /** Detected project metadata */
+  projectMeta: ProjectMeta;
+  /** Utility helpers */
+  utils: RuleUtils;
+}
+
+export interface RuleUtils {
+  /** Parse file to AST */
+  parseAST(source: string, options?: ParseOptions): unknown;
+  /** Get imported modules */
+  getImports(ast: unknown): ImportInfo[];
+  /** Report a position in source */
+  reportPosition(offset: number): Position;
+  /** Extract source snippet */
+  getSourceSnippet(start: number, end: number): string;
+}
+
+export interface ImportInfo {
+  source: string;
+  specifiers: string[];
+  defaultImport?: string;
+  namespaceImport?: string;
+  line: number;
+  column: number;
+}
+
+export interface ParseOptions {
+  /** File extension to determine parser */
+  ext?: string;
+  /** Source type: script | module */
+  sourceType?: 'script' | 'module';
+  /** Enable JSX/TSX */
+  jsx?: boolean;
+}
+
+export interface ProjectConfig {
+  /** Config file path */
+  configFile?: string;
+  /** i18n configuration */
+  i18n?: I18nConfig;
+  /** Component configuration */
+  component?: ComponentConfig;
+  /** Hooks configuration */
+  hooks?: HooksConfig;
+  /** Platform configuration */
+  platform?: PlatformConfig;
+  /** Gate configuration */
+  gate?: GateConfig;
+  /** AI context configuration */
+  aiContext?: AIContextConfig;
+  /** Scan scope */
+  scan?: ScanConfig;
+}
+
+export interface I18nConfig {
+  sourceLocale: string;
+  targetLocales: string[];
+  format: 'json' | 'yaml' | 'js' | 'ts';
+  keyPattern: string;
+  extractPaths: string[];
+  ignorePaths: string[];
+  interpolationPattern: string;
+  translateProvider: string;
+}
+
+export interface ComponentConfig {
+  library: 'auto' | ComponentLib;
+  themeTokenPrefix: string;
+  maxSelectOptions: number;
+  checkA11y: boolean;
+  checkPerf: boolean;
+  libraryVersion: string;
+}
+
+export interface HooksConfig {
+  maxEffectDeps: number;
+  checkClosure: boolean;
+  checkCustomHookNaming: boolean;
+  checkVueComposables: boolean;
+}
+
+export interface PlatformConfig {
+  targets: Platform[];
+  mp: MpConfig;
+  mobile: MobileConfig;
+  harmony: HarmonyConfig;
+}
+
+export interface MpConfig {
+  type: string;
+  maxMainPackageSize: number;
+  maxSubPackageSize: number;
+  maxBase64ImageSize: number;
+  maxPageStack: number;
+}
+
+export interface MobileConfig {
+  minTouchTarget: number;
+  checkSafeArea: boolean;
+  checkClickDelay: boolean;
+  checkKeyboard: boolean;
+}
+
+export interface HarmonyConfig {
+  strictTypeCheck: boolean;
+  arktsVersion: string;
+}
+
+export interface GateConfig {
+  enabled: boolean;
+  critical: { max: number };
+  warning: { max: number };
+  suggestion: { max: number };
+  blockPipeline: boolean;
+}
+
+export interface AIContextConfig {
+  agent: 'claude' | 'cursor' | 'copilot' | 'all' | 'generic';
+  includeFiles: string[];
+  autoUpdate: boolean;
+  excludeDirs: string[];
+}
+
+export interface ScanConfig {
+  includeExtensions: string[];
+  excludeDirs: string[];
+  excludePatterns: string[];
+}
+
+export interface ProjectMeta {
+  /** Detected framework */
+  framework?: Framework;
+  /** Detected component library */
+  componentLib?: ComponentLib;
+  /** Detected platforms */
+  platforms: Platform[];
+  /** Framework version */
+  frameworkVersion?: string;
+  /** Component lib version */
+  componentLibVersion?: string;
+  /** Has TypeScript */
+  hasTypeScript: boolean;
+  /** Has i18n */
+  hasI18n: boolean;
+  /** i18n library */
+  i18nLib?: string;
+  /** Package.json scripts */
+  scripts: Record<string, string>;
+}

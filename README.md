@@ -31,6 +31,13 @@
 | | 死 key 清理 | `--i18n-dead` | ✅ 全端 | ⭐⭐☆☆☆ |
 | | 命名规范检查（module.page.element 格式） | `--i18n-lint` | ✅ 全端 | ⭐⭐☆☆☆ |
 | | 自动翻译填充（OpenAI/DeepL/阿里云） | `--i18n-translate` | ✅ 全端 | ⭐☆☆☆☆ |
+| 🔧 **性能优化** | 请求瀑布/懒加载/整库导入检测 | `--performance` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| | 包体积分析 | `--perf-bundle` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| 🛡️ **安全扫描** | XSS/注入/密钥泄露检测 | `--security` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| | eval/new Function/危险 URL 跳转 | `--sec-eval` / `--sec-xss` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| ♿ **可访问性** | 图片 alt/表单 label/语义化检查 | `--a11y` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| | 颜色对比度/键盘导航/ARIA | `--a11y-contrast` / `--a11y-form` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| 🧹 **代码库瘦身** | 未使用依赖/导出/文件检测（Knip） | `--knip` | ✅ 全端 | ⭐⭐⭐☆☆ |
 
 ## 安装
 
@@ -118,6 +125,11 @@ cp -r frontend-guardian /your/project/.claude/skills/
 | `--i18n-format <format>` | 语言包格式：`json` / `yaml` / `js` / `ts` | 自动检测 |
 | `--i18n-locales <langs>` | 目标语言列表，如 `zh-CN,en-US,ja-JP` | 自动检测 |
 | `--init-ai <agent>` | 初始化 AI 上下文：`claude` / `cursor` / `copilot` / `all` | 不初始化 |
+| `--knip` | 扫描未使用依赖/导出/文件（集成 Knip） | false |
+| `--performance` | 性能规则扫描 | false |
+| `--security` | 安全规则扫描 | false |
+| `--a11y` | 可访问性规则扫描 | false |
+| `--ast` | 使用 AST 级别分析（Node.js 核心引擎） | false |
 
 ### AI 上下文初始化
 
@@ -196,6 +208,33 @@ Skill 会自动检测项目类型并加载对应规则：
 | `react` + 无多端标记 | React PC/H5 | `rules/react.md` |
 | `next.config` | Next.js | `rules/nextjs.md` |
 | `nuxt.config` | Nuxt | `rules/nuxt.md` |
+
+---
+
+## AST 核心引擎（Node.js）
+
+frontend-guardian 提供基于 AST 的 Node.js 核心分析引擎，支持精确到语法树节点的规则检测：
+
+```bash
+cd lib && npm install && npm run build
+npx fg-core ./my-project --module i18n --severity warning
+```
+
+### 支持的扫描模块
+
+| 模块 | CLI | 说明 |
+| ------ | ----- | ------ |
+| i18n | `--module i18n` | AST 级别硬编码中文检测（字符串/模板/JSX） |
+| performance | `--module performance` | 请求瀑布、懒加载、整库导入检测 |
+| accessibility | `--module a11y` | 图片 alt、表单 label、语义化检查 |
+| security | `--module security` | XSS、eval、密钥泄露检测 |
+
+### 与 Bash 引擎的关系
+
+- **Bash 引擎**：零依赖，适合 CI/CD 环境，正则匹配
+- **Node.js 引擎**：需要 Node.js ≥ 18，AST 精确分析，自动修复
+
+`full-scan.sh` 检测到 `lib/dist/index.js` 存在时，自动调用 Node.js 引擎进行深度分析。
 
 ---
 

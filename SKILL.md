@@ -155,6 +155,45 @@ gate:
 
 ## 与其他 Skill 协作
 
+### 性能优化
+
+```
+/frontend-guardian --performance              # 性能规则全量扫描
+/frontend-guardian --perf-waterfall           # 请求瀑布检测
+/frontend-guardian --perf-bundle              # 包体积分析
+/frontend-guardian --perf-memo               # memoization 建议
+```
+
+### 可访问性 (a11y)
+
+```
+/frontend-guardian --a11y                     # 可访问性全量扫描
+/frontend-guardian --a11y-img                 # 图片 alt 检查
+/frontend-guardian --a11y-form               # 表单 label 检查
+/frontend-guardian --a11y-contrast           # 颜色对比度检查
+```
+
+### 安全扫描
+
+```
+/frontend-guardian --security                 # 安全规则全量扫描
+/frontend-guardian --sec-xss                  # XSS 漏洞检测
+/frontend-guardian --sec-eval                 # eval / new Function 检测
+/frontend-guardian --sec-secrets              # 硬编码密钥检测
+```
+
+### 代码库瘦身 (Knip)
+
+```
+/frontend-guardian --knip                     # 扫描未使用依赖/导出/文件
+/frontend-guardian --scan --knip              # 全量扫描 + 代码库瘦身
+```
+
+## 与其他 Skill 协作
+
 - 调用 `code-review-assistant` 获取通用代码审查结果作为基础
 - 调用 `api-type-sync` 检测接口文案是否已 i18n 化
 - 调用 `frontend-perf` 进行深度性能分析（本 Skill 只做初步筛查）
+- 调用 `frontend-design` / `web-design-guidelines` 辅助 UI/UX 设计决策
+  - 组件库升级时，请求 design skill 提供新组件模板
+  - 主题/token 重构时，请求 design skill 输出 design system 规范

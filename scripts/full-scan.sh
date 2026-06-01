@@ -86,6 +86,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 cd "$PROJECT_DIR"
+PROJECT_DIR="$(pwd)"  # 转为绝对路径
 
 # 如果未指定输出文件，使用默认
 if [[ -z "$OUTPUT_FILE" ]]; then
@@ -191,6 +192,68 @@ get_files() {
   fi
 
   printf '%s\n' "${files[@]}"
+}
+
+# ---------------------------------------------------------------------------
+# Knip 扫描（未使用依赖/导出/文件）
+# ---------------------------------------------------------------------------
+run_knip() {
+  if ! command -v npx &>/dev/null; then
+    echo "  ⚠️ 未检测到 npx，跳过 Knip 扫描"
+    return
+  fi
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🔍 代码库瘦身 (Knip)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  local knip_output="/tmp/fg-knip.txt"
+  local knip_exit=0
+
+  if npx knip --no-exit-code --max-issues 50 --reporter json > "$knip_output.json" 2>/dev/null; then
+    knip_exit=0
+  else
+    knip_exit=1
+  fi
+
+  if [[ -s "$knip_output.json" ]]; then
+    # 解析 JSON 输出
+    local unused_deps unused_devdeps unused_exports unused_files
+    unused_deps=$(grep -o '"unlisted"\|"unresolved"\|"unlisted"' "$knip_output.json" | wc -l | tr -d ' ')
+    unused_deps=${unused_deps:-0}
+
+    # 更友好的终端输出
+    echo "   📦 扫描完成（通过 Knip）"
+
+    # 尝试提取有用信息
+    if command -v node &>/dev/null; then
+      node -e "
+        try {
+          const data = require('${knip_output.json}');
+          const issues = [];
+          if (data.unused) {
+            for (const [key, arr] of Object.entries(data.unused)) {
+              if (arr && arr.length) issues.push(\`\${key}: \${arr.length}\`);
+            }
+          }
+          if (issues.length) console.log('   ' + issues.join(', '));
+          else console.log('   ✅ 未发现未使用项');
+        } catch(e) {
+          console.log('   ⚠️ 解析 Knip 输出失败');
+        }
+      "
+    fi
+
+    # 统计问题数
+    KNIP_WARNING=$(grep -c 'unused\|unlisted\|duplicate' "$knip_output.json" 2>/dev/null || echo 0)
+    KNIP_WARNING=${KNIP_WARNING:-0}
+  else
+    echo "   ℹ️ Knip 未检测到问题或项目未配置"
+    KNIP_WARNING=0
+  fi
+
+  WARNING_COUNT=$((WARNING_COUNT + KNIP_WARNING))
 }
 
 # ---------------------------------------------------------------------------
@@ -300,6 +363,17 @@ generate_report() {
     fi
     echo ""
 
+    echo "## 🧹 代码库瘦身 (Knip)"
+    echo ""
+    if [[ -f "/tmp/fg-knip.txt.json" && -s "/tmp/fg-knip.txt.json" ]]; then
+      echo '```json'
+      cat "/tmp/fg-knip.txt.json"
+      echo '```'
+    else
+      echo "ℹ️ Knip 扫描结果未生成（可能未安装 Node.js 或未安装 Knip）"
+    fi
+    echo ""
+
     echo "---"
     echo "_Powered by [frontend-guardian](https://github.com/wzm111/frontend-guardian)_"
   } > "$report"
@@ -337,6 +411,9 @@ main() {
   run_scanner "Hooks 检查" "scan-hooks.sh" "/tmp/fg-hooks.txt"
   run_scanner "多端适配" "scan-platform.sh" "/tmp/fg-platform.txt"
 
+  # Knip 代码库瘦身扫描
+  run_knip
+
   # 生成报告
   generate_report "$STACK"
 
@@ -362,9 +439,6 @@ main() {
       if [[ -n "$include_files" ]]; then
         init_ai_args+=("--include" "$include_files")
       fi
-    fi
-    if $UPDATE_MODE; then
-      init_ai_args+=("--update")
     fi
     if bash "$SCRIPT_DIR/init-ai-context.sh" "${init_ai_args[@]}"; then
       echo ""
