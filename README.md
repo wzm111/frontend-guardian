@@ -84,11 +84,17 @@ cp -r frontend-guardian /your/project/.claude/skills/
 # 提交前检查：i18n + 组件 + hooks
 /frontend-guardian --i18n --component --hooks
 
-# 上线前全量扫描 + 门禁
-/frontend-guardian --scan --gate --output report.md
+# 上线前全量扫描 + 门禁 + AI 上下文更新
+/frontend-guardian --scan --gate --output report.md --init-ai claude
 
 # 仅检查当前修改的文件
 /frontend-guardian --scan --staged
+
+# 初始化 AI 上下文（让 AI 理解项目技术栈）
+/frontend-guardian --init-ai claude      # Claude Code: .claude/CLAUDE.md
+/frontend-guardian --init-ai cursor      # Cursor: .cursorrules
+/frontend-guardian --init-ai copilot     # GitHub Copilot: .github/copilot-instructions.md
+/frontend-guardian --init-ai all         # 同时生成所有格式
 
 # 指定端类型扫描
 /frontend-guardian --platform-mp --mp-type wechat
@@ -111,6 +117,48 @@ cp -r frontend-guardian /your/project/.claude/skills/
 | `--component-lib <lib>` | 指定组件库：`antd` / `element-plus` / `mui` / `vuetify` | 自动检测 |
 | `--i18n-format <format>` | 语言包格式：`json` / `yaml` / `js` / `ts` | 自动检测 |
 | `--i18n-locales <langs>` | 目标语言列表，如 `zh-CN,en-US,ja-JP` | 自动检测 |
+| `--init-ai <agent>` | 初始化 AI 上下文：`claude` / `cursor` / `copilot` / `all` | 不初始化 |
+
+### AI 上下文初始化
+
+在目标项目中自动生成 AI 智能体上下文文件，让 Claude / Cursor / Copilot 等智能体理解项目技术栈和规范：
+
+```text
+# 为 Claude Code 生成 .claude/CLAUDE.md
+/frontend-guardian --init-ai claude
+
+# 为 Cursor 生成 .cursorrules
+/frontend-guardian --init-ai cursor
+
+# 为 GitHub Copilot 生成 .github/copilot-instructions.md
+/frontend-guardian --init-ai copilot
+
+# 同时生成所有格式（+ 通用 AI_CONTEXT.md）
+/frontend-guardian --init-ai all
+
+# 扫描后自动更新 AI 上下文（包含扫描结果）
+/frontend-guardian --scan --init-ai claude
+```
+
+生成的 AI 上下文文件包含：
+- 项目技术栈概况（框架、组件库、目标平台、版本信息）
+- 前端治理规则摘要（基于检测到的技术栈自动提取对应 rules）
+- 最近一次扫描结果统计
+- 项目目录结构约定
+- AI 助手指令（代码风格、组件规范、状态管理、国际化等）
+- 额外引用的项目文档（在 `.frontend-guardian.yml` 中配置 `aiContext.includeFiles`）
+
+**配置示例**（`.frontend-guardian.yml`）：
+
+```yaml
+aiContext:
+  agent: claude                    # 默认智能体类型
+  includeFiles:                    # 额外引用的文档
+    - README.md
+    - CONTRIBUTING.md
+    - docs/architecture.md
+  autoUpdate: true                 # 扫描后自动更新
+```
 
 ---
 

@@ -13,6 +13,7 @@
 - 检测到鸿蒙项目：`entry/src/main/ets/`、`hvigorfile.ts`
 - 检测到多端框架：`uni-app`、`taro`、`remax`、`flutter`、`react-native`
 - 用户询问 i18n、组件规范、hooks 最佳实践、多端适配相关问题
+- 用户需要在项目中初始化 AI 上下文文件（`--init-ai`）
 
 ## 技术栈检测
 
@@ -88,14 +89,27 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --platform-responsive    # 响应式断点检查
 ```
 
+### AI 上下文初始化
+
+在目标项目中生成 AI 智能体上下文文件，让不同智能体理解项目技术栈和规范：
+
+```
+/frontend-guardian --init-ai                    # 生成通用 AI_CONTEXT.md
+/frontend-guardian --init-ai claude             # 生成 .claude/CLAUDE.md
+/frontend-guardian --init-ai cursor             # 生成 .cursorrules
+/frontend-guardian --init-ai copilot            # 生成 .github/copilot-instructions.md
+/frontend-guardian --init-ai all                # 同时生成所有格式
+/frontend-guardian --scan --init-ai claude      # 扫描后自动更新 AI 上下文
+```
+
 ### 组合命令
 
 ```
 # 提交前检查：i18n + 组件 + hooks
 /frontend-guardian --i18n --component --hooks
 
-# 上线前全量扫描 + 门禁
-/frontend-guardian --scan --gate --output report.md
+# 上线前全量扫描 + 门禁 + 更新 AI 上下文
+/frontend-guardian --scan --gate --output report.md --init-ai claude
 
 # 指定端类型扫描
 /frontend-guardian --platform-mp --mp-type wechat

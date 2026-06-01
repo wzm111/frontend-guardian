@@ -10,6 +10,7 @@
 #   --output <file> 报告输出路径
 #   --severity <l>  最低输出级别: critical | warning | suggestion
 #   --fix           自动修复可修复的问题
+#   --init-ai       扫描后初始化/更新 AI 上下文文件
 #
 # Examples:
 #   full-scan.sh                              # 全量扫描当前目录
@@ -32,6 +33,8 @@ SINCE_REF=""
 OUTPUT_FILE=""
 SEVERITY="warning"
 FIX_MODE=false
+INIT_AI=false
+AI_AGENT=""
 CONFIG_FILE=".frontend-guardian.yml"
 
 # 统计
@@ -57,6 +60,16 @@ while [[ $# -gt 0 ]]; do
     --output)     OUTPUT_FILE="$2"; shift 2 ;;
     --severity)   SEVERITY="$2"; shift 2 ;;
     --fix)        FIX_MODE=true; shift ;;
+    --init-ai)
+      INIT_AI=true
+      if [[ $# -gt 1 && ! "$2" =~ ^-- ]]; then
+        AI_AGENT="$2"
+        shift 2
+      else
+        AI_AGENT="generic"
+        shift
+      fi
+      ;;
     --help|-h)
       head -n 20 "$0" | tail -n +3 | sed 's/^# //'
       exit 0
@@ -336,6 +349,31 @@ main() {
   echo "   🟡 Warning:   $WARNING_COUNT"
   echo "   💡 Suggestion: $SUGGESTION_COUNT"
   echo ""
+
+  # AI 上下文初始化/更新
+  if $INIT_AI; then
+    echo ""
+    echo "🤖 正在更新 AI 上下文..."
+    local init_ai_args=("$PROJECT_DIR" "--agent" "$AI_AGENT" "--report" "$OUTPUT_FILE")
+    if [[ -f "$CONFIG_FILE" ]]; then
+      # 从配置读取 includeFiles（简单解析）
+      local include_files
+      include_files=$(grep -A 10 'includeFiles:' "$CONFIG_FILE" 2>/dev/null | grep '^  \- ' | sed 's/^  - //' | tr '\n' ',' | sed 's/,$//')
+      if [[ -n "$include_files" ]]; then
+        init_ai_args+=("--include" "$include_files")
+      fi
+    fi
+    if $UPDATE_MODE; then
+      init_ai_args+=("--update")
+    fi
+    if bash "$SCRIPT_DIR/init-ai-context.sh" "${init_ai_args[@]}"; then
+      echo ""
+      echo "✅ AI 上下文已更新"
+    else
+      echo ""
+      echo "⚠️ AI 上下文更新失败"
+    fi
+  fi
 
   # 门禁检查
   if $GATE_MODE; then
