@@ -89,6 +89,26 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --platform-responsive    # 响应式断点检查
 ```
 
+### 一键初始化脚手架
+
+为新项目或现有项目创建符合治理规范的目录结构和配置文件：
+
+```
+/frontend-guardian --init-scaffold ./my-project                    # 自动检测技术栈并初始化
+/frontend-guardian --init-scaffold ./my-project --stack react      # 指定 React 技术栈
+/frontend-guardian --init-scaffold ./my-project --stack uniapp     # 指定 UniApp 技术栈
+/frontend-guardian --init-scaffold ./my-project --force            # 强制覆盖已有文件
+/frontend-guardian --init-scaffold ./my-project --skip-install     # 跳过 npm install
+```
+
+初始化内容：
+- 技术栈对应的目录结构（components / hooks / services / locales / constants / types）
+- `.frontend-guardian.yml` 治理配置文件（含 i18n / 命名规范 / 门禁 / AI 上下文配置）
+- 示例文件（i18n 工具函数、请求封装、常量定义、语言包模板）
+- `.gitignore`（含 build / IDE / 缓存 / Frontend Guardian 报告忽略）
+- AI 上下文文件（调用 init-ai-context.sh 自动生成）
+- 推荐依赖自动安装（i18n 库、TypeScript、ESLint、Prettier）
+
 ### AI 上下文初始化
 
 在目标项目中生成 AI 智能体上下文文件，让不同智能体理解项目技术栈和规范：
@@ -194,6 +214,42 @@ gate:
 - 调用 `code-review-assistant` 获取通用代码审查结果作为基础
 - 调用 `api-type-sync` 检测接口文案是否已 i18n 化
 - 调用 `frontend-perf` 进行深度性能分析（本 Skill 只做初步筛查）
-- 调用 `frontend-design` / `web-design-guidelines` 辅助 UI/UX 设计决策
-  - 组件库升级时，请求 design skill 提供新组件模板
-  - 主题/token 重构时，请求 design skill 输出 design system 规范
+
+### 页面设计规范（调用 design skill）
+
+当需要创建新页面或重构现有页面时，frontend-guardian 会调用 `state skill` 或 `frontend-design` 提供设计规范：
+
+```
+/frontend-guardian --design-page                    # 页面设计规范（自动路由到 design skill）
+/frontend-guardian --design-page "/users/list"      # 为指定路由页面输出设计规范
+/frontend-guardian --design-system                  # 生成 Design System Token 规范
+/frontend-guardian --design-token                   # 主题 Token 一致性检查
+/frontend-guardian --design-review                  # 审查现有页面的设计合规性
+```
+
+协作场景：
+1. **新建页面**：frontend-guardian 扫描确认技术栈 → 调用 design skill 输出页面布局/组件/交互规范 → 生成符合规范的页面代码
+2. **组件库升级**：frontend-guardian 检测版本变化 → 调用 design skill 提供新组件 API 和视觉规范 → 输出迁移方案
+3. **主题/token 重构**：frontend-guardian 扫描现有 token 使用 → 调用 design skill 输出 Design System 规范 → 自动生成 token 替换脚本
+4. **设计审查**：frontend-guardian 检测组件使用是否合规 → 调用 design skill 审查视觉层 → 联合输出整改报告
+
+### 命名规范与代码风格
+
+```
+/frontend-guardian --naming                       # 命名规范全量扫描
+/frontend-guardian --naming-class                 # 类名 PascalCase 检查
+/frontend-guardian --naming-function              # 函数/方法 camelCase 检查
+/frontend-guardian --naming-const                 # 常量 UPPER_SNAKE_CASE 检查
+/frontend-guardian --naming-file                  # 文件/文件夹 kebab-case 检查
+```
+
+### 跨文件公共部分分析
+
+```
+/frontend-guardian --cross-file                   # 跨文件公共部分全量分析
+/frontend-guardian --cross-unused-props           # 父子组件未使用 props 检测
+/frontend-guardian --cross-missing-props          # 子组件缺失必传 props 检测
+/frontend-guardian --cross-context                # Context 过度使用检测
+/frontend-guardian --cross-duplicate              # 兄弟组件重复代码检测
+/frontend-guardian --cross-extract                # 公共逻辑提取建议
+```

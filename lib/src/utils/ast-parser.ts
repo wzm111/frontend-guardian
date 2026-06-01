@@ -118,7 +118,7 @@ export function walkAST<T extends Node>(
   if (!ast) return;
 
   traverse(ast, {
-    [nodeType](path) {
+    [nodeType](path: any) {
       callback(path.node as T, path);
     },
   });

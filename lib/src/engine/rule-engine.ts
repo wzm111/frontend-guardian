@@ -209,7 +209,7 @@ export class RuleEngine {
 
     return {
       parseAST: (src: string, options?: ParseOptions) => parseAST(src, options),
-      getImports: (ast: unknown) => getImports(ast),
+      getImports: (ast: unknown) => getImports(ast as any),
       reportPosition: (offset: number): Position => {
         let line = 1;
         let column = 1;

@@ -217,8 +217,41 @@ export const i18nRules: Rule[] = [
     category: 'i18n',
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
-      // TODO: 需要反向扫描所有语言包 key 的引用
-      return [];
+      const issues: Issue[] = [];
+
+      // 跳过非源码文件
+      const ext = extname(context.filePath).toLowerCase();
+      if (!['.js', '.ts', '.jsx', '.tsx', '.vue'].includes(ext)) return issues;
+
+      // 收集语言包 key（模块级缓存）
+      const projectDir = context.filePath.split('/src/')[0] || dirname(context.filePath);
+      const localeKeys = collectLocaleKeys(projectDir, context.config);
+
+      if (localeKeys.size === 0) return issues;
+
+      // 收集代码中引用的所有 key（项目级缓存，只扫描一次）
+      const codeKeys = collectAllCodeKeys(projectDir, context);
+
+      if (codeKeys.size === 0) return issues;
+
+      // 找出语言包中有但代码中未引用的 key
+      for (const key of localeKeys) {
+        if (!codeKeys.has(key)) {
+          // 只报告一次每个 key
+          issues.push({
+            ruleId: 'i18n-unused-key',
+            title: `语言包未使用 Key: ${key}`,
+            description: `国际化 key "${key}" 在语言包中存在，但代码中未找到引用。如果已废弃，建议从语言包中删除`,
+            severity: 'suggestion',
+            file: context.filePath,
+            line: 1,
+            column: 1,
+            source: key,
+          });
+        }
+      }
+
+      return issues;
     },
   },
 ];
@@ -466,7 +499,7 @@ function extractCodeKeys(ast: ParseResult<any> | null): Array<{ key: string; lin
     // JSX: <FormattedMessage id="key" />
     JSXOpeningElement(path) {
       const name = path.node.name;
-      if (name.type === 'Identifier' && name.name === 'FormattedMessage') {
+      if (name.type === 'JSXIdentifier' && name.name === 'FormattedMessage') {
         for (const attr of path.node.attributes) {
           if (attr.type === 'JSXAttribute' &&
               attr.name.type === 'JSXIdentifier' &&
@@ -480,6 +513,58 @@ function extractCodeKeys(ast: ParseResult<any> | null): Array<{ key: string; lin
     },
   });
 
+  return keys;
+}
+
+/** 项目中所有代码引用的 key（项目级缓存） */
+let allCodeKeysCache: Set<string> | null = null;
+let allCodeKeysProject: string | null = null;
+
+/** 扫描项目中所有代码文件，收集引用的 i18n key */
+function collectAllCodeKeys(projectDir: string, context: RuleContext): Set<string> {
+  if (allCodeKeysCache && allCodeKeysProject === projectDir) {
+    return allCodeKeysCache;
+  }
+
+  const keys = new Set<string>();
+
+  // 扫描 src 目录下的代码文件
+  const srcDir = resolve(projectDir, 'src');
+  const codeDirs = [srcDir, projectDir];
+
+  for (const dir of codeDirs) {
+    if (!existsSync(dir)) continue;
+
+    try {
+      const files = readdirSync(dir, { recursive: true, encoding: 'utf-8' }) as string[];
+      for (const file of files) {
+        const fullPath = resolve(dir, file);
+        const ext = extname(file).toLowerCase();
+
+        if (!['.js', '.ts', '.jsx', '.tsx', '.vue'].includes(ext)) continue;
+
+        try {
+          const source = readFileSync(fullPath, 'utf-8');
+          const ast = parseAST(source, { ext }) as ParseResult<any> | null;
+          if (!ast) continue;
+
+          const fileKeys = extractCodeKeys(ast);
+          for (const { key } of fileKeys) {
+            if (key && !key.includes('${') && !key.includes('{{')) {
+              keys.add(key);
+            }
+          }
+        } catch {
+          // 单个文件解析失败，跳过
+        }
+      }
+    } catch {
+      // 目录读取失败，跳过
+    }
+  }
+
+  allCodeKeysCache = keys;
+  allCodeKeysProject = projectDir;
   return keys;
 }
 

@@ -14,8 +14,8 @@ const SECRET_PATTERNS = [
   { regex: /sk-[a-zA-Z0-9]{48}/, name: 'OpenAI API Key', example: 'sk-...' },
   { regex: /wx[a-f0-9]{32}/, name: '微信密钥', example: 'wx...' },
   { regex: /password\s*=\s*['"][^'"]{4,}['"]/i, name: '硬编码密码', example: 'password = "xxx"' },
-  { regex: /api[_-]?key\s*[:=]\s*['"][a-zA-Z0-9]{16,}['"]/i, name: 'API Key', example: 'api_key = "xxx"' },
-  { regex: /secret[_-]?key\s*[:=]\s*['"][a-zA-Z0-9]{16,}['"]/i, name: 'Secret Key', example: 'secret_key = "xxx"' },
+  { regex: /api[_-]?key\s*[:=]\s*['"][a-zA-Z0-9-_]{8,}['"]/i, name: 'API Key', example: 'api_key = "xxx"' },
+  { regex: /secret[_-]?key\s*[:=]\s*['"][a-zA-Z0-9-_]{8,}['"]/i, name: 'Secret Key', example: 'secret_key = "xxx"' },
   { regex: /token\s*[:=]\s*['"][a-zA-Z0-9-_]{20,}['"]/i, name: 'Token', example: 'token = "xxx"' },
 ];
 
@@ -327,8 +327,8 @@ export const securityRules: Rule[] = [
         const line = lines[i];
         const lineNum = i + 1;
 
-        // 检测 Access-Control-Allow-Origin: *
-        if (/Access-Control-Allow-Origin\s*[:=]\s*['"]\*['"]/.test(line) ||
+        // 检测 Access-Control-Allow-Origin: * 或 setHeader('Access-Control-Allow-Origin', '*')
+        if (/Access-Control-Allow-Origin['"]?\s*[:=,]\s*['"]\*['"]/.test(line) ||
             /allowOrigin\s*[:=]\s*['"]\*['"]/.test(line)) {
           const match = line.match(/\*/);
           if (match) {

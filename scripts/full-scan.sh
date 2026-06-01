@@ -286,7 +286,7 @@ run_node_engine() {
   echo "🔍 AST 深度分析 (Node.js 引擎)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  local modules=("i18n" "performance" "a11y" "security")
+  local modules=("i18n" "performance" "a11y" "security" "naming" "cross-file" "component" "hooks" "platform")
   local total_ast_issues=0
 
   for module in "${modules[@]}"; do
@@ -432,6 +432,28 @@ generate_report() {
     if [[ -f "/tmp/fg-platform.txt" && -s "/tmp/fg-platform.txt" ]]; then
       echo '```'
       cat "/tmp/fg-platform.txt"
+      echo '```'
+    else
+      echo "✅ 未发现问题"
+    fi
+    echo ""
+
+    echo "## 🎨 命名规范"
+    echo ""
+    if [[ -f "/tmp/fg-naming.txt" && -s "/tmp/fg-naming.txt" ]]; then
+      echo '```'
+      cat "/tmp/fg-naming.txt"
+      echo '```'
+    else
+      echo "✅ 未发现问题"
+    fi
+    echo ""
+
+    echo "## 🔗 跨文件分析"
+    echo ""
+    if [[ -f "/tmp/fg-cross-file.txt" && -s "/tmp/fg-cross-file.txt" ]]; then
+      echo '```'
+      cat "/tmp/fg-cross-file.txt"
       echo '```'
     else
       echo "✅ 未发现问题"

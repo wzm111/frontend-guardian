@@ -158,6 +158,8 @@ export interface ProjectConfig {
   aiContext?: AIContextConfig;
   /** Scan scope */
   scan?: ScanConfig;
+  /** Naming convention configuration */
+  naming?: NamingConfig;
 }
 
 export interface I18nConfig {
@@ -233,6 +235,37 @@ export interface ScanConfig {
   includeExtensions: string[];
   excludeDirs: string[];
   excludePatterns: string[];
+}
+
+export interface NamingConfig {
+  /** 类名规范: PascalCase */
+  classCase: 'PascalCase' | 'camelCase';
+  /** 接口名规范 */
+  interfaceCase: 'PascalCase' | 'camelCase';
+  /** 类型别名规范 */
+  typeAliasCase: 'PascalCase' | 'camelCase';
+  /** 函数/方法规范 */
+  functionCase: 'camelCase' | 'PascalCase';
+  /** 变量规范 */
+  variableCase: 'camelCase' | 'snake_case';
+  /** 常量规范 (const 声明的字面量) */
+  constantCase: 'UPPER_SNAKE_CASE' | 'camelCase';
+  /** 枚举名规范 */
+  enumCase: 'PascalCase' | 'UPPER_SNAKE_CASE';
+  /** 枚举成员规范 */
+  enumMemberCase: 'UPPER_SNAKE_CASE' | 'PascalCase';
+  /** 私有成员前缀: underscore | hash | none */
+  privatePrefix: 'underscore' | 'hash' | 'none';
+  /** 文件名规范 */
+  fileNameCase: 'kebab-case' | 'camelCase' | 'PascalCase';
+  /** 文件夹名规范 */
+  folderNameCase: 'kebab-case' | 'camelCase' | 'PascalCase';
+  /** 是否允许单字母变量 (i, j, k, x, y, z) */
+  allowSingleLetter: boolean;
+  /** 是否允许 React 组件使用 PascalCase 函数 */
+  allowPascalCaseComponents: boolean;
+  /** 忽略的命名模式 */
+  ignorePatterns: string[];
 }
 
 export interface ProjectMeta {

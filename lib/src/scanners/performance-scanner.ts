@@ -133,14 +133,49 @@ export const performanceRules: Rule[] = [
   {
     id: 'perf-memo-expensive',
     name: '昂贵计算使用 memo',
-    description: '复杂计算应使用 useMemo / computed',
+    description: '渲染中的复杂计算（map/filter/reduce/sort）应使用 useMemo / computed 缓存',
     severity: 'suggestion',
     category: 'performance',
     defaultEnabled: true,
     frameworks: ['react', 'nextjs', 'vue'],
-    execute() {
-      // TODO: 检测循环/map/filter 在渲染中未 memo
-      return [];
+    execute(context: RuleContext): Issue[] {
+      const issues: Issue[] = [];
+      const ast = context.utils.parseAST(context.source, {
+        ext: getFileExt(context.filePath),
+      }) as ParseResult<any> | null;
+
+      if (!ast) return issues;
+
+      // 昂贵的数组方法
+      const expensiveMethods = new Set([
+        'map', 'filter', 'reduce', 'sort', 'find', 'findIndex',
+        'every', 'some', 'flatMap', 'groupBy',
+      ]);
+
+      traverse(ast, {
+        // 检测函数组件/方法中的昂贵计算
+        FunctionDeclaration(path) {
+          checkExpensiveCalls(path.node.body, issues, context.filePath, expensiveMethods);
+        },
+        FunctionExpression(path) {
+          checkExpensiveCalls(path.node.body, issues, context.filePath, expensiveMethods);
+        },
+        ArrowFunctionExpression(path) {
+          if (path.node.body.type === 'BlockStatement') {
+            checkExpensiveCalls(path.node.body, issues, context.filePath, expensiveMethods);
+          } else {
+            // 直接返回表达式的箭头函数
+            checkExpensiveExpression(path.node.body, issues, context.filePath, expensiveMethods);
+          }
+        },
+        ClassMethod(path) {
+          if (path.node.key.type === 'Identifier' && path.node.key.name === 'render') {
+            checkExpensiveCalls(path.node.body, issues, context.filePath, expensiveMethods);
+          }
+        },
+      });
+
+      return issues;
     },
   },
 ];
@@ -240,4 +275,110 @@ function suggestSubmoduleImport(pkg: string, specifiers: any[]): string {
     .join('\n');
 
   return imports || `// TODO: 手动改为子模块导入`;
+}
+
+/** 检测函数体中的昂贵计算 */
+function checkExpensiveCalls(
+  body: any,
+  issues: Issue[],
+  filePath: string,
+  expensiveMethods: Set<string>
+): void {
+  if (!body) return;
+
+  traverse(body, {
+    CallExpression(path) {
+      // 跳过 useMemo / useCallback / computed 内部的调用
+      if (isInsideMemo(path)) return;
+
+      const callee = path.node.callee;
+      let methodName: string | null = null;
+
+      // 检测: array.map(), array.filter() 等
+      if (callee.type === 'MemberExpression' &&
+          callee.property.type === 'Identifier') {
+        methodName = callee.property.name;
+      }
+
+      // 检测: lodash _.map(), _.filter() 等
+      if (callee.type === 'MemberExpression' &&
+          callee.object.type === 'Identifier' &&
+          callee.object.name === '_' &&
+          callee.property.type === 'Identifier') {
+        methodName = callee.property.name;
+      }
+
+      if (methodName && expensiveMethods.has(methodName)) {
+        const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
+
+        // 检查是否是简单的单元素操作（如 [1,2,3].map(...)）
+        const obj = (callee as any).object;
+        if (obj?.type === 'ArrayExpression' && obj.elements.length <= 3) {
+          return; // 小数组操作，不提示
+        }
+
+        issues.push({
+          ruleId: 'perf-memo-expensive',
+          title: `渲染中的 ${methodName}() 建议缓存`,
+          description: `在组件渲染中直接调用 ${methodName}() 会在每次渲染时重新执行。建议使用 useMemo（React）或 computed（Vue）缓存结果`,
+          severity: 'suggestion',
+          file: filePath,
+          line,
+          column,
+          source: `${methodName}(...)`,
+        });
+      }
+    },
+  }, body);
+}
+
+/** 检测直接返回表达式中的昂贵计算 */
+function checkExpensiveExpression(
+  expr: any,
+  issues: Issue[],
+  filePath: string,
+  expensiveMethods: Set<string>
+): void {
+  if (!expr) return;
+
+  // 直接返回表达式: () => items.map(...)
+  if (expr.type === 'CallExpression') {
+    const callee = expr.callee;
+    if (callee.type === 'MemberExpression' &&
+        callee.property.type === 'Identifier' &&
+        expensiveMethods.has(callee.property.name)) {
+      const { line, column } = expr.loc?.start || { line: 0, column: 0 };
+      issues.push({
+        ruleId: 'perf-memo-expensive',
+        title: `渲染中的 ${callee.property.name}() 建议缓存`,
+        description: `在组件渲染中直接调用 ${callee.property.name}() 会在每次渲染时重新执行。建议使用 useMemo（React）或 computed（Vue）缓存结果`,
+        severity: 'suggestion',
+        file: filePath,
+        line,
+        column,
+        source: `${callee.property.name}(...)`,
+      });
+    }
+  }
+}
+
+/** 检查是否在 useMemo / useCallback / computed 内部 */
+function isInsideMemo(path: any): boolean {
+  let current = path.parentPath;
+  while (current) {
+    if (current.isCallExpression()) {
+      const callee = current.node.callee;
+      if (callee.type === 'Identifier' &&
+          ['useMemo', 'useCallback', 'computed', 'memo'].includes(callee.name)) {
+        return true;
+      }
+      if (callee.type === 'MemberExpression' &&
+          callee.property.type === 'Identifier' &&
+          ['computed', 'memo'].includes(callee.property.name)) {
+        return true;
+      }
+    }
+    current = current.parentPath;
+  }
+  return false;
 }

@@ -33,3 +33,8 @@ export { i18nRules } from './scanners/i18n-scanner.js';
 export { performanceRules } from './scanners/performance-scanner.js';
 export { a11yRules } from './scanners/a11y-scanner.js';
 export { securityRules } from './scanners/security-scanner.js';
+export { namingRules } from './scanners/naming-scanner.js';
+export { crossFileRules } from './scanners/cross-file-scanner.js';
+export { componentRules } from './scanners/component-scanner.js';
+export { hooksRules } from './scanners/hooks-scanner.js';
+export { platformRules } from './scanners/platform-scanner.js';
