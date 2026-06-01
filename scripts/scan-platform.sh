@@ -138,6 +138,24 @@ scan_mp() {
     fi
   fi
 
+  # 检查 HTTP 请求（安全）
+  local http_requests
+  http_requests=$(grep -rE 'http://' --include="*.js" --include="*.ts" --include="*.vue" --include="*.wxml" --include="*.axml" . 2>/dev/null | grep -v "node_modules" | grep -v "localhost\|127.0.0.1" || true)
+  if [[ -n "$http_requests" ]]; then
+    echo "  ❌ 发现使用 HTTP 协议（应使用 HTTPS）:"
+    echo "$http_requests" | head -5 | sed 's/^/     /'
+    MP_COUNT=$((MP_COUNT + 1))
+  fi
+
+  # 检查未清理的定时器
+  local uncleaned_timers
+  uncleaned_timers=$(grep -rE 'setInterval|setTimeout' --include="*.js" --include="*.ts" --include="*.vue" . 2>/dev/null | grep -v "node_modules" | grep -v "clearInterval\|clearTimeout" || true)
+  if [[ -n "$uncleaned_timers" ]]; then
+    echo "  ⚠️  发现可能未清理的定时器:"
+    echo "$uncleaned_timers" | head -5 | sed 's/^/     /'
+    MP_COUNT=$((MP_COUNT + 1))
+  fi
+
   if [[ $MP_COUNT -eq 0 ]]; then
     echo "  ✅ 小程序专项检查通过"
   else
@@ -247,7 +265,8 @@ scan_responsive() {
   done < <(find . -type f \( -name "*.css" -o -name "*.scss" -o -name "*.less" \) \
     ! -path "*/node_modules/*" ! -path "*/dist/*" 2>/dev/null)
 
-  for file in "${files[@]}"; do
+  for file in "${files[@]:+${files[@]}}"; do
+    [[ -n "$file" ]] || continue
     if grep -qE '@media\s*\(' "$file" 2>/dev/null; then
       has_media_query=true
     fi

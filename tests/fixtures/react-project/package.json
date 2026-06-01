@@ -1,0 +1,9 @@
+{
+  "name": "test-react-project",
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "antd": "^5.0.0",
+    "i18next": "^23.0.0"
+  }
+}

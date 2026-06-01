@@ -1,0 +1,17 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/detail/detail"
+  ],
+  "window": {
+    "navigationBarTitleText": "测试小程序"
+  },
+  "subPackages": [
+    {
+      "root": "packageA",
+      "pages": [
+        "pages/list/list"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "user.list.title": "User List",
+  "user.form.name": "Username",
+  "user.form.email": "Email",
+  "user.action.submit": "Submit",
+  "user.action.delete": "Delete",
+  "dead.key.one": "[Translated: 这个 key 没有被使用]",
+  "dead.key.two": "[Translated: 另一个死 key]",
+  "user.action.edit": "[Translated: 编辑]"
+}
