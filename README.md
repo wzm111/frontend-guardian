@@ -5,30 +5,32 @@
 
 ## 核心能力矩阵
 
-| 模块 | 能力 | 命令 | 多端支持 |
-| ---- | ---- | ---- | -------- |
-| 🌍 **i18n-governance** | 硬编码文案扫描与自动提取 | `--i18n` / `--i18n-extract` | ✅ 全端 |
-| | 语言包缺失 key 检测 | `--i18n-missing` | ✅ 全端 |
-| | 死 key 清理 | `--i18n-dead` | ✅ 全端 |
-| | 命名规范检查 | `--i18n-lint` | ✅ 全端 |
-| | 自动翻译填充 | `--i18n-translate` | ✅ 全端 |
-| 🏥 **component-doctor** | 组件反模式检测 | `--component` | ✅ 全端 |
-| | 主题/token 一致性 | `--component-token` | ✅ 全端 |
-| | 可访问性检查 | `--component-a11y` | ✅ 全端 |
-| | 性能陷阱检测 | `--component-perf` | ✅ 全端 |
-| | 版本升级影响分析 | `--component-upgrade` | ✅ 全端 |
-| ⚡ **hook-checker** | useEffect 依赖检查 | `--hooks` | React / RN / 鸿蒙 ArkUI |
-| | 闭包陷阱检测 | `--hooks-closure` | React / RN / 鸿蒙 ArkUI |
-| | 自定义 Hook 规范 | `--hooks-custom` | React / RN / 鸿蒙 ArkUI |
-| | Vue Composables 检查 | `--composables` | Vue / 小程序 Vue3 |
-| | 状态提升建议 | `--hooks-state` | React / Vue |
-| 📱 **platform-guard** | 多端适配检查 | `--platform` | 多端专项 |
-| | 小程序专有规则 | `--platform-mp` | 微信小程序 / 支付宝 / 抖音 |
-| | 移动端性能检查 | `--platform-mobile` | H5 / App / 小程序 |
-| | 鸿蒙 ArkTS/ArkUI 规范 | `--platform-harmony` | HarmonyOS |
-| | 响应式断点检查 | `--platform-responsive` | PC / H5 |
-| 🔍 **full-scan** | 全量治理扫描 | `--scan` | ✅ 全端 |
-| | CI 门禁模式 | `--scan --gate` | ✅ 全端 |
+按重要程度排序：
+
+| 模块 | 能力 | 命令 | 多端支持 | 优先级 |
+| ---- | ---- | ---- | -------- | ------ |
+| 🔍 **full-scan** | 全量治理扫描（i18n + 组件 + hooks + 平台适配） | `--scan` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
+| | CI 门禁模式（阻断流水线） | `--scan --gate` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
+| ⚡ **hook-checker** | useEffect 依赖检查（缺失/过多/空依赖陷阱） | `--hooks` | React / RN / 鸿蒙 ArkUI | ⭐⭐⭐⭐⭐ |
+| | 闭包陷阱检测（setInterval/setTimeout/异步回调） | `--hooks-closure` | React / RN / 鸿蒙 ArkUI | ⭐⭐⭐⭐⭐ |
+| | 自定义 Hook 命名与返回规范 | `--hooks-custom` | React / RN / 鸿蒙 ArkUI | ⭐⭐⭐⭐☆ |
+| | Vue Composables 响应式检查（reactive 解构/toRefs） | `--composables` | Vue / 小程序 Vue3 | ⭐⭐⭐⭐☆ |
+| | 状态提升建议（useState/ref 分布分析） | `--hooks-state` | React / Vue | ⭐⭐⭐☆☆ |
+| 🏥 **component-doctor** | 组件反模式检测（AntD/Element Plus/小程序组件） | `--component` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| | 主题/token 一致性检查（硬编码颜色/间距） | `--component-token` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| | 可访问性检查（alt/aria-label/键盘导航） | `--component-a11y` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| | 性能陷阱检测（大图懒加载/虚拟列表/ECharts dispose） | `--component-perf` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| | 组件库版本升级影响分析 | `--component-upgrade` | ✅ 全端 | ⭐⭐☆☆☆ |
+| 📱 **platform-guard** | 多端适配全量检查 | `--platform` | 多端专项 | ⭐⭐⭐⭐☆ |
+| | 小程序专有规则（包体积/base64/setData/条件编译） | `--platform-mp` | 微信小程序 / 支付宝 / 抖音 | ⭐⭐⭐⭐☆ |
+| | 移动端性能检查（安全区域/触摸目标/点击延迟） | `--platform-mobile` | H5 / App / 小程序 | ⭐⭐⭐☆☆ |
+| | 鸿蒙 ArkTS/ArkUI 规范（装饰器/状态管理/资源引用） | `--platform-harmony` | HarmonyOS | ⭐⭐⭐⭐☆ |
+| | 响应式断点检查 | `--platform-responsive` | PC / H5 | ⭐⭐☆☆☆ |
+| 🌍 **i18n-governance** | 硬编码文案扫描与自动提取 | `--i18n` / `--i18n-extract` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| | 语言包缺失 key 检测 | `--i18n-missing` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| | 死 key 清理 | `--i18n-dead` | ✅ 全端 | ⭐⭐☆☆☆ |
+| | 命名规范检查（module.page.element 格式） | `--i18n-lint` | ✅ 全端 | ⭐⭐☆☆☆ |
+| | 自动翻译填充（OpenAI/DeepL/阿里云） | `--i18n-translate` | ✅ 全端 | ⭐☆☆☆☆ |
 
 ## 安装
 
@@ -542,37 +544,43 @@ platform:
 
 ```
 frontend-guardian/
-├── SKILL.md                    # Claude Code 入口（触发条件 + 指令路由）
-├── README.md                   # 本文档
+├── SKILL.md                              # Claude Code 入口（触发条件 + 指令路由）
+├── README.md                             # 本文档
+├── .frontend-guardian.yml                # 配置模板
 ├── rules/
-│   ├── react.md               # React 通用规则
-│   ├── vue.md                 # Vue 通用规则
-│   ├── nextjs.md              # Next.js 专项
-│   ├── nuxt.md                # Nuxt 专项
-│   ├── uniapp.md              # UniApp 跨端规则
-│   ├── taro.md                # Taro 跨端规则
-│   ├── wechat-mp.md           # 微信小程序原生
-│   ├── alipay-mp.md           # 支付宝小程序
-│   ├── douyin-mp.md           # 抖音小程序
-│   ├── flutter.md             # Flutter 规则
-│   ├── react-native.md        # React Native 规则
-│   ├── harmony.md             # 鸿蒙 ArkTS/ArkUI
-│   ├── antd.md                # Ant Design 组件规则
-│   ├── element-plus.md        # Element Plus 组件规则
-│   ├── mui.md                 # Material UI 规则
-│   ├── i18n.md                # 国际化通用规则
-│   └── platform-common.md     # 多端通用规则
+│   ├── react.md                          # React 通用规则
+│   ├── vue.md                            # Vue 通用规则
+│   ├── harmony.md                        # 鸿蒙 ArkTS/ArkUI 规则
+│   ├── uniapp.md                         # UniApp 跨端规则
+│   ├── taro.md                           # Taro 跨端规则
+│   ├── nextjs.md                         # Next.js 专项
+│   ├── nuxt.md                           # Nuxt 专项
+│   ├── wechat-mp.md                      # 微信小程序原生
+│   ├── alipay-mp.md                      # 支付宝小程序
+│   ├── douyin-mp.md                      # 抖音小程序
+│   ├── flutter.md                        # Flutter 规则
+│   ├── react-native.md                   # React Native 规则
+│   ├── antd.md                           # Ant Design 组件规则
+│   ├── element-plus.md                   # Element Plus 组件规则
+│   ├── mui.md                            # Material UI 规则
+│   ├── i18n.md                           # 国际化通用规则
+│   └── platform-common.md                # 多端通用规则
 ├── scripts/
-│   ├── scan-i18n.sh           # i18n 扫描脚本
-│   ├── scan-components.sh     # 组件规范扫描
-│   ├── scan-hooks.sh          # Hooks 检查脚本
-│   ├── scan-platform.sh       # 多端适配扫描
-│   ├── extract-i18n.sh        # i18n 自动提取
-│   ├── translate.sh           # 自动翻译脚本
-│   └── full-scan.sh           # 全量扫描入口
+│   ├── full-scan.sh                      # 全量扫描入口
+│   ├── scan-i18n.sh                      # i18n 扫描脚本
+│   ├── scan-components.sh                # 组件规范扫描
+│   ├── scan-hooks.sh                     # Hooks 检查脚本
+│   ├── scan-platform.sh                  # 多端适配扫描
+│   ├── extract-i18n.sh                   # i18n 自动提取（待实现）
+│   └── translate.sh                      # 自动翻译脚本（待实现）
+├── .github/
+│   └── workflows/
+│       └── frontend-guardian.yml         # GitHub Actions 流水线
 └── examples/
-    ├── .frontend-guardian.yml  # 配置示例
-    └── report-sample.md        # 报告示例
+    ├── aliyun-flow.yml                   # 阿里云效 Flow 流水线
+    ├── tencent-coding.yml                # 腾讯云 CODING 流水线
+    ├── azure-pipelines.yml               # Azure DevOps 流水线
+    └── Jenkinsfile                       # Jenkins 流水线
 ```
 
 ---

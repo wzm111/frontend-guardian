@@ -1,0 +1,295 @@
+# Azure DevOps Pipeline 配置
+# 使用方式：将此文件复制到代码库根目录，重命名为 azure-pipelines.yml
+#
+# 前置条件：
+# 1. 代码库托管在 Azure DevOps
+# 2. 已配置 Build Pipeline 触发器
+# 3. 如需评论到 PR，需在 Pipeline Variables 中配置 AZURE_TOKEN
+#
+# 变量说明（在 Pipeline Variables 中配置）：
+#   MODULES      - 扫描模块: all / i18n / component / hooks / platform
+#   SEVERITY     - 门禁阈值: critical / warning / suggestion
+#   AZURE_TOKEN  - Azure DevOps PAT（用于 PR 评论，可选）
+
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+      - release/*
+  paths:
+    exclude:
+      - "*.md"
+      - "docs/**"
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+variables:
+  MODULES: "$(MODULES)"
+  SEVERITY: "$(SEVERITY)"
+
+pool:
+  vmImage: "ubuntu-latest"
+
+stages:
+  # ============================================================================
+  # Stage 1: i18n 治理
+  # ============================================================================
+  - stage: i18n_governance
+    displayName: "i18n 治理"
+    condition: or(eq(variables['MODULES'], 'all'), eq(variables['MODULES'], 'i18n'))
+    jobs:
+      - job: scan_i18n
+        displayName: "i18n 扫描"
+        steps:
+          - checkout: self
+            fetchDepth: 50
+
+          - script: |
+              sudo apt-get update -qq && sudo apt-get install -y -qq git bc curl
+            displayName: "安装依赖"
+
+          - script: |
+              git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+            displayName: "拉取 frontend-guardian"
+
+          - script: |
+              echo "=========================================="
+              echo "🌍 i18n 治理扫描"
+              echo "=========================================="
+              bash /tmp/fg/scripts/scan-i18n.sh $(Build.SourcesDirectory) > $(Build.ArtifactStagingDirectory)/fg-i18n.txt 2>&1 || true
+              cat $(Build.ArtifactStagingDirectory)/fg-i18n.txt
+              I18N_COUNT=$(grep -cE "❌|🔴|严重" $(Build.ArtifactStagingDirectory)/fg-i18n.txt 2>/dev/null || echo 0)
+              echo "##vso[task.setvariable variable=i18n_count]$I18N_COUNT"
+            displayName: "执行 i18n 扫描"
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: "$(Build.ArtifactStagingDirectory)/fg-i18n.txt"
+              artifactName: "fg-i18n"
+
+  # ============================================================================
+  # Stage 2: 组件医生
+  # ============================================================================
+  - stage: component_doctor
+    displayName: "组件医生"
+    condition: or(eq(variables['MODULES'], 'all'), eq(variables['MODULES'], 'component'))
+    jobs:
+      - job: scan_components
+        displayName: "组件规范扫描"
+        steps:
+          - checkout: self
+            fetchDepth: 50
+
+          - script: |
+              sudo apt-get update -qq && sudo apt-get install -y -qq git bc curl
+              git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+            displayName: "准备环境"
+
+          - script: |
+              echo "=========================================="
+              echo "🏥 组件医生扫描"
+              echo "=========================================="
+              bash /tmp/fg/scripts/scan-components.sh $(Build.SourcesDirectory) > $(Build.ArtifactStagingDirectory)/fg-component.txt 2>&1 || true
+              cat $(Build.ArtifactStagingDirectory)/fg-component.txt
+              COMP_COUNT=$(grep -cE "❌|🔴|严重" $(Build.ArtifactStagingDirectory)/fg-component.txt 2>/dev/null || echo 0)
+              echo "##vso[task.setvariable variable=comp_count]$COMP_COUNT"
+            displayName: "执行组件扫描"
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: "$(Build.ArtifactStagingDirectory)/fg-component.txt"
+              artifactName: "fg-component"
+
+  # ============================================================================
+  # Stage 3: Hooks 检查
+  # ============================================================================
+  - stage: hooks_check
+    displayName: "Hooks 检查"
+    condition: or(eq(variables['MODULES'], 'all'), eq(variables['MODULES'], 'hooks'))
+    jobs:
+      - job: scan_hooks
+        displayName: "Hooks 扫描"
+        steps:
+          - checkout: self
+            fetchDepth: 50
+
+          - script: |
+              sudo apt-get update -qq && sudo apt-get install -y -qq git bc curl
+              git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+            displayName: "准备环境"
+
+          - script: |
+              echo "=========================================="
+              echo "⚡ Hooks / Composables 扫描"
+              echo "=========================================="
+              bash /tmp/fg/scripts/scan-hooks.sh $(Build.SourcesDirectory) > $(Build.ArtifactStagingDirectory)/fg-hooks.txt 2>&1 || true
+              cat $(Build.ArtifactStagingDirectory)/fg-hooks.txt
+              HOOKS_COUNT=$(grep -cE "❌|🔴|严重" $(Build.ArtifactStagingDirectory)/fg-hooks.txt 2>/dev/null || echo 0)
+              echo "##vso[task.setvariable variable=hooks_count]$HOOKS_COUNT"
+            displayName: "执行 Hooks 扫描"
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: "$(Build.ArtifactStagingDirectory)/fg-hooks.txt"
+              artifactName: "fg-hooks"
+
+  # ============================================================================
+  # Stage 4: 多端适配
+  # ============================================================================
+  - stage: platform_check
+    displayName: "多端适配"
+    condition: or(eq(variables['MODULES'], 'all'), eq(variables['MODULES'], 'platform'))
+    jobs:
+      - job: scan_platform
+        displayName: "平台适配扫描"
+        steps:
+          - checkout: self
+            fetchDepth: 50
+
+          - script: |
+              sudo apt-get update -qq && sudo apt-get install -y -qq git bc curl
+              git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+            displayName: "准备环境"
+
+          - script: |
+              echo "=========================================="
+              echo "📱 多端平台适配扫描"
+              echo "=========================================="
+              bash /tmp/fg/scripts/scan-platform.sh $(Build.SourcesDirectory) > $(Build.ArtifactStagingDirectory)/fg-platform.txt 2>&1 || true
+              cat $(Build.ArtifactStagingDirectory)/fg-platform.txt
+              PLAT_COUNT=$(grep -cE "❌|🔴|严重" $(Build.ArtifactStagingDirectory)/fg-platform.txt 2>/dev/null || echo 0)
+              echo "##vso[task.setvariable variable=plat_count]$PLAT_COUNT"
+            displayName: "执行平台扫描"
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: "$(Build.ArtifactStagingDirectory)/fg-platform.txt"
+              artifactName: "fg-platform"
+
+  # ============================================================================
+  # Stage 5: 质量门禁
+  # ============================================================================
+  - stage: quality_gate
+    displayName: "质量门禁"
+    dependsOn:
+      - i18n_governance
+      - component_doctor
+      - hooks_check
+      - platform_check
+    condition: succeededOrFailed()
+    jobs:
+      - job: gate
+        displayName: "门禁检查"
+        steps:
+          - checkout: self
+            fetchDepth: 50
+
+          - script: |
+              sudo apt-get update -qq && sudo apt-get install -y -qq git bc curl
+              git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+            displayName: "准备环境"
+
+          - script: |
+              echo "=========================================="
+              echo "🚦 质量门禁（阈值: $(SEVERITY)）"
+              echo "=========================================="
+              if bash /tmp/fg/scripts/full-scan.sh $(Build.SourcesDirectory) --gate --severity "$(SEVERITY)"; then
+                echo "✅ 质量门禁通过"
+              else
+                echo "❌ 质量门禁未通过，请修复上述问题"
+                exit 1
+              fi
+            displayName: "执行门禁扫描"
+
+          - script: |
+              REPORT="$(Build.ArtifactStagingDirectory)/fg-report.md"
+              echo "## Azure DevOps 前端治理扫描报告" > "$REPORT"
+              echo "" >> "$REPORT"
+              echo "**触发方式:** PR \`$(System.PullRequest.SourceBranch)\` → \`$(System.PullRequest.TargetBranch)\`" >> "$REPORT"
+              echo "" >> "$REPORT"
+              echo "**门禁级别:** \`$(SEVERITY)\`" >> "$REPORT"
+              echo "" >> "$REPORT"
+
+              for f in $(Build.ArtifactStagingDirectory)/fg-*.txt; do
+                if [ -s "$f" ]; then
+                  fname=$(basename "$f" .txt)
+                  echo "### ${fname}" >> "$REPORT"
+                  echo '```' >> "$REPORT"
+                  head -80 "$f" >> "$REPORT"
+                  echo '```' >> "$REPORT"
+                  echo "" >> "$REPORT"
+                fi
+              done
+
+              cat "$REPORT"
+            displayName: "生成汇总报告"
+            condition: always()
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: "$(Build.ArtifactStagingDirectory)/fg-report.md"
+              artifactName: "fg-report"
+            condition: always()
+
+      # ============================================================================
+      # 可选：PR 评论
+      # ============================================================================
+      - job: post_comment
+        displayName: "PR 评论"
+        dependsOn: gate
+        condition: and(succeededOrFailed(), ne(variables['AZURE_TOKEN'], ''))
+        steps:
+          - task: PythonScript@0
+            inputs:
+              scriptSource: inline
+              script: |
+                import os
+                import requests
+
+                token = os.environ.get('AZURE_TOKEN')
+                org = os.environ.get('SYSTEM_COLLECTIONURI').split('/')[3]
+                project = os.environ.get('SYSTEM_TEAMPROJECT')
+                repo_id = os.environ.get('BUILD_REPOSITORY_ID')
+                pr_id = os.environ.get('SYSTEM_PULLREQUEST_PULLREQUESTID')
+
+                if not pr_id:
+                    print("不是 PR 触发，跳过评论")
+                    exit(0)
+
+                # 读取报告
+                report_path = os.path.join(os.environ.get('BUILD_ARTIFACTSTAGINGDIRECTORY'), 'fg-report.md')
+                if not os.path.exists(report_path):
+                    print("报告文件不存在")
+                    exit(0)
+
+                with open(report_path, 'r') as f:
+                    body = f.read()
+
+                url = f"https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo_id}/pullRequests/{pr_id}/threads?api-version=7.0"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}"
+                }
+                data = {
+                    "comments": [
+                        {
+                            "parentCommentId": 0,
+                            "content": body,
+                            "commentType": 1
+                        }
+                    ]
+                }
+
+                response = requests.post(url, headers=headers, json=data)
+                if response.status_code == 200:
+                    print("✅ PR 评论已发送")
+                else:
+                    print(f"❌ 发送失败: {response.status_code}")
+            displayName: "发送 PR 评论"

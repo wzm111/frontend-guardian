@@ -1,0 +1,206 @@
+name: Frontend Guardian
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, master, develop, 'release/*']
+  workflow_dispatch:
+    inputs:
+      modules:
+        description: '扫描模块'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - i18n
+          - component
+          - hooks
+          - platform
+      severity:
+        description: '门禁阈值'
+        required: true
+        default: 'warning'
+        type: choice
+        options:
+          - critical
+          - warning
+          - suggestion
+      fix_mode:
+        description: '自动修复'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  frontend-guardian:
+    name: Frontend Governance Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          # 安装 bc 用于数值计算
+          sudo apt-get update -qq && sudo apt-get install -y -qq bc
+
+      - name: Setup environment
+        run: |
+          echo "REPO_DIR=$(pwd)" >> $GITHUB_ENV
+          echo "MODULES=${{ github.event.inputs.modules || 'all' }}" >> $GITHUB_ENV
+          echo "SEVERITY=${{ github.event.inputs.severity || 'warning' }}" >> $GITHUB_ENV
+          echo "FIX_MODE=${{ github.event.inputs.fix_mode || 'false' }}" >> $GITHUB_ENV
+
+      - name: Install GitHub CLI
+        run: |
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt-get update && sudo apt-get install -y gh
+
+      - name: Authenticate GitHub CLI
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      # ===== Phase 1: 克隆 frontend-guardian =====
+      - name: Pull frontend-guardian
+        run: |
+          git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+      # ===== Phase 2: i18n 治理 =====
+      - name: Scan i18n
+        id: i18n
+        if: env.MODULES == 'all' || env.MODULES == 'i18n'
+        run: |
+          bash /tmp/fg/scripts/scan-i18n.sh "$REPO_DIR" > /tmp/fg-i18n.txt 2>&1 || true
+          cat /tmp/fg-i18n.txt
+          I18N_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-i18n.txt 2>/dev/null || echo 0)
+          echo "I18N_COUNT=$I18N_COUNT" >> $GITHUB_ENV
+        continue-on-error: true
+
+      # ===== Phase 3: 组件医生 =====
+      - name: Scan components
+        id: component
+        if: env.MODULES == 'all' || env.MODULES == 'component'
+        run: |
+          bash /tmp/fg/scripts/scan-components.sh "$REPO_DIR" > /tmp/fg-component.txt 2>&1 || true
+          cat /tmp/fg-component.txt
+          COMP_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-component.txt 2>/dev/null || echo 0)
+          echo "COMP_COUNT=$COMP_COUNT" >> $GITHUB_ENV
+        continue-on-error: true
+
+      # ===== Phase 4: Hooks 检查 =====
+      - name: Scan hooks
+        id: hooks
+        if: env.MODULES == 'all' || env.MODULES == 'hooks'
+        run: |
+          bash /tmp/fg/scripts/scan-hooks.sh "$REPO_DIR" > /tmp/fg-hooks.txt 2>&1 || true
+          cat /tmp/fg-hooks.txt
+          HOOKS_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-hooks.txt 2>/dev/null || echo 0)
+          echo "HOOKS_COUNT=$HOOKS_COUNT" >> $GITHUB_ENV
+        continue-on-error: true
+
+      # ===== Phase 5: 多端适配 =====
+      - name: Scan platform
+        id: platform
+        if: env.MODULES == 'all' || env.MODULES == 'platform'
+        run: |
+          bash /tmp/fg/scripts/scan-platform.sh "$REPO_DIR" > /tmp/fg-platform.txt 2>&1 || true
+          cat /tmp/fg-platform.txt
+          PLAT_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-platform.txt 2>/dev/null || echo 0)
+          echo "PLAT_COUNT=$PLAT_COUNT" >> $GITHUB_ENV
+        continue-on-error: true
+
+      # ===== Phase 6: 全量扫描（门禁）=====
+      - name: Full scan with gate
+        id: fullscan
+        run: |
+          bash /tmp/fg/scripts/full-scan.sh "$REPO_DIR" --gate --severity "$SEVERITY" --output /tmp/fg-report.md 2>&1 || true
+          echo "SCAN_EXIT=$?" >> $GITHUB_ENV
+        continue-on-error: true
+
+      # ===== Phase 7: 生成 PR 评论 =====
+      - name: Generate review report
+        id: report
+        run: |
+          REPORT_FILE="frontend-guardian-report.md"
+
+          # 计算总问题数
+          TOTAL_CRITICAL=$(( ${I18N_COUNT:-0} + ${COMP_COUNT:-0} + ${HOOKS_COUNT:-0} + ${PLAT_COUNT:-0} ))
+
+          echo "## 🛡️ Frontend Guardian 扫描报告" > "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "| 项目 | 值 |" >> "$REPORT_FILE"
+          echo "| ---- | ---- |" >> "$REPORT_FILE"
+          echo "| 扫描模块 | \`${MODULES}\` |" >> "$REPORT_FILE"
+          echo "| 门禁阈值 | \`${SEVERITY}\` |" >> "$REPORT_FILE"
+          echo "| 严重问题 | ${TOTAL_CRITICAL} |" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+
+          # 门禁结果
+          if [[ "${SCAN_EXIT:-0}" == "0" ]]; then
+            echo "### ✅ 门禁通过" >> "$REPORT_FILE"
+          else
+            echo "### ❌ 门禁未通过" >> "$REPORT_FILE"
+          fi
+          echo "" >> "$REPORT_FILE"
+
+          # 各模块结果
+          echo "<details>" >> "$REPORT_FILE"
+          echo "<summary>📊 各模块详情</summary>" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+
+          for module in i18n component hooks platform; do
+            file="/tmp/fg-${module}.txt"
+            if [[ -f "$file" && -s "$file" ]]; then
+              has_issues=$(grep -cE "❌|🔴|🟡|⚠️" "$file" 2>/dev/null || echo 0)
+              if [[ "$has_issues" -gt 0 ]]; then
+                echo "#### ${module^^}" >> "$REPORT_FILE"
+                echo '```' >> "$REPORT_FILE"
+                cat "$file" >> "$REPORT_FILE"
+                echo '```' >> "$REPORT_FILE"
+                echo "" >> "$REPORT_FILE"
+              fi
+            fi
+          done
+
+          echo "</details>" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+
+          # 完整报告链接
+          if [[ -f "/tmp/fg-report.md" ]]; then
+            echo "📄 [查看完整报告](/tmp/fg-report.md)" >> "$REPORT_FILE"
+          fi
+
+          echo "" >> "$REPORT_FILE"
+          echo "---" >> "$REPORT_FILE"
+          echo "_Powered by [frontend-guardian](https://github.com/wzm111/frontend-guardian)_" >> "$REPORT_FILE"
+
+          cat "$REPORT_FILE"
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file frontend-guardian-report.md
+        continue-on-error: true
+
+      # ===== Phase 8: 门禁阻断 =====
+      - name: Gate check
+        run: |
+          if [[ "${SCAN_EXIT:-0}" != "0" ]]; then
+            echo "::error::Frontend Guardian 门禁未通过，请修复上述问题。"
+            exit 1
+          fi

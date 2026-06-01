@@ -1,0 +1,206 @@
+# 阿里云效 Flow 流水线配置
+# 使用方式：复制此文件到代码库根目录，重命名为 .aliyun/pipelines.yml
+#
+# 前置条件：
+# 1. 代码库托管在阿里云效 CodeUp
+# 2. 流水线已开启 MR（合并请求）触发
+# 3. 如需评论到 MR，需在流水线环境变量中配置 CODEUP_TOKEN
+#
+# 变量说明：
+#   MODULES     - 扫描模块: all / i18n / component / hooks / platform
+#   SEVERITY    - 门禁阈值: critical / warning / suggestion
+#   CODEUP_TOKEN - CodeUp 个人访问令牌（用于 MR 评论，可选）
+
+version: 1.0
+name: frontend-guardian
+trigger:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+      - "release/*"
+  merge_request:
+    action:
+      - open        # MR 创建时触发
+      - update      # MR 更新时触发
+      - reopen      # MR 重新打开时触发
+
+env:
+  MODULES: "${MODULES:-all}"
+  SEVERITY: "${SEVERITY:-warning}"
+
+stages:
+  frontend-governance:
+    name: "前端治理扫描"
+    jobs:
+      i18n-scan:
+        name: "i18n 治理"
+        runsOn: docker
+        if: "${MODULES} == 'all' || ${MODULES} == 'i18n'"
+        steps:
+          - checkout: self
+            with:
+              depth: 50
+
+          - script:
+              name: "安装依赖"
+              script: |
+                apt-get update -qq && apt-get install -y -qq git bc curl
+
+          - script:
+              name: "拉取 frontend-guardian"
+              script: |
+                git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+          - script:
+              name: "i18n 扫描"
+              script: |
+                echo "=========================================="
+                echo "🌍 i18n 治理扫描"
+                echo "=========================================="
+                bash /tmp/fg/scripts/scan-i18n.sh . > /tmp/fg-i18n.txt 2>&1 || true
+                cat /tmp/fg-i18n.txt
+                I18N_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-i18n.txt 2>/dev/null || echo 0)
+                echo "i18n 严重问题: ${I18N_COUNT}"
+
+      component-scan:
+        name: "组件医生"
+        runsOn: docker
+        if: "${MODULES} == 'all' || ${MODULES} == 'component'"
+        steps:
+          - checkout: self
+            with:
+              depth: 50
+
+          - script:
+              name: "拉取 frontend-guardian"
+              script: |
+                git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+          - script:
+              name: "组件规范扫描"
+              script: |
+                echo "=========================================="
+                echo "🏥 组件医生扫描"
+                echo "=========================================="
+                bash /tmp/fg/scripts/scan-components.sh . > /tmp/fg-component.txt 2>&1 || true
+                cat /tmp/fg-component.txt
+                COMP_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-component.txt 2>/dev/null || echo 0)
+                echo "组件严重问题: ${COMP_COUNT}"
+
+      hooks-scan:
+        name: "Hooks 检查"
+        runsOn: docker
+        if: "${MODULES} == 'all' || ${MODULES} == 'hooks'"
+        steps:
+          - checkout: self
+            with:
+              depth: 50
+
+          - script:
+              name: "拉取 frontend-guardian"
+              script: |
+                git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+          - script:
+              name: "Hooks 扫描"
+              script: |
+                echo "=========================================="
+                echo "⚡ Hooks / Composables 扫描"
+                echo "=========================================="
+                bash /tmp/fg/scripts/scan-hooks.sh . > /tmp/fg-hooks.txt 2>&1 || true
+                cat /tmp/fg-hooks.txt
+                HOOKS_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-hooks.txt 2>/dev/null || echo 0)
+                echo "Hooks 严重问题: ${HOOKS_COUNT}"
+
+      platform-scan:
+        name: "多端适配"
+        runsOn: docker
+        if: "${MODULES} == 'all' || ${MODULES} == 'platform'"
+        steps:
+          - checkout: self
+            with:
+              depth: 50
+
+          - script:
+              name: "拉取 frontend-guardian"
+              script: |
+                git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+          - script:
+              name: "多端平台扫描"
+              script: |
+                echo "=========================================="
+                echo "📱 多端平台适配扫描"
+                echo "=========================================="
+                bash /tmp/fg/scripts/scan-platform.sh . > /tmp/fg-platform.txt 2>&1 || true
+                cat /tmp/fg-platform.txt
+                PLAT_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-platform.txt 2>/dev/null || echo 0)
+                echo "平台适配严重问题: ${PLAT_COUNT}"
+
+      severity-gate:
+        name: "质量门禁"
+        runsOn: docker
+        steps:
+          - checkout: self
+            with:
+              depth: 50
+
+          - script:
+              name: "拉取 frontend-guardian"
+              script: |
+                git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+          - script:
+              name: "执行全量门禁扫描"
+              script: |
+                echo "=========================================="
+                echo "🚦 质量门禁（阈值: ${SEVERITY}）"
+                echo "=========================================="
+                if bash /tmp/fg/scripts/full-scan.sh . --gate --severity "$SEVERITY"; then
+                  echo "✅ 质量门禁通过"
+                else
+                  echo "❌ 质量门禁未通过，请修复上述问题"
+                  exit 1
+                fi
+
+          - script:
+              name: "生成汇总报告"
+              script: |
+                REPORT="/tmp/fg-report.md"
+                echo "## 前端治理扫描报告" > "$REPORT"
+                echo "" >> "$REPORT"
+                echo "**触发方式:** 阿里云效 Flow | **门禁级别:** \`${SEVERITY}\`" >> "$REPORT"
+                echo "" >> "$REPORT"
+
+                for f in /tmp/fg-i18n.txt /tmp/fg-component.txt /tmp/fg-hooks.txt /tmp/fg-platform.txt; do
+                  if [ -s "$f" ]; then
+                    fname=$(basename "$f" .txt)
+                    echo "### ${fname}" >> "$REPORT"
+                    echo '```' >> "$REPORT"
+                    head -80 "$f" >> "$REPORT"
+                    echo '```' >> "$REPORT"
+                    echo "" >> "$REPORT"
+                  fi
+                done
+
+                cat "$REPORT"
+
+      post-comment:
+        name: "评论到 MR"
+        runsOn: docker
+        if: "${CODEUP_TOKEN} != ''"
+        steps:
+          - script:
+              name: "发送 MR 评论"
+              script: |
+                if [ -f /tmp/fg-report.md ] && [ -n "${CI_MERGE_REQUEST_IID}" ]; then
+                  REPORT=$(cat /tmp/fg-report.md | sed 's/"/\\"/g' | tr '\n' ' ')
+                  curl -s -X POST \
+                    "https://devops.aliyun.com/api/v4/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes" \
+                    -H "PRIVATE-TOKEN: ${CODEUP_TOKEN}" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"body\":\"${REPORT}\"}" || true
+                  echo "✅ MR 评论已发送"
+                fi

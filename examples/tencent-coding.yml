@@ -1,0 +1,213 @@
+# 腾讯云 CODING CI 配置
+# 使用方式：复制此文件到代码库根目录，重命名为 ci.yml
+#
+# 前置条件：
+# 1. 代码库托管在腾讯云 CODING
+# 2. 已开启 MR 触发构建计划
+# 3. 如需评论到 MR，需在项目设置中配置 CODING_TOKEN 环境变量
+#
+# 变量说明：
+#   MODULES      - 扫描模块: all / i18n / component / hooks / platform
+#   SEVERITY     - 门禁阈值: critical / warning / suggestion
+#   CODING_TOKEN - CODING 个人访问令牌（用于 MR 评论，可选）
+
+version: "2.0"
+
+stages:
+  - i18n         # i18n 治理
+  - component    # 组件医生
+  - hooks        # Hooks 检查
+  - platform     # 多端适配
+  - gate         # 质量门禁
+
+env:
+  MODULES: "${MODULES:-all}"
+  SEVERITY: "${SEVERITY:-warning}"
+
+# ============================================================================
+# Stage 1: i18n 治理
+# ============================================================================
+i18n-scan:
+  stage: i18n
+  image: ubuntu:22.04
+  rules:
+    - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
+    - if: "$CI_PIPELINE_SOURCE == 'web'"
+    - if: "$CI_PIPELINE_SOURCE == 'schedule'"
+    - if: "$MODULES == 'all' || $MODULES == 'i18n'"
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git bc curl
+    - git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+  script:
+    - |
+      echo "=========================================="
+      echo "🌍 i18n 治理扫描"
+      echo "=========================================="
+      bash /tmp/fg/scripts/scan-i18n.sh . > /tmp/fg-i18n.txt 2>&1 || true
+      cat /tmp/fg-i18n.txt
+      I18N_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-i18n.txt 2>/dev/null || echo 0)
+      echo "i18n 严重问题: ${I18N_COUNT}"
+
+  artifacts:
+    paths:
+      - /tmp/fg-i18n.txt
+    expire_in: 3 days
+
+# ============================================================================
+# Stage 2: 组件医生
+# ============================================================================
+component-scan:
+  stage: component
+  image: ubuntu:22.04
+  rules:
+    - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
+    - if: "$CI_PIPELINE_SOURCE == 'web'"
+    - if: "$CI_PIPELINE_SOURCE == 'schedule'"
+    - if: "$MODULES == 'all' || $MODULES == 'component'"
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git bc curl
+    - git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+  script:
+    - |
+      echo "=========================================="
+      echo "🏥 组件医生扫描"
+      echo "=========================================="
+      bash /tmp/fg/scripts/scan-components.sh . > /tmp/fg-component.txt 2>&1 || true
+      cat /tmp/fg-component.txt
+      COMP_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-component.txt 2>/dev/null || echo 0)
+      echo "组件严重问题: ${COMP_COUNT}"
+
+  artifacts:
+    paths:
+      - /tmp/fg-component.txt
+    expire_in: 3 days
+
+# ============================================================================
+# Stage 3: Hooks 检查
+# ============================================================================
+hooks-scan:
+  stage: hooks
+  image: ubuntu:22.04
+  rules:
+    - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
+    - if: "$CI_PIPELINE_SOURCE == 'web'"
+    - if: "$CI_PIPELINE_SOURCE == 'schedule'"
+    - if: "$MODULES == 'all' || $MODULES == 'hooks'"
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git bc curl
+    - git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+  script:
+    - |
+      echo "=========================================="
+      echo "⚡ Hooks / Composables 扫描"
+      echo "=========================================="
+      bash /tmp/fg/scripts/scan-hooks.sh . > /tmp/fg-hooks.txt 2>&1 || true
+      cat /tmp/fg-hooks.txt
+      HOOKS_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-hooks.txt 2>/dev/null || echo 0)
+      echo "Hooks 严重问题: ${HOOKS_COUNT}"
+
+  artifacts:
+    paths:
+      - /tmp/fg-hooks.txt
+    expire_in: 3 days
+
+# ============================================================================
+# Stage 4: 多端适配
+# ============================================================================
+platform-scan:
+  stage: platform
+  image: ubuntu:22.04
+  rules:
+    - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
+    - if: "$CI_PIPELINE_SOURCE == 'web'"
+    - if: "$CI_PIPELINE_SOURCE == 'schedule'"
+    - if: "$MODULES == 'all' || $MODULES == 'platform'"
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git bc curl
+    - git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+  script:
+    - |
+      echo "=========================================="
+      echo "📱 多端平台适配扫描"
+      echo "=========================================="
+      bash /tmp/fg/scripts/scan-platform.sh . > /tmp/fg-platform.txt 2>&1 || true
+      cat /tmp/fg-platform.txt
+      PLAT_COUNT=$(grep -cE "❌|🔴|严重" /tmp/fg-platform.txt 2>/dev/null || echo 0)
+      echo "平台适配严重问题: ${PLAT_COUNT}"
+
+  artifacts:
+    paths:
+      - /tmp/fg-platform.txt
+    expire_in: 3 days
+
+# ============================================================================
+# Stage 5: 质量门禁（失败会阻断流水线）
+# ============================================================================
+severity-gate:
+  stage: gate
+  image: ubuntu:22.04
+  rules:
+    - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
+    - if: "$CI_PIPELINE_SOURCE == 'web'"
+    - if: "$CI_PIPELINE_SOURCE == 'schedule'"
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git bc curl
+    - git clone --depth 1 https://github.com/wzm111/frontend-guardian.git /tmp/fg
+
+  script:
+    - |
+      echo "=========================================="
+      echo "🚦 质量门禁（阈值: ${SEVERITY}）"
+      echo "=========================================="
+      if bash /tmp/fg/scripts/full-scan.sh . --gate --severity "$SEVERITY"; then
+        echo "✅ 质量门禁通过"
+      else
+        echo "❌ 质量门禁未通过"
+        exit 1
+      fi
+
+  allow_failure: false
+
+# ============================================================================
+# 可选：MR 评论（需要配置 CODING_TOKEN）
+# ============================================================================
+post-comment:
+  stage: gate
+  image: ubuntu:22.04
+  rules:
+    - if: "$CODING_TOKEN != null && $CI_MERGE_REQUEST_IID != null"
+
+  script:
+    - |
+      echo "=========================================="
+      echo "💬 发送 MR 评论"
+      echo "=========================================="
+
+      REPORT="## CODING 前端治理扫描报告\n\n"
+      REPORT+="**触发方式:** MR \`${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}\` → \`${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}\`\n\n"
+      REPORT+="**门禁级别:** \`${SEVERITY}\`\n\n"
+
+      for f in /tmp/fg-i18n.txt /tmp/fg-component.txt /tmp/fg-hooks.txt /tmp/fg-platform.txt; do
+        if [ -s "$f" ]; then
+          TITLE=$(basename "$f" .txt)
+          CONTENT=$(head -50 "$f" | sed 's/"/\\"/g' | tr '\n' '\n')
+          REPORT+="### ${TITLE}\n\n\`\`\`\n${CONTENT}\n\`\`\`\n\n"
+        fi
+      done
+
+      curl -s -X POST \
+        "https://${CI_SERVER_HOST}/api/v3/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes" \
+        -H "PRIVATE-TOKEN: ${CODING_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"body\":\"${REPORT}\"}" || true
+
+      echo "✅ MR 评论已发送"

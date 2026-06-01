@@ -1,0 +1,230 @@
+# frontend-guardian 配置文件
+# 复制此文件到项目根目录，重命名为 .frontend-guardian.yml
+#
+# 使用方式：
+#   1. 复制到项目根目录: cp .frontend-guardian.yml.example .frontend-guardian.yml
+#   2. 根据项目实际情况修改配置
+#   3. 运行扫描: /frontend-guardian --scan
+
+# ============================================================================
+# 全局配置
+# ============================================================================
+
+# 报告语言: zh | en
+locale: zh
+
+# 最低输出严重级别: critical | warning | suggestion
+severity: warning
+
+# 报告输出路径
+output: ./frontend-guardian-report.md
+
+# ============================================================================
+# i18n 治理配置
+# ============================================================================
+i18n:
+  # 源语言（基准语言）
+  sourceLocale: zh-CN
+
+  # 目标语言列表
+  targetLocales:
+    - zh-CN
+    - en-US
+    - ja-JP
+
+  # 语言包格式: json | yaml | js | ts
+  format: json
+
+  # key 命名正则（module.page.element 格式）
+  keyPattern: "^[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9]*)*$"
+
+  # 扫描路径
+  extractPaths:
+    - src/**
+    - pages/**
+    - components/**
+
+  # 忽略路径
+  ignorePaths:
+    - src/utils/logger.ts
+    - src/utils/debug.ts
+    - **/*.test.ts
+    - **/*.spec.ts
+    - **/*.d.ts
+
+  # 插值变量匹配模式
+  interpolationPattern: "\\{([^}]+)\\}"
+
+  # 自动翻译提供商: openai | deepl | aliyun | baidu | google
+  translateProvider: openai
+
+  # OpenAI 翻译配置（如使用 openai）
+  translateConfig:
+    model: gpt-4o-mini
+    temperature: 0.3
+
+# ============================================================================
+# 组件医生配置
+# ============================================================================
+component:
+  # 组件库: auto | antd | element-plus | mui | vuetify | nutui | tdesign
+  library: auto
+
+  # 主题 token 前缀
+  themeTokenPrefix: "--"
+
+  # Select 组件最大选项数（超过建议虚拟化）
+  maxSelectOptions: 100
+
+  # 是否检查可访问性
+  checkA11y: true
+
+  # 是否检查性能陷阱
+  checkPerf: true
+
+  # 组件库版本（为空则自动检测）
+  libraryVersion: ""
+
+# ============================================================================
+# Hooks / Composables 配置
+# ============================================================================
+hooks:
+  # useEffect 最大依赖数
+  maxEffectDeps: 5
+
+  # 是否检查闭包陷阱
+  checkClosure: true
+
+  # 是否检查自定义 Hook 命名
+  checkCustomHookNaming: true
+
+  # 是否检查 Vue Composables
+  checkVueComposables: true
+
+# ============================================================================
+# 多端平台适配配置
+# ============================================================================
+platform:
+  # 目标平台列表
+  targets:
+    - wechat-mp    # 微信小程序
+    - h5           # H5
+    - app          # App
+
+  # 小程序配置
+  mp:
+    # 小程序类型: wechat | alipay | douyin | uniapp | taro
+    type: wechat
+
+    # 主包最大体积（字节）
+    maxMainPackageSize: 2097152  # 2MB
+
+    # 分包最大体积（字节）
+    maxSubPackageSize: 2097152   # 2MB
+
+    # base64 图片最大大小（字节）
+    maxBase64ImageSize: 10240    # 10KB
+
+    # 页面栈最大深度
+    maxPageStack: 10
+
+  # 移动端配置
+  mobile:
+    # 最小触摸目标尺寸（px）
+    minTouchTarget: 44
+
+    # 是否检查安全区域
+    checkSafeArea: true
+
+    # 是否检查点击延迟
+    checkClickDelay: true
+
+    # 是否检查键盘弹出处理
+    checkKeyboard: true
+
+  # 鸿蒙配置
+  harmony:
+    # 是否启用严格类型检查
+    strictTypeCheck: true
+
+    # ArkTS 版本
+    arktsVersion: "1.1"
+
+# ============================================================================
+# CI/CD 门禁配置
+# ============================================================================
+gate:
+  # 门禁模式: true | false
+  enabled: true
+
+  # Critical 问题最大允许数（0 = 不允许）
+  critical:
+    max: 0
+
+  # Warning 问题最大允许数
+  warning:
+    max: 10
+
+  # Suggestion 问题最大允许数
+  suggestion:
+    max: 20
+
+  # 是否阻断 CI/CD
+  blockPipeline: true
+
+# ============================================================================
+# 扫描范围配置
+# ============================================================================
+scan:
+  # 包含的文件扩展名
+  includeExtensions:
+    - .js
+    - .ts
+    - .jsx
+    - .tsx
+    - .vue
+    - .css
+    - .scss
+    - .less
+    - .json
+    - .ets
+
+  # 排除的目录
+  excludeDirs:
+    - node_modules
+    - dist
+    - build
+    - .git
+    - coverage
+    - .claude
+
+  # 排除的文件模式
+  excludePatterns:
+    - "*.min.js"
+    - "*.test.*"
+    - "*.spec.*"
+    - "*.config.*"
+
+# ============================================================================
+# 通知配置（可选）
+# ============================================================================
+notifications:
+  # 飞书 Webhook
+  feishu:
+    enabled: false
+    webhook: ""
+
+  # 钉钉 Webhook
+  dingtalk:
+    enabled: false
+    webhook: ""
+
+  # 企业微信 Webhook
+  wecom:
+    enabled: false
+    webhook: ""
+
+  # Slack Webhook
+  slack:
+    enabled: false
+    webhook: ""

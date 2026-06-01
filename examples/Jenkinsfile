@@ -1,0 +1,276 @@
+#!/usr/bin/env groovy
+//
+// Jenkinsfile — Frontend Guardian 前端治理流水线
+// 使用方式：将此文件复制到代码库根目录，重命名为 Jenkinsfile
+//
+// 前置条件：
+// 1. Jenkins 已安装 Pipeline 插件
+// 2. 已配置 Git 凭据和 Webhook 触发
+// 3. 如需评论到 PR，需在 Jenkins Credentials 中配置 JENKINS_TOKEN
+//
+// 参数说明：
+//   MODULES    - 扫描模块: all / i18n / component / hooks / platform
+//   SEVERITY   - 门禁阈值: critical / warning / suggestion
+
+pipeline {
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        MODULES = "${params.MODULES ?: 'all'}"
+        SEVERITY = "${params.SEVERITY ?: 'warning'}"
+        REPO_DIR = "${env.WORKSPACE}"
+        FG_DIR = "/tmp/frontend-guardian-${env.BUILD_NUMBER}"
+    }
+
+    parameters {
+        choice(
+            name: 'MODULES',
+            choices: ['all', 'i18n', 'component', 'hooks', 'platform'],
+            description: '选择扫描模块'
+        )
+        choice(
+            name: 'SEVERITY',
+            choices: ['critical', 'warning', 'suggestion'],
+            description: '门禁阈值级别'
+        )
+    }
+
+    stages {
+        // ========================================================================
+        // Stage 1: 准备环境
+        // ========================================================================
+        stage('Setup') {
+            steps {
+                script {
+                    echo "🛡️ Frontend Guardian — 前端治理扫描"
+                    echo "   模块: ${env.MODULES}"
+                    echo "   门禁: ${env.SEVERITY}"
+                }
+
+                sh '''
+                    # 安装必要工具
+                    if ! command -v bc &> /dev/null; then
+                        sudo apt-get update -qq && sudo apt-get install -y -qq bc curl
+                    fi
+
+                    # 克隆 frontend-guardian
+                    rm -rf "${FG_DIR}"
+                    git clone --depth 1 https://github.com/wzm111/frontend-guardian.git "${FG_DIR}"
+                '''
+            }
+        }
+
+        // ========================================================================
+        // Stage 2: i18n 治理
+        // ========================================================================
+        stage('i18n Scan') {
+            when {
+                anyOf {
+                    environment name: 'MODULES', value: 'all'
+                    environment name: 'MODULES', value: 'i18n'
+                }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "🌍 i18n 治理扫描"
+                    echo "=========================================="
+                }
+
+                sh '''
+                    bash "${FG_DIR}/scripts/scan-i18n.sh" "${REPO_DIR}" > "${WORKSPACE}/fg-i18n.txt" 2>&1 || true
+                    cat "${WORKSPACE}/fg-i18n.txt"
+                    I18N_COUNT=$(grep -cE "❌|🔴|严重" "${WORKSPACE}/fg-i18n.txt" 2>/dev/null || echo 0)
+                    echo "i18n 严重问题: ${I18N_COUNT}"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'fg-i18n.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ========================================================================
+        // Stage 3: 组件医生
+        // ========================================================================
+        stage('Component Scan') {
+            when {
+                anyOf {
+                    environment name: 'MODULES', value: 'all'
+                    environment name: 'MODULES', value: 'component'
+                }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "🏥 组件医生扫描"
+                    echo "=========================================="
+                }
+
+                sh '''
+                    bash "${FG_DIR}/scripts/scan-components.sh" "${REPO_DIR}" > "${WORKSPACE}/fg-component.txt" 2>&1 || true
+                    cat "${WORKSPACE}/fg-component.txt"
+                    COMP_COUNT=$(grep -cE "❌|🔴|严重" "${WORKSPACE}/fg-component.txt" 2>/dev/null || echo 0)
+                    echo "组件严重问题: ${COMP_COUNT}"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'fg-component.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ========================================================================
+        // Stage 4: Hooks 检查
+        // ========================================================================
+        stage('Hooks Scan') {
+            when {
+                anyOf {
+                    environment name: 'MODULES', value: 'all'
+                    environment name: 'MODULES', value: 'hooks'
+                }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "⚡ Hooks / Composables 扫描"
+                    echo "=========================================="
+                }
+
+                sh '''
+                    bash "${FG_DIR}/scripts/scan-hooks.sh" "${REPO_DIR}" > "${WORKSPACE}/fg-hooks.txt" 2>&1 || true
+                    cat "${WORKSPACE}/fg-hooks.txt"
+                    HOOKS_COUNT=$(grep -cE "❌|🔴|严重" "${WORKSPACE}/fg-hooks.txt" 2>/dev/null || echo 0)
+                    echo "Hooks 严重问题: ${HOOKS_COUNT}"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'fg-hooks.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ========================================================================
+        // Stage 5: 多端适配
+        // ========================================================================
+        stage('Platform Scan') {
+            when {
+                anyOf {
+                    environment name: 'MODULES', value: 'all'
+                    environment name: 'MODULES', value: 'platform'
+                }
+            }
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "📱 多端平台适配扫描"
+                    echo "=========================================="
+                }
+
+                sh '''
+                    bash "${FG_DIR}/scripts/scan-platform.sh" "${REPO_DIR}" > "${WORKSPACE}/fg-platform.txt" 2>&1 || true
+                    cat "${WORKSPACE}/fg-platform.txt"
+                    PLAT_COUNT=$(grep -cE "❌|🔴|严重" "${WORKSPACE}/fg-platform.txt" 2>/dev/null || echo 0)
+                    echo "平台适配严重问题: ${PLAT_COUNT}"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'fg-platform.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ========================================================================
+        // Stage 6: 质量门禁
+        // ========================================================================
+        stage('Quality Gate') {
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "🚦 质量门禁（阈值: ${env.SEVERITY}）"
+                    echo "=========================================="
+                }
+
+                sh '''
+                    if bash "${FG_DIR}/scripts/full-scan.sh" "${REPO_DIR}" --gate --severity "${SEVERITY}" --output "${WORKSPACE}/fg-report.md"; then
+                        echo "✅ 质量门禁通过"
+                    else
+                        echo "❌ 质量门禁未通过，请修复上述问题"
+                        exit 1
+                    fi
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'fg-report.md', allowEmptyArchive: true
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                // 生成汇总报告
+                sh '''
+                    REPORT="${WORKSPACE}/fg-summary.md"
+                    echo "## Jenkins 前端治理扫描报告" > "$REPORT"
+                    echo "" >> "$REPORT"
+                    echo "**构建号:** #${BUILD_NUMBER}" >> "$REPORT"
+                    echo "" >> "$REPORT"
+                    echo "**门禁级别:** \`${SEVERITY}\`" >> "$REPORT"
+                    echo "" >> "$REPORT"
+
+                    for f in "${WORKSPACE}"/fg-*.txt; do
+                        if [ -s "$f" ]; then
+                            fname=$(basename "$f" .txt)
+                            echo "### ${fname}" >> "$REPORT"
+                            echo '```' >> "$REPORT"
+                            head -80 "$f" >> "$REPORT"
+                            echo '```' >> "$REPORT"
+                            echo "" >> "$REPORT"
+                        fi
+                    done
+
+                    echo "---" >> "$REPORT"
+                    echo "_Powered by [frontend-guardian](https://github.com/wzm111/frontend-guardian)_" >> "$REPORT"
+                '''
+            }
+
+            // 清理临时文件
+            sh '''
+                rm -rf "${FG_DIR}"
+            '''
+        }
+
+        failure {
+            script {
+                echo "❌ 流水线执行失败"
+
+                // 可选：发送通知
+                if (env.SLACK_WEBHOOK_URL) {
+                    slackSend(
+                        color: 'danger',
+                        message: "❌ Frontend Guardian 门禁未通过 — ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                    )
+                }
+            }
+        }
+
+        success {
+            script {
+                echo "✅ 流水线执行成功"
+            }
+        }
+    }
+}
