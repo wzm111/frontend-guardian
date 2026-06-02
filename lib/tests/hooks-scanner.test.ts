@@ -299,3 +299,137 @@ function MyComp() {
         expect(issues.length).toBe(0);
     });
 });
+
+describe("hooks-memo-deps", () => {
+    const rule = hooksRules.find((r) => r.id === "hooks-memo-deps")!;
+
+    it("should detect useMemo without deps array", () => {
+        const source = `
+function MyComp({ items }) {
+  const sorted = useMemo(() => items.sort());
+  return null;
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBeGreaterThan(0);
+        expect(issues[0].ruleId).toBe("hooks-memo-deps");
+        expect(issues[0].title).toContain("缺少依赖数组");
+    });
+
+    it("should detect useCallback with empty deps", () => {
+        const source = `
+function MyComp() {
+  const handleClick = useCallback(() => console.log("click"), []);
+  return null;
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBeGreaterThan(0);
+        expect(issues[0].title).toContain("空依赖数组");
+    });
+
+    it("should not flag useMemo with proper deps", () => {
+        const source = `
+function MyComp({ items }) {
+  const sorted = useMemo(() => items.sort(), [items]);
+  return null;
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBe(0);
+    });
+});
+
+describe("hooks-callback-misuse", () => {
+    const rule = hooksRules.find((r) => r.id === "hooks-callback-misuse")!;
+
+    it("should flag simple useCallback", () => {
+        const source = `
+function MyComp() {
+  const onClick = useCallback(() => setOpen(true), [setOpen]);
+  return null;
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBeGreaterThan(0);
+        expect(issues[0].ruleId).toBe("hooks-callback-misuse");
+    });
+});
+
+describe("hooks-missing-key", () => {
+    const rule = hooksRules.find((r) => r.id === "hooks-missing-key")!;
+
+    it("should detect missing key in map", () => {
+        const source = `
+function MyComp({ items }) {
+  return (
+    <ul>
+      {items.map((item) => (
+        <li>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBeGreaterThan(0);
+        expect(issues[0].ruleId).toBe("hooks-missing-key");
+    });
+
+    it("should not flag when key is present", () => {
+        const source = `
+function MyComp({ items }) {
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBe(0);
+    });
+});
+
+describe("hooks-conditional", () => {
+    const rule = hooksRules.find((r) => r.id === "hooks-conditional")!;
+
+    it("should detect hook in if statement", () => {
+        const source = `
+function MyComp({ condition }) {
+  if (condition) {
+    useEffect(() => {}, []);
+  }
+  return null;
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBeGreaterThan(0);
+        expect(issues[0].ruleId).toBe("hooks-conditional");
+    });
+
+    it("should detect hook in ternary", () => {
+        const source = `
+function MyComp({ condition }) {
+  const value = condition ? useState(0) : useState(1);
+  return null;
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBeGreaterThan(0);
+    });
+
+    it("should not flag normal hook usage", () => {
+        const source = `
+function MyComp() {
+  const [state, setState] = useState(0);
+  useEffect(() => {}, []);
+  return null;
+}
+`;
+        const issues = rule.execute(createContext(source));
+        expect(issues.length).toBe(0);
+    });
+});

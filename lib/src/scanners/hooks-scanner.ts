@@ -415,6 +415,263 @@ export const hooksRules: Rule[] = [
     },
 
     {
+        id: "hooks-memo-deps",
+        name: "useMemo / useCallback 依赖数组问题",
+        description: "检测 useMemo 和 useCallback 缺少依赖数组或空依赖",
+        severity: "warning",
+        category: "hooks",
+        defaultEnabled: true,
+        frameworks: ["react", "nextjs"],
+        execute(context: RuleContext): Issue[] {
+            const issues: Issue[] = [];
+            const ast = context.utils.parseAST(context.source, {
+                ext: getFileExt(context.filePath),
+            }) as ParseResult<any> | null;
+
+            if (!ast) return issues;
+
+            const hookNames = ["useMemo", "useCallback"];
+
+            traverse(ast, {
+                CallExpression(path) {
+                    const callee = path.node.callee;
+                    if (callee.type !== "Identifier" || !hookNames.includes(callee.name)) return;
+
+                    const args = path.node.arguments;
+                    const depsArray = args[1];
+                    const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
+
+                    if (!depsArray) {
+                        issues.push({
+                            ruleId: "hooks-memo-deps",
+                            title: `${callee.name} 缺少依赖数组`,
+                            description: `${callee.name} 必须提供依赖数组，否则每次渲染都会重新计算，失去缓存意义`,
+                            severity: "warning",
+                            file: context.filePath,
+                            line,
+                            column,
+                            source: `${callee.name}(() => { ... })`,
+                        });
+                    } else if (depsArray.type === "ArrayExpression" && depsArray.elements.length === 0) {
+                        // 空依赖数组对于 useMemo/useCallback 通常是错误（除非是常量计算）
+                        issues.push({
+                            ruleId: "hooks-memo-deps",
+                            title: `${callee.name} 使用了空依赖数组 []`,
+                            description: `${callee.name} 使用 [] 表示只在挂载时计算一次。如果确实不需要依赖，直接使用常量即可，无需 ${callee.name}`,
+                            severity: "suggestion",
+                            file: context.filePath,
+                            line,
+                            column,
+                            source: `${callee.name}(() => { ... }, [])`,
+                        });
+                    }
+                },
+            });
+
+            return issues;
+        },
+    },
+
+    {
+        id: "hooks-callback-misuse",
+        name: "useCallback 滥用",
+        description: "简单的回调函数不需要 useCallback 包裹",
+        severity: "suggestion",
+        category: "hooks",
+        defaultEnabled: true,
+        frameworks: ["react", "nextjs"],
+        execute(context: RuleContext): Issue[] {
+            const issues: Issue[] = [];
+            const ast = context.utils.parseAST(context.source, {
+                ext: getFileExt(context.filePath),
+            }) as ParseResult<any> | null;
+
+            if (!ast) return issues;
+
+            traverse(ast, {
+                CallExpression(path) {
+                    const callee = path.node.callee;
+                    if (callee.type !== "Identifier" || callee.name !== "useCallback") return;
+
+                    const callbackFn = path.node.arguments[0];
+                    if (
+                        !callbackFn ||
+                        (callbackFn.type !== "ArrowFunctionExpression" && callbackFn.type !== "FunctionExpression")
+                    )
+                        return;
+
+                    const body = callbackFn.body;
+                    let bodyText = "";
+                    let isSimple = false;
+
+                    // 情况 1: 表达式体 () => expr
+                    if (body.type !== "BlockStatement") {
+                        bodyText = context.source.slice(body.start || 0, body.end || 0);
+                        isSimple = bodyText.length < 40;
+                    } else if (body.body.length === 1) {
+                        // 情况 2: 块语句体 () => { expr } 或 () => { return expr }
+                        const stmt = body.body[0];
+                        if (stmt.type === "ExpressionStatement" || stmt.type === "ReturnStatement") {
+                            bodyText = context.source.slice(body.start || 0, body.end || 0);
+                            isSimple = bodyText.length < 40;
+                        }
+                    }
+
+                    // 如果函数体很短且没有复杂逻辑，建议使用内联回调
+                    if (isSimple && !/useState|useEffect|fetch|await/.test(bodyText)) {
+                        const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
+                        issues.push({
+                            ruleId: "hooks-callback-misuse",
+                            title: "useCallback 包裹了简单回调",
+                            description:
+                                "该回调函数逻辑非常简单，useCallback 的开销（依赖比较 + 缓存）可能大于收益。建议直接内联或使用内联回调。",
+                            severity: "suggestion",
+                            file: context.filePath,
+                            line,
+                            column,
+                            source: "useCallback(() => { ... }, [...])",
+                        });
+                    }
+                },
+            });
+
+            return issues;
+        },
+    },
+
+    {
+        id: "hooks-missing-key",
+        name: "列表渲染缺少 key",
+        description: "map() 返回的 JSX 元素缺少 key 属性",
+        severity: "critical",
+        category: "hooks",
+        defaultEnabled: true,
+        frameworks: ["react", "nextjs"],
+        execute(context: RuleContext): Issue[] {
+            const issues: Issue[] = [];
+            const ast = context.utils.parseAST(context.source, {
+                ext: getFileExt(context.filePath),
+            }) as ParseResult<any> | null;
+
+            if (!ast) return issues;
+
+            traverse(ast, {
+                CallExpression(path) {
+                    const callee = path.node.callee;
+                    if (callee.type !== "MemberExpression") return;
+                    if (callee.property.type !== "Identifier" || callee.property.name !== "map") return;
+
+                    const callback = path.node.arguments[0];
+                    if (
+                        !callback ||
+                        (callback.type !== "ArrowFunctionExpression" && callback.type !== "FunctionExpression")
+                    )
+                        return;
+
+                    // 检查回调是否返回 JSX 元素
+                    const returnBody = callback.body;
+                    let returnsJSX = false;
+
+                    if (returnBody.type === "JSXElement" || returnBody.type === "JSXFragment") {
+                        returnsJSX = true;
+                    } else if (returnBody.type === "BlockStatement") {
+                        for (const stmt of returnBody.body) {
+                            if (
+                                stmt.type === "ReturnStatement" &&
+                                stmt.argument &&
+                                (stmt.argument.type === "JSXElement" || stmt.argument.type === "JSXFragment")
+                            ) {
+                                returnsJSX = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!returnsJSX) return;
+
+                    // 检查是否使用了 key 属性（简单检查：看参数解构或函数体中是否有 key 引用）
+                    const bodyText = context.source.slice(returnBody.start || 0, returnBody.end || 0);
+                    if (!/key\s*=/.test(bodyText)) {
+                        const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
+                        issues.push({
+                            ruleId: "hooks-missing-key",
+                            title: "列表渲染缺少 key 属性",
+                            description:
+                                "数组 map() 渲染 JSX 时必须提供唯一的 key 属性，否则 React 无法正确识别元素变化，导致性能问题和状态混乱",
+                            severity: "critical",
+                            file: context.filePath,
+                            line,
+                            column,
+                            source: ".map((item) => <Component ... />)",
+                            fix: {
+                                text: ".map((item) => <Component key={item.id} ... />)",
+                                start: { line, column },
+                                end: { line, column: column + 4 },
+                            },
+                        });
+                    }
+                },
+            });
+
+            return issues;
+        },
+    },
+
+    {
+        id: "hooks-conditional",
+        name: "条件调用 Hook",
+        description: "Hook 在条件语句或循环中调用，违反 Hook 规则",
+        severity: "critical",
+        category: "hooks",
+        defaultEnabled: true,
+        frameworks: ["react", "nextjs"],
+        execute(context: RuleContext): Issue[] {
+            const issues: Issue[] = [];
+            const ast = context.utils.parseAST(context.source, {
+                ext: getFileExt(context.filePath),
+            }) as ParseResult<any> | null;
+
+            if (!ast) return issues;
+
+            traverse(ast, {
+                CallExpression(path) {
+                    const callee = path.node.callee;
+                    if (callee.type !== "Identifier" || !/^use[A-Z]/.test(callee.name)) return;
+
+                    // 检查是否在条件语句中
+                    let parent = path.parentPath;
+                    while (parent) {
+                        if (
+                            parent.isIfStatement() ||
+                            parent.isConditionalExpression() ||
+                            parent.isSwitchCase() ||
+                            parent.isLoop() ||
+                            parent.isTryStatement()
+                        ) {
+                            const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
+                            issues.push({
+                                ruleId: "hooks-conditional",
+                                title: `${callee.name} 在条件/循环中调用`,
+                                description: `React Hooks 必须在组件顶层无条件调用。将 ${callee.name} 移到条件语句之外，或确保它在每次渲染时都按相同顺序执行。`,
+                                severity: "critical",
+                                file: context.filePath,
+                                line,
+                                column,
+                                source: `${callee.name}(...)`,
+                            });
+                            break;
+                        }
+                        parent = parent.parentPath as any;
+                        if (!parent) break;
+                    }
+                },
+            });
+
+            return issues;
+        },
+    },
+
+    {
         id: "hooks-state-lifting",
         name: "状态提升建议",
         description: "组件中状态过多建议合并或提升到父组件",
