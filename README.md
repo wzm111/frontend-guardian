@@ -79,6 +79,84 @@ frontend-guardian 设计为**跨智能体兼容**的 Skill/插件，不绑定任
 
 ## 使用方式
 
+### 场景一：新建项目（从 0 开始）
+
+#### Step 1 — 安装 CLI
+
+```bash
+# 方式 A：全局安装（推荐）
+npm install -g frontend-guardian-core
+
+# 方式 B：项目内安装
+npm install -D frontend-guardian-core
+```
+
+#### Step 2 — 初始化配置
+
+```bash
+cd your-project
+fg-core . --init-config
+```
+
+这会生成 `.frontend-guardian.yml`，自动检测你的技术栈（React/Vue/小程序等）并填入适合的默认配置。
+
+#### Step 3 — 安装 Git hook（推荐）
+
+```bash
+fg-core . --install-hooks          # pre-commit 增量检查
+fg-core . --install-hooks --install-hooks-type both   # pre-commit + pre-push
+```
+
+这样每次提交前会自动扫描 staged 文件，有问题会阻止提交。
+
+#### Step 4 — 首次全量扫描
+
+```bash
+fg-core . --scan
+```
+
+---
+
+### 场景二：已有项目
+
+#### Step 1 — 直接安装并扫描
+
+```bash
+cd existing-project
+npm install -g frontend-guardian-core
+fg-core . --scan
+```
+
+#### Step 2 — 根据项目现状选择策略
+
+| 项目状态 | 推荐命令 |
+|----------|----------|
+| 问题很多，想先摸底 | `fg-core . --scan --json > report.json` |
+| 只想看最严重的问题 | `fg-core . --scan --severity critical` |
+| 逐步治理（不阻塞现有问题） | `fg-core . --scan --baseline baseline.json` |
+| 想自动修复简单问题 | `fg-core . --scan --fix --dry-run` 先预览，确认后再 `fg-core . --scan --fix` |
+| 只想检查本次改动 | `fg-core . --scan --staged` 或 `fg-core . --scan --diff main...feature` |
+
+#### Step 3 — 集成到 CI（可选）
+
+```bash
+fg-core . --scan --gate    # 有问题时退出码非 0，可阻断 CI
+```
+
+配合 `--sarif report.sarif` 可将结果上传到 GitHub Security tab。
+
+- **配置**
+  - 新建项目：`--init-config` 生成默认配置
+  - 已有项目：手动调整配置，或用 `--baseline` 渐进式治理
+- **策略**
+  - 新建项目：从第一天起规范化，问题少
+  - 已有项目：先摸底，再分批修复，避免一次性改动过大
+- **Hook**
+  - 新建项目：强烈建议安装，养成习惯
+  - 已有项目：根据团队接受度决定，可先 `--gate` 在 CI 中试运行
+
+---
+
 ### 7 个核心命令
 
 ```text
