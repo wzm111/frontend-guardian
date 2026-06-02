@@ -158,6 +158,29 @@
 
 ---
 
+## 🚧 v2.7.0 — 可扩展性与智能化（Extensibility & Intelligence）
+
+**目标**：让 frontend-guardian 从单一工具进化为可扩展的平台，支持第三方规则生态和智能化诊断。
+
+**预计发布**：2026-06-16
+
+### P0 — 必须完成
+
+- [ ] **配置热重载**：Watch 模式监听 `.frontend-guardian.yml` 变更自动重载配置，无需重启进程
+- [ ] **规则插件系统**：支持 `extends: npm:package-name` 从 npm 包加载规则，规则包遵循 `frontend-guardian-plugin-*` 命名约定
+
+### P1 — 尽量完成
+
+- [ ] **团队趋势看板**：基于历史报告数据生成静态 HTML 趋势页面（`--generate-dashboard`），含问题趋势图、模块分布饼图、修复率统计
+- [ ] **扫描结果持久化**：JSON 格式历史报告存储到 `.frontend-guardian/history/` 目录，支持跨会话查询和趋势分析
+
+### P2 — 排期实现
+
+- [ ] **AI 修复建议**：集成 LLM API（OpenAI / Claude）生成 Issue 修复建议，低置信度修复优先展示 AI 建议
+- [ ] **monorepo 工作区支持**：自动检测 `pnpm-workspace.yaml` / `lerna.json` / `nx.json`，分别扫描各子包并汇总报告
+
+---
+
 ## 📋 版本迭代原则
 
 1. **每次迭代前**：先读取本 Roadmap 当前版本任务清单
