@@ -46,3 +46,6 @@ temp/
 
 # Frontend Guardian
 frontend-guardian-report.md
+
+# Legacy Bash scanner tests (replaced by lib/tests/ Vitest suite)
+tests/
