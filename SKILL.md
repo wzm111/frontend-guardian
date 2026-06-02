@@ -37,25 +37,31 @@ Skill 会自动检测项目类型并加载对应规则：
 | `solid-js` | SolidJS | `rules/solidjs.md` |
 | `astro` | Astro | `rules/astro.md` |
 
-## 指令路由
-
-### 全量扫描（推荐）
+## 指令路由（7 个核心命令）
 
 ```
-/frontend-guardian                              # 自动检测技术栈，执行全端扫描
-/frontend-guardian --scan                       # 全量治理扫描（9 大模块）
-/frontend-guardian --scan --gate                # CI 门禁模式（发现问题退出码非0）
-/frontend-guardian --scan --staged              # 仅检查 git staged 文件
-/frontend-guardian --scan --since HEAD~3        # 检查最近 3 个 commit
-/frontend-guardian --scan --diff main...feature # 检查 PR diff 范围
-/frontend-guardian --scan --fix                 # 扫描并自动修复可修复的问题
-/frontend-guardian --scan --json                # JSON 格式输出
-/frontend-guardian --scan --output report.md    # 指定报告输出路径
-/frontend-guardian --scan --no-cluster          # 禁用 Issue 聚类
-/frontend-guardian --scan --external            # 同时运行 ESLint / TypeScript / Stylelint
-/frontend-guardian --scan --no-cache            # 禁用智能缓存
-/frontend-guardian --scan --watch               # Watch 模式：文件变更自动扫描
-/frontend-guardian --scan --fix --dry-run       # 修复预览（展示 diff 不写入）
+# 1️⃣ 智能全量扫描
+/frontend-guardian --scan
+
+# 2️⃣ 提交前检查（仅 staged 文件）
+/frontend-guardian --scan --staged
+
+# 3️⃣ 扫描并自动修复
+/frontend-guardian --scan --fix
+
+# 4️⃣ CI 门禁模式
+/frontend-guardian --scan --gate
+
+# 5️⃣ PR diff 检查
+/frontend-guardian --scan --diff main...feature
+
+# 6️⃣ 初始化项目配置
+/frontend-guardian --init-config
+
+# 7️⃣ 安装 Git hook
+/frontend-guardian --install-hooks
+/frontend-guardian --install-hooks --install-hooks-type pre-push
+/frontend-guardian --install-hooks --install-hooks-type both
 ```
 
 ### 单模块扫描
@@ -81,70 +87,32 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --module security --diff main...feature
 ```
 
-### 一键初始化脚手架
+### 常用组合
 
 ```
-/frontend-guardian --init-scaffold ./my-project                    # 自动检测技术栈并初始化
-/frontend-guardian --init-scaffold ./my-project --stack react      # 指定 React 技术栈
-/frontend-guardian --init-scaffold ./my-project --stack uniapp     # 指定 UniApp 技术栈
-/frontend-guardian --init-scaffold ./my-project --force            # 强制覆盖已有文件
-/frontend-guardian --init-scaffold ./my-project --skip-install     # 跳过 npm install
-```
+# 修复预览（展示 diff 不写入）
+/frontend-guardian --scan --fix --dry-run
 
-初始化内容：
-- 技术栈对应的目录结构（components / hooks / services / locales / constants / types）
-- `.frontend-guardian.yml` 治理配置文件
-- 示例文件（i18n 工具函数、请求封装、常量定义、语言包模板）
-- `.gitignore`
-- AI 上下文文件（调用 init-ai-context.sh 自动生成）
-- 推荐依赖自动安装
+# JSON 输出 + 门禁
+/frontend-guardian --scan --gate --json
 
-### AI 上下文初始化
+# 指定严重级别 + 禁用聚类
+/frontend-guardian --scan --severity warning --no-cluster
 
-```
-/frontend-guardian --init-ai                    # 生成通用 AI_CONTEXT.md
-/frontend-guardian --init-ai claude             # 生成 .claude/CLAUDE.md
-/frontend-guardian --init-ai cursor             # 生成 .cursorrules
-/frontend-guardian --init-ai copilot            # 生成 .github/copilot-instructions.md
-/frontend-guardian --init-ai all                # 同时生成所有格式
-/frontend-guardian --scan --init-ai claude      # 扫描后自动更新 AI 上下文
-```
+# 运行外部工具（ESLint / TypeScript / Stylelint）
+/frontend-guardian --scan --external
 
-### 自动化集成
+# Watch 模式（开发时自动扫描）
+/frontend-guardian --scan --watch
 
-```
-# 安装 Git pre-commit hook（提交前自动检查 staged 文件）
-/frontend-guardian --install-hooks
+# SARIF 报告输出（GitHub Security tab）
+/frontend-guardian --scan --sarif report.sarif
+
+# Baseline 模式（仅报告新增问题）
+/frontend-guardian --scan --baseline baseline.json
 
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
-
-# Watch 模式：开发时文件变更自动增量扫描
-/frontend-guardian --scan --watch
-
-# 修复预览（查看 diff 但不写入文件）
-/frontend-guardian --scan --fix --dry-run
-```
-
-### 组合命令
-
-```
-# 提交前检查（仅 staged 文件）
-/frontend-guardian --scan --staged
-
-# PR diff 检查
-/frontend-guardian --scan --diff main...feature
-
-# 上线前全量扫描 + 门禁 + 更新 AI 上下文
-/frontend-guardian --scan --gate --output report.md --init-ai claude
-
-# 指定端类型扫描
-/frontend-guardian --module platform --mp-type wechat
-/frontend-guardian --module platform --mobile-type h5
-
-# 极致配置：智能缓存 + 增量扫描 + 修复预览
-/frontend-guardian --scan --staged --fix --dry-run
-/frontend-guardian --scan --watch --module hooks
 ```
 
 ## 严重级别定义

@@ -197,6 +197,8 @@ export interface CustomRuleConfig {
 export interface ProjectConfig {
     /** Config file path */
     configFile?: string;
+    /** 继承的组织级基线配置（URL 或本地路径） */
+    extends?: string;
     /** i18n configuration */
     i18n?: I18nConfig;
     /** Component configuration */

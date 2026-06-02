@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v2.3.0**
+> **当前版本：v2.3.1**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -68,80 +68,102 @@ frontend-guardian --init-scaffold ./my-project --stack nextjs --force
 
 ---
 
-### 快速命令
+### 7 个核心命令
 
 ```text
-# 全量扫描（推荐）
-/frontend-guardian                          # 自动检测技术栈，执行全端扫描
-/frontend-guardian --scan                   # 全量治理扫描（9 大模块）
-/frontend-guardian --scan --gate            # CI 门禁模式（发现问题退出码非0）
-/frontend-guardian --scan --staged          # 仅检查 git staged 文件
-/frontend-guardian --scan --since HEAD~3    # 检查最近 3 个 commit
-/frontend-guardian --scan --diff main...feature  # 检查 PR diff 范围
-/frontend-guardian --scan --fix             # 扫描并自动修复
-/frontend-guardian --scan --json            # JSON 格式输出
-/frontend-guardian --scan --no-cluster      # 禁用 Issue 聚类（默认开启）
+# 1️⃣ 全量扫描（推荐）
+fg-core . --scan
 
-# 单模块扫描
-/frontend-guardian --module i18n            # i18n 治理（硬编码、缺失 key、死 key）
-/frontend-guardian --module component       # 组件医生（反模式、token、性能）
-/frontend-guardian --module hooks           # Hooks / Composables 检查
-/frontend-guardian --module platform        # 多端平台适配
-/frontend-guardian --module performance     # 性能优化
-/frontend-guardian --module security        # 安全扫描
-/frontend-guardian --module a11y            # 可访问性
-/frontend-guardian --module naming          # 命名规范
-/frontend-guardian --module cross-file      # 跨文件分析
+# 2️⃣ 提交前检查（仅 staged 文件）
+fg-core . --scan --staged
 
-# 初始化
-/frontend-guardian --init-scaffold ./my-project
-/frontend-guardian --init-ai claude
+# 3️⃣ 扫描并自动修复
+fg-core . --scan --fix
+
+# 4️⃣ CI 门禁模式（发现问题退出码非 0）
+fg-core . --scan --gate
+
+# 5️⃣ PR diff 范围检查
+fg-core . --scan --diff main...feature
+
+# 6️⃣ 初始化项目配置
+fg-core . --init-config
+
+# 7️⃣ 安装 Git hook（pre-commit / pre-push）
+fg-core . --install-hooks
+fg-core . --install-hooks --install-hooks-type pre-push
+fg-core . --install-hooks --install-hooks-type both
 ```
 
-### 组合命令
+### 单模块扫描
 
 ```text
-# 提交前检查：i18n + 组件 + hooks
-/frontend-guardian --i18n --component --hooks
+fg-core . --module i18n            # i18n 治理（硬编码、缺失 key、死 key）
+fg-core . --module component       # 组件医生（反模式、token、性能）
+fg-core . --module hooks           # Hooks / Composables 检查
+fg-core . --module platform        # 多端平台适配
+fg-core . --module performance     # 性能优化
+fg-core . --module security        # 安全扫描
+fg-core . --module a11y            # 可访问性
+fg-core . --module naming          # 命名规范
+fg-core . --module cross-file      # 跨文件分析
+fg-core . --module svelte          # Svelte 专项检查
+```
 
-# 上线前全量扫描 + 门禁 + AI 上下文更新
-/frontend-guardian --scan --gate --output report.md --init-ai claude
+### 常用组合
 
-# 仅检查当前修改的文件
-/frontend-guardian --scan --staged
+```text
+# 修复预览（展示 diff 不写入）
+fg-core . --scan --fix --dry-run
 
-# 自动修复可修复的问题
-/frontend-guardian --scan --fix
-/frontend-guardian --component --fix
-/frontend-guardian --naming --fix
+# JSON 输出 + 门禁
+fg-core . --scan --gate --json
 
-# 初始化 AI 上下文（让 AI 理解项目技术栈）
-/frontend-guardian --init-ai claude      # Claude Code: .claude/CLAUDE.md
-/frontend-guardian --init-ai cursor      # Cursor: .cursorrules
-/frontend-guardian --init-ai copilot     # GitHub Copilot: .github/copilot-instructions.md
-/frontend-guardian --init-ai all         # 同时生成所有格式
+# 指定严重级别 + 禁用聚类
+fg-core . --scan --severity warning --no-cluster
 
-# 指定端类型扫描
-/frontend-guardian --platform-mp --mp-type wechat
-/frontend-guardian --platform-mobile --mobile-type h5
+# 仅扫描指定文件
+fg-core . --scan --files "src/**/*.tsx"
+
+# 运行外部工具（ESLint / TypeScript / Stylelint）
+fg-core . --scan --external
+
+# Watch 模式（开发时自动扫描）
+fg-core . --scan --watch
+
+# SARIF 报告输出（GitHub Security tab 兼容）
+fg-core . --scan --sarif report.sarif
+
+# Baseline 模式（仅报告新增问题）
+fg-core . --scan --baseline baseline.json
+fg-core . --scan --baseline baseline.json --generate-baseline
 ```
 
 ### 参数说明
 
 | 参数 | 说明 | 默认值 |
 | ---- | ---- | ------ |
-| `--output <file>` | 报告输出路径 | `./frontend-guardian-report.md` |
-| `--gate` | 门禁模式，发现问题时退出码 1 | false |
+| `--module <name>` | 扫描模块：`i18n` / `performance` / `a11y` / `security` / `naming` / `cross-file` / `component` / `hooks` / `platform` / `svelte` / `all` | `all` |
+| `--severity <level>` | 最低输出严重级别：`critical` / `warning` / `suggestion` | `suggestion` |
 | `--staged` | 仅检查 git staged 文件 | false |
-| `--since <ref>` | 检查指定 commit 以来的变更 | `HEAD~1` |
 | `--diff <range>` | git diff 范围，如 `main...feature` | - |
 | `--fix` | 自动修复可修复的问题 | false |
+| `--dry-run` | 修复预览模式（展示 diff 不写入文件） | false |
 | `--json` | 以 JSON 格式输出原始扫描结果 | false |
+| `--gate` | 门禁模式，发现问题时退出码非 0 | false |
 | `--no-cluster` | 禁用 Issue 聚类 | false |
-| `--severity <level>` | 最低输出严重级别 | `warning` |
-| `--module <name>` | 扫描模块：`i18n` / `performance` / `a11y` / `security` / `naming` / `cross-file` / `component` / `hooks` / `platform` / `all` | `all` |
-| `--init-ai <agent>` | 初始化 AI 上下文：`claude` / `cursor` / `copilot` / `all` | 不初始化 |
-| `--init-scaffold` | 一键初始化项目脚手架 | - |
+| `--external` | 同时运行 ESLint / TypeScript / Stylelint | false |
+| `--watch` | Watch 模式：文件变更自动增量扫描 | false |
+| `--no-cache` | 禁用智能缓存 | false |
+| `--config <file>` | 指定配置文件 | `.frontend-guardian.yml` |
+| `--init-config` | 生成 `.frontend-guardian.yml` 智能配置 | - |
+| `--install-hooks` | 安装 Git pre-commit hook | - |
+| `--install-hooks-type` | hook 类型：`pre-commit` / `pre-push` / `both` | `pre-commit` |
+| `--init-ci` | 生成 CI 配置文件（GitHub Actions） | - |
+| `--sarif <file>` | 输出 SARIF 格式报告 | - |
+| `--github-actions` | 启用 GitHub Actions Annotation 输出 | 自动检测 |
+| `--baseline <file>` | Baseline 模式：仅报告新增问题 | - |
+| `--generate-baseline` | 生成 baseline 文件 | - |
 
 ### AI 上下文初始化
 
@@ -738,6 +760,15 @@ platform:
 ---
 
 ## 版本演进
+
+### v2.3.1 — CI/CD 增强补全（已交付，366 测试通过）
+
+- **`--init-config` 配置初始化**：新增 `utils/init-config.ts`，一键生成 `.frontend-guardian.yml` 智能默认配置，基于项目检测结果自动填充框架/组件库/平台相关配置
+- **pre-push hook 支持**：`git-hooks.ts` 扩展 `type: "pre-push" | "both"`，pre-push 运行全量扫描，pre-commit 保持 staged 增量扫描；CLI 新增 `--install-hooks-type` 参数
+- **husky 兼容**：`detectHusky()` 自动检测 husky 安装，hook 写入 `.husky/` 目录并适配 v8+ 格式，无需 shebang
+- **团队共享配置继承 `extends`**：`config-loader.ts` 支持 `extends: ./base.yml`，多级继承 + 嵌套对象浅合并 + rules 按 id 去重合并 + customRules 按 path 去重
+- **指令体系精简**：README / SKILL.md 精简为 7 个核心命令 + 单模块扫描 + 常用组合，移除过时/不支持的命令示例
+- **测试**：新增 `tests/init-config.test.ts`（12 测试）、`tests/config-loader-extends.test.ts`（5 测试）
 
 ### v2.3.0 — CI/CD 与提交增强（已交付，349 测试通过）
 

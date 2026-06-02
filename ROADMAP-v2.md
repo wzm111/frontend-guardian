@@ -81,13 +81,13 @@
 - [x] **GitHub Actions Annotation**：CI 输出内联代码注解，PR 中直接看到问题行
 - [x] **Baseline 模式** `--baseline`：已有问题不阻塞，仅关注新增问题（遗留项目渐进式治理）
 
-### P1 — 尽量完成
+### P1 — 尽量完成 ✅ (2026-06-02)
 
-- [ ] **pre-push hook**：提交前全量检查，与现有 pre-commit 互补
-- [ ] **husky 兼容**：检测 husky 并适配其 hook 管理方式
-- [ ] **配置文件初始化** `--init-config`：一键生成 `.frontend-guardian.yml` 模板
-- [ ] **团队共享配置继承**：`.frontend-guardian.yml` 支持 `extends` 字段指向组织级基线配置
-- [ ] **PR/MR 评论自动发布**：扫描结果通过 GitHub API / GitLab API 发布为 PR 评论
+- [x] **pre-push hook**：提交前全量检查，与现有 pre-commit 互补
+- [x] **husky 兼容**：检测 husky 并适配其 hook 管理方式
+- [x] **配置文件初始化** `--init-config`：一键生成 `.frontend-guardian.yml` 模板
+- [x] **团队共享配置继承**：`.frontend-guardian.yml` 支持 `extends` 字段指向组织级基线配置
+- [ ] **PR/MR 评论自动发布**：扫描结果通过 GitHub API / GitLab API 发布为 PR 评论（推迟至 v2.4.0）
 
 ---
 
