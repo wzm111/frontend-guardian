@@ -67,14 +67,59 @@ export const performanceRules: Rule[] = [
   {
     id: 'perf-dynamic-import',
     name: '大组件懒加载',
-    description: '超过 50KB 的组件应使用动态导入',
+    description: '超过 50KB 的组件应使用动态导入（React.lazy / defineAsyncComponent）',
     severity: 'suggestion',
     category: 'performance',
     defaultEnabled: true,
     frameworks: ['react', 'nextjs', 'vue'],
-    execute() {
-      // TODO: 检测组件体积（需要文件系统分析）
-      return [];
+    execute(context: RuleContext): Issue[] {
+      const issues: Issue[] = [];
+      const source = context.source;
+
+      // 1. 检查文件大小（源码长度 > 50KB ≈ 50000 字符）
+      const FILE_SIZE_THRESHOLD = 50000;
+      if (source.length < FILE_SIZE_THRESHOLD) {
+        return issues;
+      }
+
+      // 2. 检查是否已使用动态导入
+      const hasDynamicImport =
+        /React\.lazy\s*\(|lazy\s*\(\s*\(\s*\)\s*=>\s*import\s*\(/i.test(source) ||
+        /defineAsyncComponent\s*\(/i.test(source) ||
+        /import\s*\(\s*['"][^'"]+['"]\s*\)/.test(source);
+
+      if (hasDynamicImport) {
+        return issues;
+      }
+
+      // 3. 检测是否为路由页面组件（通常文件较大）
+      const isPageFile =
+        /pages?\//i.test(context.filePath) ||
+        /views?\//i.test(context.filePath) ||
+        /routes?\//i.test(context.filePath);
+
+      if (!isPageFile) {
+        return issues;
+      }
+
+      const sizeKB = Math.round(source.length / 1024);
+      issues.push({
+        ruleId: 'perf-dynamic-import',
+        title: `页面组件体积较大 (${sizeKB}KB)，建议使用动态导入`,
+        description: `该文件源码 ${sizeKB}KB，超过 ${Math.round(FILE_SIZE_THRESHOLD / 1024)}KB 建议阈值。路由级组件应使用 React.lazy()（React）或 defineAsyncComponent()（Vue）实现懒加载，减少首屏 bundle 体积`,
+        severity: 'suggestion',
+        file: context.filePath,
+        line: 1,
+        column: 1,
+        source: `文件大小: ${sizeKB}KB`,
+        fix: {
+          text: suggestLazyImport(context.filePath),
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 1 },
+        },
+      });
+
+      return issues;
     },
   },
 
@@ -261,6 +306,22 @@ function reportWaterfall(
 function getFileExt(filePath: string): string {
   const match = filePath.match(/\.[^.]+$/);
   return match ? match[0] : '.js';
+}
+
+/** 建议懒加载导入代码 */
+function suggestLazyImport(filePath: string): string {
+  const ext = getFileExt(filePath);
+  const baseName = filePath.replace(/^.*[\\/]/, '').replace(ext, '');
+
+  // React
+  if (ext.match(/\.tsx?/)) {
+    return `const ${baseName} = React.lazy(() => import('./${baseName}${ext}'));`;
+  }
+  // Vue
+  if (ext === '.vue') {
+    return `const ${baseName} = defineAsyncComponent(() => import('./${baseName}${ext}'));`;
+  }
+  return `// TODO: 使用框架对应的懒加载方式导入该组件`;
 }
 
 /** 建议子模块导入 */

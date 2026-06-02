@@ -151,7 +151,13 @@ function buildFileGraph(context: RuleContext): FileGraph {
 
   for (const filePath of filesToParse) {
     try {
-      const source = readFileSync(filePath, 'utf-8');
+      // 当前文件使用 context.source（避免文件不存在时读取失败）
+      let source: string;
+      if (filePath === context.filePath) {
+        source = context.source;
+      } else {
+        source = readFileSync(filePath, 'utf-8');
+      }
       const ext = getFileExt(filePath);
       const ast = parseAST(source, { ext }) as ParseResult<any> | null;
 
@@ -460,7 +466,18 @@ function extractBodyInfo(body: any, info: ComponentInfo): void {
     // JSX 中使用的外部组件
     JSXOpeningElement(path) {
       const tagName = getJSXTagName(path.node.name);
-      if (!tagName || !isComponentName(tagName)) return; // 只关心组件，不关心 HTML 标签
+      if (!tagName) return;
+
+      // 检测 Context.Provider: <UserContext.Provider>
+      if (tagName.endsWith('.Provider')) {
+        const ctxName = tagName.split('.')[0];
+        if (ctxName) {
+          info.contextProviders.push(ctxName);
+        }
+        return;
+      }
+
+      if (!isComponentName(tagName)) return; // 只关心组件，不关心 HTML 标签
 
       const usedProps: string[] = [];
       for (const attr of path.node.attributes) {
@@ -656,53 +673,71 @@ function analyzeDuplicateCode(graph: FileGraph, context: RuleContext): Issue[] {
     }
   }
 
-  // 检测函数签名相似的组件
-  for (const current of currentComps) {
+  // 检测函数签名相似的组件（跨文件 + 同文件内不同组件）
+  for (let i = 0; i < currentComps.length; i++) {
+    const current = currentComps[i];
+    // 同文件内的其他组件
+    for (let j = i + 1; j < currentComps.length; j++) {
+      checkSimilarity(current, currentComps[j], issues, context);
+    }
+    // 兄弟文件中的组件
     for (const sibling of siblingComps) {
-      // 检测 props 结构是否相似（>50% 相同）
-      const currentPropNames = new Set(current.declaredProps.map(p => p.name));
-      const siblingPropNames = new Set(sibling.declaredProps.map(p => p.name));
-
-      const intersection = [...currentPropNames].filter(p => siblingPropNames.has(p));
-      const union = new Set([...currentPropNames, ...siblingPropNames]);
-
-      if (union.size > 0 && intersection.length / union.size > 0.5 && intersection.length >= 2) {
-        issues.push({
-          ruleId: 'cross-duplicate-code',
-          title: `"${current.name}" 与 "${sibling.name}" 有相似的 props 结构`,
-          description: `两个组件有 ${intersection.length} 个相同的 props: ${intersection.join(', ')}。如果逻辑也相似，建议提取公共的 Base 组件或 HOC`,
-          severity: 'suggestion',
-          file: context.filePath,
-          line: current.line,
-          column: current.column,
-          source: `${current.name} / ${sibling.name}`,
-        });
-      }
-
-      // 检测函数体中是否有相同的事件处理函数名
-      const currentFns = new Set(current.functions.map(f => f.name));
-      const siblingFns = new Set(sibling.functions.map(f => f.name));
-      const sameFns = [...currentFns].filter(f =>
-        siblingFns.has(f) &&
-        f.startsWith('handle') // 事件处理函数
-      );
-
-      if (sameFns.length >= 2) {
-        issues.push({
-          ruleId: 'cross-duplicate-code',
-          title: `"${current.name}" 与 "${sibling.name}" 有重复的事件处理逻辑`,
-          description: `发现 ${sameFns.length} 个同名事件处理函数: ${sameFns.join(', ')}。建议提取到公共 hooks 中`,
-          severity: 'suggestion',
-          file: context.filePath,
-          line: current.line,
-          column: current.column,
-          source: `${current.name} / ${sibling.name}`,
-        });
-      }
+      checkSimilarity(current, sibling, issues, context);
     }
   }
 
   return issues;
+}
+
+/** 检查两个组件是否相似 */
+function checkSimilarity(
+  current: ComponentInfo,
+  sibling: ComponentInfo,
+  issues: Issue[],
+  context: RuleContext
+): void {
+  if (current.name === sibling.name) return; // 跳过同名
+
+  // 检测 props 结构是否相似（>50% 相同）
+  const currentPropNames = new Set(current.declaredProps.map(p => p.name));
+  const siblingPropNames = new Set(sibling.declaredProps.map(p => p.name));
+
+  const intersection = [...currentPropNames].filter(p => siblingPropNames.has(p));
+  const union = new Set([...currentPropNames, ...siblingPropNames]);
+
+  if (union.size > 0 && intersection.length / union.size >= 0.5 && intersection.length >= 2) {
+    issues.push({
+      ruleId: 'cross-duplicate-code',
+      title: `"${current.name}" 与 "${sibling.name}" 有相似的 props 结构`,
+      description: `两个组件有 ${intersection.length} 个相同的 props: ${intersection.join(', ')}。如果逻辑也相似，建议提取公共的 Base 组件或 HOC`,
+      severity: 'suggestion',
+      file: context.filePath,
+      line: current.line,
+      column: current.column,
+      source: `${current.name} / ${sibling.name}`,
+    });
+  }
+
+  // 检测函数体中是否有相同的事件处理函数名
+  const currentFns = new Set(current.functions.map(f => f.name));
+  const siblingFns = new Set(sibling.functions.map(f => f.name));
+  const sameFns = [...currentFns].filter(f =>
+    siblingFns.has(f) &&
+    f.startsWith('handle') // 事件处理函数
+  );
+
+  if (sameFns.length >= 2) {
+    issues.push({
+      ruleId: 'cross-duplicate-code',
+      title: `"${current.name}" 与 "${sibling.name}" 有重复的事件处理逻辑`,
+      description: `发现 ${sameFns.length} 个同名事件处理函数: ${sameFns.join(', ')}。建议提取到公共 hooks 中`,
+      severity: 'suggestion',
+      file: context.filePath,
+      line: current.line,
+      column: current.column,
+      source: `${current.name} / ${sibling.name}`,
+    });
+  }
 }
 
 /** 分析公共逻辑提取建议 */

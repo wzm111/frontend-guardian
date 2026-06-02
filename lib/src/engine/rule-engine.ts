@@ -9,7 +9,7 @@
  * 5. 支持增量扫描（git diff）
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type {
   Rule,
@@ -241,6 +241,94 @@ export class RuleEngine {
       }
     }
     return offsets;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 自动修复
+  // ---------------------------------------------------------------------------
+
+  /**
+   * 应用所有可修复的问题
+   * @param issues 包含 fix 字段的 Issue 列表
+   * @returns 修复统计
+   */
+  applyFixes(issues: Issue[]): { fixedCount: number; filesModified: string[]; errors: string[] } {
+    let fixedCount = 0;
+    const filesModified: string[] = [];
+    const errors: string[] = [];
+
+    // 按文件分组
+    const byFile = new Map<string, Issue[]>();
+    for (const issue of issues) {
+      if (!issue.fix) continue;
+      const list = byFile.get(issue.file) || [];
+      list.push(issue);
+      byFile.set(issue.file, list);
+    }
+
+    for (const [filePath, fileIssues] of byFile) {
+      try {
+        let source = readFileSync(filePath, 'utf-8');
+        const originalSource = source;
+
+        // 按行号倒序排列，从文件末尾开始修复，避免行号偏移
+        const sorted = [...fileIssues].sort((a, b) => {
+          const lineDiff = (b.fix!.start.line || 0) - (a.fix!.start.line || 0);
+          if (lineDiff !== 0) return lineDiff;
+          return (b.fix!.start.column || 0) - (a.fix!.start.column || 0);
+        });
+
+        for (const issue of sorted) {
+          const fix = issue.fix!;
+          source = this.applySingleFix(source, fix);
+        }
+
+        if (source !== originalSource) {
+          writeFileSync(filePath, source, 'utf-8');
+          filesModified.push(filePath);
+          fixedCount += fileIssues.length;
+        }
+      } catch (err) {
+        errors.push(`修复 ${filePath} 失败: ${err}`);
+      }
+    }
+
+    return { fixedCount, filesModified, errors };
+  }
+
+  /** 对单文件应用单个修复 */
+  private applySingleFix(source: string, fix: NonNullable<Issue['fix']>): string {
+    const lines = source.split('\n');
+    const { line: startLine, column: startCol } = fix.start;
+    const { line: endLine, column: endCol } = fix.end;
+
+    // 单行修复
+    if (startLine === endLine) {
+      const idx = startLine - 1;
+      if (idx < 0 || idx >= lines.length) return source;
+      const targetLine = lines[idx];
+      const before = targetLine.slice(0, Math.max(0, startCol - 1));
+      const after = targetLine.slice(Math.max(0, endCol - 1));
+      lines[idx] = before + fix.text + after;
+      return lines.join('\n');
+    }
+
+    // 多行修复：替换从 start 到 end 的所有内容
+    const startIdx = startLine - 1;
+    const endIdx = endLine - 1;
+    if (startIdx < 0 || endIdx >= lines.length) return source;
+
+    const before = lines[startIdx].slice(0, Math.max(0, startCol - 1));
+    const after = lines[endIdx].slice(Math.max(0, endCol - 1));
+    const newLines = fix.text.split('\n');
+
+    // 合并首尾
+    newLines[0] = before + newLines[0];
+    newLines[newLines.length - 1] = newLines[newLines.length - 1] + after;
+
+    // 替换行范围
+    lines.splice(startIdx, endIdx - startIdx + 1, ...newLines);
+    return lines.join('\n');
   }
 }
 

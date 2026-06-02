@@ -9,35 +9,19 @@
 
 | 模块 | 能力 | 命令 | 多端支持 | 优先级 |
 | ---- | ---- | ---- | -------- | ------ |
-| 🔍 **full-scan** | 全量治理扫描（i18n + 组件 + hooks + 平台适配） | `--scan` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
+| 🚀 **脚手架** | 一键初始化项目 + 治理配置 | `--init-scaffold` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
+| 🔍 **full-scan** | 全量治理扫描（9 大模块） | `--scan` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
 | | CI 门禁模式（阻断流水线） | `--scan --gate` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
-| ⚡ **hook-checker** | useEffect 依赖检查（缺失/过多/空依赖陷阱） | `--hooks` | React / RN / 鸿蒙 ArkUI | ⭐⭐⭐⭐⭐ |
-| | 闭包陷阱检测（setInterval/setTimeout/异步回调） | `--hooks-closure` | React / RN / 鸿蒙 ArkUI | ⭐⭐⭐⭐⭐ |
-| | 自定义 Hook 命名与返回规范 | `--hooks-custom` | React / RN / 鸿蒙 ArkUI | ⭐⭐⭐⭐☆ |
-| | Vue Composables 响应式检查（reactive 解构/toRefs） | `--composables` | Vue / 小程序 Vue3 | ⭐⭐⭐⭐☆ |
-| | 状态提升建议（useState/ref 分布分析） | `--hooks-state` | React / Vue | ⭐⭐⭐☆☆ |
-| 🏥 **component-doctor** | 组件反模式检测（AntD/Element Plus/小程序组件） | `--component` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| | 主题/token 一致性检查（硬编码颜色/间距） | `--component-token` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| | 可访问性检查（alt/aria-label/键盘导航） | `--component-a11y` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| | 性能陷阱检测（大图懒加载/虚拟列表/ECharts dispose） | `--component-perf` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| | 组件库版本升级影响分析 | `--component-upgrade` | ✅ 全端 | ⭐⭐☆☆☆ |
-| 📱 **platform-guard** | 多端适配全量检查 | `--platform` | 多端专项 | ⭐⭐⭐⭐☆ |
-| | 小程序专有规则（包体积/base64/setData/条件编译） | `--platform-mp` | 微信小程序 / 支付宝 / 抖音 | ⭐⭐⭐⭐☆ |
-| | 移动端性能检查（安全区域/触摸目标/点击延迟） | `--platform-mobile` | H5 / App / 小程序 | ⭐⭐⭐☆☆ |
-| | 鸿蒙 ArkTS/ArkUI 规范（装饰器/状态管理/资源引用） | `--platform-harmony` | HarmonyOS | ⭐⭐⭐⭐☆ |
-| | 响应式断点检查 | `--platform-responsive` | PC / H5 | ⭐⭐☆☆☆ |
-| 🌍 **i18n-governance** | 硬编码文案扫描与自动提取 | `--i18n` / `--i18n-extract` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| | 语言包缺失 key 检测 | `--i18n-missing` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| | 死 key 清理 | `--i18n-dead` | ✅ 全端 | ⭐⭐☆☆☆ |
-| | 命名规范检查（module.page.element 格式） | `--i18n-lint` | ✅ 全端 | ⭐⭐☆☆☆ |
-| | 自动翻译填充（OpenAI/DeepL/阿里云） | `--i18n-translate` | ✅ 全端 | ⭐☆☆☆☆ |
-| 🔧 **性能优化** | 请求瀑布/懒加载/整库导入检测 | `--performance` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| | 包体积分析 | `--perf-bundle` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| 🛡️ **安全扫描** | XSS/注入/密钥泄露检测 | `--security` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| | eval/new Function/危险 URL 跳转 | `--sec-eval` / `--sec-xss` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| ♿ **可访问性** | 图片 alt/表单 label/语义化检查 | `--a11y` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| | 颜色对比度/键盘导航/ARIA | `--a11y-contrast` / `--a11y-form` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| 🧹 **代码库瘦身** | 未使用依赖/导出/文件检测（Knip） | `--knip` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| 🌍 **i18n-governance** | 硬编码文案 / 缺失 key / 死 key | `--i18n` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| 🏥 **component-doctor** | 反模式 / token / 性能 / 可访问性 | `--component` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| ⚡ **hook-checker** | useEffect / 闭包 / 自定义 Hook | `--hooks` | React / Vue | ⭐⭐⭐⭐⭐ |
+| 📱 **platform-guard** | 小程序 / 移动端 / 鸿蒙 / 响应式 | `--platform` | 多端专项 | ⭐⭐⭐⭐☆ |
+| 🔧 **性能优化** | 请求瀑布 / 懒加载 / 整库导入 / memo | `--performance` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| 🛡️ **安全扫描** | XSS / eval / 密钥泄露 / CORS | `--security` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| ♿ **可访问性** | alt / label / 对比度 / ARIA | `--a11y` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| 🏷️ **命名规范** | 类 / 接口 / 函数 / 变量 / 文件名 | `--naming` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| 🔗 **跨文件分析** | props 检查 / 重复代码 / Context | `--cross-file` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| 🧹 **代码库瘦身** | 未使用依赖/导出/文件（Knip） | `--knip` | ✅ 全端 | ⭐⭐⭐☆☆ |
 
 ## 安装
 
@@ -47,11 +31,38 @@ cp -r frontend-guardian /your/project/.claude/skills/
 
 ## 使用方式
 
+### 一键初始化脚手架
+
+```bash
+# 自动检测技术栈并创建项目结构
+frontend-guardian --init-scaffold ./my-project
+
+# 指定技术栈
+frontend-guardian --init-scaffold ./my-project --stack react
+frontend-guardian --init-scaffold ./my-project --stack uniapp
+frontend-guardian --init-scaffold ./my-project --stack harmony
+
+# 强制覆盖已有文件
+frontend-guardian --init-scaffold ./my-project --stack nextjs --force
+```
+
+脚手架会自动完成：
+- 创建技术栈对应的目录结构（src/components / hooks / services / locales 等）
+- 生成 `.frontend-guardian.yml` 完整治理配置
+- 生成示例文件（i18n 工具函数、请求封装、API 常量、双语语言包）
+- 生成 `.gitignore`
+- 初始化 AI 上下文文件
+- 安装推荐依赖（react-i18next / vue-i18n / typescript / eslint 等）
+
+支持的技术栈：`react` `vue` `nextjs` `nuxt` `uniapp` `taro` `wechat-mp` `harmony`
+
+---
+
 ### 快速命令
 
 ```text
 /frontend-guardian                          # 自动检测技术栈，执行全端扫描
-/frontend-guardian --scan                   # 全量治理扫描（i18n + 组件 + hooks + 平台适配）
+/frontend-guardian --scan                   # 全量治理扫描（9 大模块）
 /frontend-guardian --scan --gate            # CI 门禁模式（发现问题退出码非0）
 
 # i18n 治理
@@ -83,6 +94,33 @@ cp -r frontend-guardian /your/project/.claude/skills/
 /frontend-guardian --platform-mobile        # 移动端性能与体验
 /frontend-guardian --platform-harmony       # 鸿蒙 ArkTS/ArkUI 规范
 /frontend-guardian --platform-responsive    # 响应式断点检查
+
+# 命名规范
+/frontend-guardian --naming                 # 命名规范全量检查
+/frontend-guardian --naming-class           # 类名检查（PascalCase）
+/frontend-guardian --naming-function        # 函数名检查（camelCase）
+/frontend-guardian --naming-file            # 文件名检查（kebab-case）
+
+# 跨文件分析
+/frontend-guardian --cross-file             # 跨文件分析（props / 重复代码）
+
+# 安全扫描
+/frontend-guardian --security               # 安全全量扫描
+/frontend-guardian --sec-xss                # XSS 专项
+/frontend-guardian --sec-eval               # eval / new Function 专项
+
+# 性能优化
+/frontend-guardian --performance            # 性能全量扫描
+/frontend-guardian --perf-waterfall         # 请求瀑布检测
+/frontend-guardian --perf-barrel            # 整库导入检测
+/frontend-guardian --perf-memo             # 昂贵计算缓存检测
+/frontend-guardian --perf-lazy             # 大组件懒加载检测
+
+# 可访问性
+/frontend-guardian --a11y                   # 可访问性全量扫描
+/frontend-guardian --a11y-img              # 图片 alt 检查
+/frontend-guardian --a11y-form             # 表单 label 检查
+/frontend-guardian --a11y-contrast         # 颜色对比度检查
 ```
 
 ### 组合命令
@@ -96,6 +134,11 @@ cp -r frontend-guardian /your/project/.claude/skills/
 
 # 仅检查当前修改的文件
 /frontend-guardian --scan --staged
+
+# 自动修复可修复的问题
+/frontend-guardian --scan --fix
+/frontend-guardian --component --fix
+/frontend-guardian --naming --fix
 
 # 初始化 AI 上下文（让 AI 理解项目技术栈）
 /frontend-guardian --init-ai claude      # Claude Code: .claude/CLAUDE.md
@@ -129,6 +172,10 @@ cp -r frontend-guardian /your/project/.claude/skills/
 | `--performance` | 性能规则扫描 | false |
 | `--security` | 安全规则扫描 | false |
 | `--a11y` | 可访问性规则扫描 | false |
+| `--naming` | 命名规范扫描 | false |
+| `--cross-file` | 跨文件分析 | false |
+| `--fix` | 自动修复可修复的问题 | false |
+| `--init-scaffold` | 一键初始化项目脚手架 | - |
 | `--ast` | 使用 AST 级别分析（Node.js 核心引擎） | false |
 
 ### AI 上下文初始化
@@ -220,19 +267,47 @@ cd lib && npm install && npm run build
 npx fg-core ./my-project --module i18n --severity warning
 ```
 
-### 支持的扫描模块
+### 支持的扫描模块（9 大模块，48 条规则）
 
-| 模块 | CLI | 说明 |
-| ------ | ----- | ------ |
-| i18n | `--module i18n` | AST 级别硬编码中文检测（字符串/模板/JSX） |
-| performance | `--module performance` | 请求瀑布、懒加载、整库导入检测 |
-| accessibility | `--module a11y` | 图片 alt、表单 label、语义化检查 |
-| security | `--module security` | XSS、eval、密钥泄露检测 |
+| 模块 | CLI | 规则数 | 说明 |
+| ------ | ----- | ------ | ------ |
+| i18n | `--module i18n` | 3 | 硬编码中文、缺失 key、未使用 key |
+| performance | `--module performance` | 4 | 请求瀑布、整库导入、昂贵计算缓存、大组件懒加载 |
+| accessibility | `--module a11y` | 5 | 图片 alt、表单 label、按钮 role、颜色对比度、ARIA 校验 |
+| security | `--module security` | 5 | XSS、eval、密钥泄露、URL 校验、CORS |
+| naming | `--module naming` | 8 | 类、接口、函数、变量、枚举、私有成员、文件/文件夹命名 |
+| cross-file | `--module cross-file` | 5 | 未使用 props、缺失 props、Context 过度使用、重复代码、公共逻辑提取 |
+| component | `--module component` | 3 | 反模式（Form/Table/Modal）、硬编码 token、性能陷阱 |
+| hooks | `--module hooks` | 6 | useEffect 依赖、定时器清理、Hook 命名、Vue reactive、computed 副作用、状态提升 |
+| platform | `--module platform` | 6 | 小程序体积/base64/HTTP、安全区域、鸿蒙规范、响应式断点 |
+
+### 自动修复（--fix）
+
+Node.js 引擎支持自动修复可修复的问题：
+
+```bash
+# 扫描并自动修复
+npx fg-core ./my-project --module naming --fix
+npx fg-core ./my-project --module component --fix
+```
+
+**当前支持自动修复的规则：**
+
+| 规则 | 修复内容 |
+| ---- | -------- |
+| `perf-avoid-barrel-import` | 将整库导入拆分为子模块导入 |
+| `composables-reactive` | 将解构的 reactive 改为 `toRefs(reactive(...))` |
+| `perf-dynamic-import` | 插入 React.lazy / defineAsyncComponent 代码 |
+
+修复逻辑：
+1. 按文件收集所有带 `fix` 字段的问题
+2. 按行号倒序排列（从文件末尾开始修复，避免行号偏移）
+3. 应用文本替换并写回文件
 
 ### 与 Bash 引擎的关系
 
 - **Bash 引擎**：零依赖，适合 CI/CD 环境，正则匹配
-- **Node.js 引擎**：需要 Node.js ≥ 18，AST 精确分析，自动修复
+- **Node.js 引擎**：需要 Node.js ≥ 18，AST 精确分析，自动修复，48 条规则
 
 `full-scan.sh` 检测到 `lib/dist/index.js` 存在时，自动调用 Node.js 引擎进行深度分析。
 

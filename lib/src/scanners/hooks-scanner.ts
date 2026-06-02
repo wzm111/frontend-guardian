@@ -65,6 +65,7 @@ export const hooksRules: Rule[] = [
           }
 
           // 2. 空依赖数组但引用了状态
+          let hasEmptyDepsIssue = false;
           if (depsArray.type === 'ArrayExpression' && depsArray.elements.length === 0) {
             // 检查 effect 函数体是否引用了状态
             if (effectFn?.type === 'ArrowFunctionExpression' || effectFn?.type === 'FunctionExpression') {
@@ -82,10 +83,12 @@ export const hooksRules: Rule[] = [
                     column,
                     source: 'useEffect(() => { ... }, [])',
                   });
+                  hasEmptyDepsIssue = true;
                 }
               }
             }
-            return;
+            // 只在检测到空依赖陷阱时才跳过后续检查
+            if (hasEmptyDepsIssue) return;
           }
 
           // 3. 依赖过多（>5）
@@ -246,10 +249,9 @@ export const hooksRules: Rule[] = [
           if (!name || name.startsWith('use')) return;
 
           // 检查函数体是否使用了 hooks
-          const body = path.node.body;
           let usesHooks = false;
-          traverse(body, {
-            CallExpression(innerPath) {
+          (path as any).traverse({
+            CallExpression(innerPath: any) {
               const callee = innerPath.node.callee;
               if (callee.type === 'Identifier' && /^use[A-Z]/.test(callee.name)) {
                 usesHooks = true;
