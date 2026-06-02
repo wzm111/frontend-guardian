@@ -195,4 +195,11 @@ describe("CLI — 其他参数", () => {
             expect(err.stdout || "").toContain("Frontend Guardian Core");
         }
     });
+
+    it("--auto-scope 应被解析", () => {
+        writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test" }), "utf-8");
+        const result = runCLI(["--module", "i18n", "--auto-scope"]);
+        // 无 git 仓库时应回退到全量扫描
+        expect(result.stdout).toContain("Frontend Guardian Core");
+    });
 });

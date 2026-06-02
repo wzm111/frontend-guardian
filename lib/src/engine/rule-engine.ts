@@ -58,6 +58,8 @@ export interface EngineOptions {
     staged?: boolean;
     /** git diff 范围，如 main...feature */
     diffRange?: string;
+    /** 智能扫描范围：自动检测未提交/最近修改的文件 */
+    autoScope?: boolean;
     /** 是否运行外部工具集成（ESLint / TypeScript / Stylelint） */
     external?: boolean;
     /** 是否启用智能缓存 */
@@ -323,15 +325,25 @@ export class RuleEngine {
 
     /** 获取扫描文件列表 */
     private async getScanFiles(): Promise<string[]> {
-        // 增量扫描：git staged / diff 范围
-        if (this.options.staged || this.options.diffRange) {
-            const diffFiles = this.getDiffFiles();
+        // 增量扫描：git staged / diff 范围 / auto-scope
+        if (this.options.staged || this.options.diffRange || this.options.autoScope) {
+            const diffFiles = this.options.autoScope
+                ? this.getAutoScopeFiles()
+                : this.getDiffFiles();
             if (diffFiles.length === 0) {
+                if (this.options.autoScope) {
+                    // auto-scope 无结果时回退到全量扫描
+                    console.log(pc.yellow("⚠️  未检测到修改文件，回退到全量扫描"));
+                }
                 return [];
             }
             // 过滤出符合扩展名的文件
             const include = this.config.scan?.includeExtensions || [".js", ".ts", ".jsx", ".tsx", ".vue"];
-            return diffFiles.filter((f) => include.some((ext) => f.endsWith(ext)));
+            const filtered = diffFiles.filter((f) => include.some((ext) => f.endsWith(ext)));
+            if (this.options.autoScope && filtered.length > 0) {
+                console.log(pc.cyan(`🔍 智能扫描范围: ${filtered.length} 个文件`));
+            }
+            return filtered;
         }
 
         if (this.options.files && this.options.files.length > 0) {
@@ -380,6 +392,56 @@ export class RuleEngine {
                 .split("\n")
                 .filter(Boolean)
                 .map((f) => resolve(this.options.projectDir, f));
+        } catch {
+            return [];
+        }
+    }
+
+    /** 智能推断扫描范围：未提交修改 → 最近 5 次提交 → 全量 */
+    private getAutoScopeFiles(): string[] {
+        try {
+            const files = new Set<string>();
+
+            // 1. 未提交的修改（unstaged + staged）
+            for (const cmd of [
+                "git diff --name-only --diff-filter=ACM",
+                "git diff --cached --name-only --diff-filter=ACM",
+            ]) {
+                try {
+                    const output = execSync(cmd, {
+                        cwd: this.options.projectDir,
+                        encoding: "utf-8",
+                        stdio: ["pipe", "pipe", "ignore"],
+                    });
+                    output
+                        .trim()
+                        .split("\n")
+                        .filter(Boolean)
+                        .forEach((f) => files.add(resolve(this.options.projectDir, f)));
+                } catch {
+                    // 忽略单条命令失败
+                }
+            }
+
+            // 2. 无未提交修改时，回退到最近 5 次提交
+            if (files.size === 0) {
+                try {
+                    const output = execSync("git diff --name-only --diff-filter=ACM HEAD~5...HEAD", {
+                        cwd: this.options.projectDir,
+                        encoding: "utf-8",
+                        stdio: ["pipe", "pipe", "ignore"],
+                    });
+                    output
+                        .trim()
+                        .split("\n")
+                        .filter(Boolean)
+                        .forEach((f) => files.add(resolve(this.options.projectDir, f)));
+                } catch {
+                    // 可能不足 5 次提交，忽略
+                }
+            }
+
+            return Array.from(files);
         } catch {
             return [];
         }

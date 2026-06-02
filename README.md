@@ -234,7 +234,10 @@ fg-core . --scan --gate
 # 5️⃣ PR diff 范围检查
 fg-core . --scan --diff main...feature
 
-# 6️⃣ 初始化项目配置
+# 6️⃣ 智能扫描范围（未提交修改 → 最近 5 次提交）
+fg-core . --scan --auto-scope
+
+# 7️⃣ 初始化项目配置
 fg-core . --init-config
 
 # 7️⃣ 安装 Git hook（pre-commit / pre-push）
@@ -307,6 +310,7 @@ fg-core . --scan --post-comment
 | `--severity <level>` | 最低输出严重级别：`critical` / `warning` / `suggestion` | `suggestion` |
 | `--staged` | 仅检查 git staged 文件 | false |
 | `--diff <range>` | git diff 范围，如 `main...feature` | - |
+| `--auto-scope` | 智能扫描范围：自动检测未提交/最近修改的文件 | - |
 | `--fix` | 自动修复可修复的问题 | false |
 | `--dry-run` | 修复预览模式（展示 diff 不写入文件） | false |
 | `--json` | 以 JSON 格式输出原始扫描结果 | false |
