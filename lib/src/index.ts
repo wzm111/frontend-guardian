@@ -31,6 +31,16 @@ export { parseAST, getImports, hasImport, walkAST } from "./utils/ast-parser.js"
 export { detectProjectMeta } from "./utils/project-detector.js";
 export { loadConfig } from "./utils/config-loader.js";
 
+// Phase 4: 外部工具集成
+export {
+    allExternalTools,
+    eslintIntegration,
+    typescriptIntegration,
+    stylelintIntegration,
+    runAllExternalTools,
+} from "./integrations/index.js";
+export type { ExternalTool, ExternalToolResult } from "./integrations/index.js";
+
 export { i18nRules } from "./scanners/i18n-scanner.js";
 
 export { performanceRules } from "./scanners/performance-scanner.js";

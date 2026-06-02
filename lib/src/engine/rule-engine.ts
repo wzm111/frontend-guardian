@@ -30,6 +30,8 @@ import { loadConfig } from "../utils/config-loader.js";
 import { RuleRegistry, createRegistry } from "../rules/registry.js";
 import { globby } from "globby";
 import pc from "picocolors";
+import type { ExternalTool, ExternalToolResult } from "../integrations/index.js";
+import { runAllExternalTools } from "../integrations/index.js";
 
 export interface EngineOptions {
     /** 项目根目录 */
@@ -48,6 +50,8 @@ export interface EngineOptions {
     staged?: boolean;
     /** git diff 范围，如 main...feature */
     diffRange?: string;
+    /** 是否运行外部工具集成（ESLint / TypeScript / Stylelint） */
+    external?: boolean;
 }
 
 export class RuleEngine {
@@ -442,6 +446,37 @@ export class RuleEngine {
         }
 
         return clustered;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Phase 4: 外部工具集成 (ESLint / TypeScript / Stylelint)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * 运行外部工具集成检查
+     * 自动检测项目中可用的工具（ESLint / TypeScript / Stylelint）并执行
+     */
+    runExternal(tools?: ExternalTool[]): ExternalToolResult[] {
+        const targetTools = tools || this.getDefaultExternalTools();
+        if (targetTools.length === 0) {
+            return [];
+        }
+
+        console.log(pc.cyan("🔌 运行外部工具集成..."));
+
+        // 获取当前扫描文件列表（用于增量模式）
+        const scanFiles = this.options.staged || this.options.diffRange
+            ? this.getDiffFiles()
+            : undefined;
+
+        return runAllExternalTools(this.options.projectDir, targetTools, scanFiles);
+    }
+
+    /** 获取默认的外部工具列表 */
+    private getDefaultExternalTools(): ExternalTool[] {
+        // 动态导入避免循环依赖
+        const { allExternalTools } = require("../integrations/index.js");
+        return allExternalTools;
     }
 }
 
