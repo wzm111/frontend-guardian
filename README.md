@@ -79,6 +79,17 @@ frontend-guardian 设计为**跨智能体兼容**的 Skill/插件，不绑定任
 
 ## 使用方式
 
+frontend-guardian 支持两种使用方式，你可以根据场景自由选择：
+
+| 方式         | 命令格式                       | 适用场景                       |
+|--------------|--------------------------------|--------------------------------|
+| **CLI 工具** | `fg-core . [options]`          | CI/CD、脚本自动化、本地终端    |
+| **AI Skill** | `/frontend-guardian [options]` | AI 对话中调用，智能体自动执行   |
+
+> 💡 **选择建议**：本地开发和 CI 用 `fg-core`，AI 辅助编程用 `/frontend-guardian`。两者功能完全一致。
+
+---
+
 ### 场景一：新建项目（从 0 开始）
 
 #### Step 1 — 安装 CLI
@@ -94,8 +105,11 @@ npm install -D frontend-guardian-core
 #### Step 2 — 初始化配置
 
 ```bash
-cd your-project
+# CLI 方式
 fg-core . --init-config
+
+# AI Skill 方式（智能体会自动执行）
+/frontend-guardian --init-config
 ```
 
 这会生成 `.frontend-guardian.yml`，自动检测你的技术栈（React/Vue/小程序等）并填入适合的默认配置。
@@ -103,8 +117,13 @@ fg-core . --init-config
 #### Step 3 — 安装 Git hook（推荐）
 
 ```bash
+# CLI 方式
 fg-core . --install-hooks          # pre-commit 增量检查
 fg-core . --install-hooks --install-hooks-type both   # pre-commit + pre-push
+
+# AI Skill 方式
+/frontend-guardian --install-hooks
+/frontend-guardian --install-hooks --install-hooks-type both
 ```
 
 这样每次提交前会自动扫描 staged 文件，有问题会阻止提交。
@@ -112,7 +131,11 @@ fg-core . --install-hooks --install-hooks-type both   # pre-commit + pre-push
 #### Step 4 — 首次全量扫描
 
 ```bash
+# CLI 方式
 fg-core . --scan
+
+# AI Skill 方式
+/frontend-guardian --scan
 ```
 
 ---
@@ -124,22 +147,36 @@ fg-core . --scan
 ```bash
 cd existing-project
 npm install -g frontend-guardian-core
+
+# CLI 方式
 fg-core . --scan
+
+# AI Skill 方式（无需安装，智能体直接执行）
+/frontend-guardian --scan
 ```
 
 #### Step 2 — 根据项目现状选择策略
 
-| 项目状态 | 推荐命令 |
-|----------|----------|
-| 问题很多，想先摸底 | `fg-core . --scan --json > report.json` |
-| 只想看最严重的问题 | `fg-core . --scan --severity critical` |
-| 逐步治理（不阻塞现有问题） | `fg-core . --scan --baseline baseline.json` |
-| 想自动修复简单问题 | `fg-core . --scan --fix --dry-run` 先预览，确认后再 `fg-core . --scan --fix` |
-| 只想检查本次改动 | `fg-core . --scan --staged` 或 `fg-core . --scan --diff main...feature` |
+- **问题很多，想先摸底**
+  - CLI: `fg-core . --scan --json`
+  - AI: `/frontend-guardian --scan --json`
+- **只想看最严重的问题**
+  - CLI: `fg-core . --scan --severity critical`
+  - AI: `/frontend-guardian --scan --severity critical`
+- **逐步治理（不阻塞现有问题）**
+  - CLI: `fg-core . --scan --baseline baseline.json`
+  - AI: `/frontend-guardian --scan --baseline baseline.json`
+- **想自动修复简单问题**
+  - CLI: `fg-core . --scan --fix --dry-run`
+  - AI: `/frontend-guardian --scan --fix --dry-run`
+- **只想检查本次改动**
+  - CLI: `fg-core . --scan --staged`
+  - AI: `/frontend-guardian --scan --staged`
 
 #### Step 3 — 集成到 CI（可选）
 
 ```bash
+# CLI 方式（AI Skill 不适用于 CI 场景）
 fg-core . --scan --gate    # 有问题时退出码非 0，可阻断 CI
 ```
 
@@ -158,6 +195,8 @@ fg-core . --scan --gate    # 有问题时退出码非 0，可阻断 CI
 ---
 
 ### 7 个核心命令
+
+> 以下所有命令，`fg-core` 和 `/frontend-guardian` 均可使用，将 `fg-core .` 替换为 `/frontend-guardian` 即可。
 
 ```text
 # 1️⃣ 全量扫描（推荐）
@@ -199,7 +238,11 @@ fg-core . --module cross-file      # 跨文件分析
 fg-core . --module svelte          # Svelte 专项检查
 ```
 
+> 💡 AI Skill 用法：`/frontend-guardian --module i18n`（其余模块同理）
+
 ### 常用组合
+
+> 将 `fg-core .` 替换为 `/frontend-guardian` 即可在 AI 对话中使用。
 
 ```text
 # 修复预览（展示 diff 不写入）
@@ -226,6 +269,9 @@ fg-core . --scan --sarif report.sarif
 # Baseline 模式（仅报告新增问题）
 fg-core . --scan --baseline baseline.json
 fg-core . --scan --baseline baseline.json --generate-baseline
+
+# PR/MR 评论自动发布（v2.5.0）
+fg-core . --scan --post-comment
 ```
 
 ### 参数说明
