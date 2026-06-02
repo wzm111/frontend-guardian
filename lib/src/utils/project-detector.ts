@@ -19,422 +19,387 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type {
-  ProjectMeta,
-  ProjectConfig,
-  Framework,
-  Platform,
-  ComponentLib,
-  Bundler,
-  TestFramework,
-  StateManager,
-  StylingSolution,
-  RouterLib,
-  PackageManager,
-  LinterTool,
-  MonorepoTool,
-  Runtime,
+    ProjectMeta,
+    ProjectConfig,
+    Framework,
+    Platform,
+    ComponentLib,
+    Bundler,
+    TestFramework,
+    StateManager,
+    StylingSolution,
+    RouterLib,
+    PackageManager,
+    LinterTool,
+    MonorepoTool,
+    Runtime,
 } from "../types.js";
 
 export function detectProjectMeta(projectDir: string, config?: ProjectConfig): ProjectMeta {
-  const pkgPath = resolve(projectDir, "package.json");
-  const pkg = existsSync(pkgPath) ? JSON.parse(readFileSync(pkgPath, "utf-8")) : {};
-  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-  const scripts = pkg.scripts || {};
+    const pkgPath = resolve(projectDir, "package.json");
+    const pkg = existsSync(pkgPath) ? JSON.parse(readFileSync(pkgPath, "utf-8")) : {};
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    const scripts = pkg.scripts || {};
 
-  const frameworkInfo = detectFramework(projectDir, deps);
-  const componentLibInfo = detectComponentLib(deps);
-  const platforms = detectPlatforms(projectDir, frameworkInfo.framework, deps);
-  const i18nInfo = detectI18n(deps);
+    const frameworkInfo = detectFramework(projectDir, deps);
+    const componentLibInfo = detectComponentLib(deps);
+    const platforms = detectPlatforms(projectDir, frameworkInfo.framework, deps);
+    const i18nInfo = detectI18n(deps);
 
-  return {
-    framework: frameworkInfo.framework,
-    frameworkVersion: frameworkInfo.version,
-    componentLib: componentLibInfo.componentLib,
-    componentLibVersion: componentLibInfo.version,
-    platforms,
-    hasTypeScript:
-      existsSync(resolve(projectDir, "tsconfig.json")) || deps["typescript"] !== undefined,
-    hasI18n: i18nInfo.hasI18n,
-    i18nLib: i18nInfo.i18nLib,
-    scripts,
+    return {
+        framework: frameworkInfo.framework,
+        frameworkVersion: frameworkInfo.version,
+        componentLib: componentLibInfo.componentLib,
+        componentLibVersion: componentLibInfo.version,
+        platforms,
+        hasTypeScript: existsSync(resolve(projectDir, "tsconfig.json")) || deps["typescript"] !== undefined,
+        hasI18n: i18nInfo.hasI18n,
+        i18nLib: i18nInfo.i18nLib,
+        scripts,
 
-    // Phase 2: 深度检测
-    bundler: detectBundler(deps)?.bundler,
-    bundlerVersion: detectBundler(deps)?.version,
-    testFramework: detectTestFramework(deps)?.testFramework,
-    testFrameworkVersion: detectTestFramework(deps)?.version,
-    stateManager: detectStateManager(deps)?.stateManager,
-    stateManagerVersion: detectStateManager(deps)?.version,
-    styling: detectStyling(deps)?.styling,
-    stylingVersion: detectStyling(deps)?.version,
-    router: detectRouter(deps)?.router,
-    routerVersion: detectRouter(deps)?.version,
-    packageManager: detectPackageManager(projectDir),
-    linter: detectLinter(deps),
-    monorepoTool: detectMonorepo(projectDir, deps),
-    runtime: detectRuntime(pkg),
-  };
+        // Phase 2: 深度检测
+        bundler: detectBundler(deps)?.bundler,
+        bundlerVersion: detectBundler(deps)?.version,
+        testFramework: detectTestFramework(deps)?.testFramework,
+        testFrameworkVersion: detectTestFramework(deps)?.version,
+        stateManager: detectStateManager(deps)?.stateManager,
+        stateManagerVersion: detectStateManager(deps)?.version,
+        styling: detectStyling(deps)?.styling,
+        stylingVersion: detectStyling(deps)?.version,
+        router: detectRouter(deps)?.router,
+        routerVersion: detectRouter(deps)?.version,
+        packageManager: detectPackageManager(projectDir),
+        linter: detectLinter(deps),
+        monorepoTool: detectMonorepo(projectDir, deps),
+        runtime: detectRuntime(pkg),
+    };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 框架检测
 // ─────────────────────────────────────────────────────────────────────────────
 function detectFramework(
-  projectDir: string,
-  deps: Record<string, string>,
+    projectDir: string,
+    deps: Record<string, string>
 ): { framework?: Framework; version?: string } {
-  const fwOrder: { key: string; framework: Framework }[] = [
-    { key: "next", framework: "nextjs" },
-    { key: "nuxt", framework: "nuxt" },
-    { key: "@dcloudio/uni-app", framework: "uniapp" },
-    { key: "@tarojs/taro", framework: "taro" },
-    { key: "react-native", framework: "react-native" },
-    { key: "flutter", framework: "flutter" },
-    { key: "react", framework: "react" },
-    { key: "vue", framework: "vue" },
-  ];
+    const fwOrder: { key: string; framework: Framework }[] = [
+        { key: "next", framework: "nextjs" },
+        { key: "nuxt", framework: "nuxt" },
+        { key: "@dcloudio/uni-app", framework: "uniapp" },
+        { key: "@tarojs/taro", framework: "taro" },
+        { key: "react-native", framework: "react-native" },
+        { key: "flutter", framework: "flutter" },
+        { key: "react", framework: "react" },
+        { key: "vue", framework: "vue" },
+    ];
 
-  for (const { key, framework } of fwOrder) {
-    if (deps[key]) {
-      return { framework, version: deps[key] };
+    for (const { key, framework } of fwOrder) {
+        if (deps[key]) {
+            return { framework, version: deps[key] };
+        }
     }
-  }
 
-  // HarmonyOS (no typical npm dep, detect by file structure)
-  if (existsSync(resolve(projectDir, "entry/src/main/ets")) || deps["@ohos/hvigor"]) {
-    return { framework: "harmony" };
-  }
+    // HarmonyOS (no typical npm dep, detect by file structure)
+    if (existsSync(resolve(projectDir, "entry/src/main/ets")) || deps["@ohos/hvigor"]) {
+        return { framework: "harmony" };
+    }
 
-  return {};
+    return {};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 组件库检测
 // ─────────────────────────────────────────────────────────────────────────────
 function detectComponentLib(deps: Record<string, string>): {
-  componentLib?: ComponentLib;
-  version?: string;
+    componentLib?: ComponentLib;
+    version?: string;
 } {
-  const libMap: { key: string; lib: ComponentLib }[] = [
-    { key: "antd", lib: "antd" },
-    { key: "ant-design-vue", lib: "antd" },
-    { key: "@ant-design/react-native", lib: "antd" },
-    { key: "element-plus", lib: "element-plus" },
-    { key: "@mui/material", lib: "mui" },
-    { key: "vuetify", lib: "vuetify" },
-    { key: "@nutui/nutui-react", lib: "nutui" },
-    { key: "@nutui/nutui", lib: "nutui" },
-    { key: "tdesign-react", lib: "tdesign" },
-    { key: "tdesign-vue-next", lib: "tdesign" },
-  ];
+    const libMap: { key: string; lib: ComponentLib }[] = [
+        { key: "antd", lib: "antd" },
+        { key: "ant-design-vue", lib: "antd" },
+        { key: "@ant-design/react-native", lib: "antd" },
+        { key: "element-plus", lib: "element-plus" },
+        { key: "@mui/material", lib: "mui" },
+        { key: "vuetify", lib: "vuetify" },
+        { key: "@nutui/nutui-react", lib: "nutui" },
+        { key: "@nutui/nutui", lib: "nutui" },
+        { key: "tdesign-react", lib: "tdesign" },
+        { key: "tdesign-vue-next", lib: "tdesign" },
+    ];
 
-  for (const { key, lib } of libMap) {
-    if (deps[key]) {
-      return { componentLib: lib, version: deps[key] };
+    for (const { key, lib } of libMap) {
+        if (deps[key]) {
+            return { componentLib: lib, version: deps[key] };
+        }
     }
-  }
 
-  return {};
+    return {};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 平台检测
 // ─────────────────────────────────────────────────────────────────────────────
-function detectPlatforms(
-  projectDir: string,
-  framework?: Framework,
-  deps?: Record<string, string>,
-): Platform[] {
-  const platforms: Platform[] = [];
+function detectPlatforms(projectDir: string, framework?: Framework, deps?: Record<string, string>): Platform[] {
+    const platforms: Platform[] = [];
 
-  // 小程序
-  if (
-    existsSync(resolve(projectDir, "manifest.json")) &&
-    existsSync(resolve(projectDir, "pages.json"))
-  ) {
-    platforms.push("wechat-mp", "h5", "app");
-    return platforms;
-  }
-  if (
-    existsSync(resolve(projectDir, "app.json")) &&
-    existsSync(resolve(projectDir, "project.config.json"))
-  ) {
-    platforms.push("wechat-mp");
-    return platforms;
-  }
-  if (existsSync(resolve(projectDir, "mini.project.json"))) {
-    platforms.push("alipay-mp");
-    return platforms;
-  }
+    // 小程序
+    if (existsSync(resolve(projectDir, "manifest.json")) && existsSync(resolve(projectDir, "pages.json"))) {
+        platforms.push("wechat-mp", "h5", "app");
+        return platforms;
+    }
+    if (existsSync(resolve(projectDir, "app.json")) && existsSync(resolve(projectDir, "project.config.json"))) {
+        platforms.push("wechat-mp");
+        return platforms;
+    }
+    if (existsSync(resolve(projectDir, "mini.project.json"))) {
+        platforms.push("alipay-mp");
+        return platforms;
+    }
 
-  // 多端框架
-  if (framework === "uniapp") {
-    platforms.push("wechat-mp", "h5", "app");
-    return platforms;
-  }
-  if (framework === "taro") {
-    platforms.push("wechat-mp", "h5");
-    return platforms;
-  }
+    // 多端框架
+    if (framework === "uniapp") {
+        platforms.push("wechat-mp", "h5", "app");
+        return platforms;
+    }
+    if (framework === "taro") {
+        platforms.push("wechat-mp", "h5");
+        return platforms;
+    }
 
-  // PC / H5
-  if (
-    framework === "react" ||
-    framework === "vue" ||
-    framework === "nextjs" ||
-    framework === "nuxt"
-  ) {
-    platforms.push("pc", "h5");
-  }
+    // PC / H5
+    if (framework === "react" || framework === "vue" || framework === "nextjs" || framework === "nuxt") {
+        platforms.push("pc", "h5");
+    }
 
-  // App
-  if (framework === "flutter" || framework === "react-native") {
-    platforms.push("app");
-  }
+    // App
+    if (framework === "flutter" || framework === "react-native") {
+        platforms.push("app");
+    }
 
-  // HarmonyOS
-  if (framework === "harmony") {
-    platforms.push("harmony");
-  }
+    // HarmonyOS
+    if (framework === "harmony") {
+        platforms.push("harmony");
+    }
 
-  return platforms.length > 0 ? platforms : ["pc"];
+    return platforms.length > 0 ? platforms : ["pc"];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // i18n 检测
 // ─────────────────────────────────────────────────────────────────────────────
 function detectI18n(deps: Record<string, string>): { hasI18n: boolean; i18nLib?: string } {
-  const i18nDeps = [
-    "react-intl",
-    "react-i18next",
-    "vue-i18n",
-    "i18next",
-    "@dcloudio/uni-i18n",
-    "@formatjs/intl",
-  ];
-  const found = i18nDeps.find((d) => deps[d]);
-  return { hasI18n: !!found, i18nLib: found };
+    const i18nDeps = ["react-intl", "react-i18next", "vue-i18n", "i18next", "@dcloudio/uni-i18n", "@formatjs/intl"];
+    const found = i18nDeps.find((d) => deps[d]);
+    return { hasI18n: !!found, i18nLib: found };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bundler / Build Tool 检测
 // ─────────────────────────────────────────────────────────────────────────────
-function detectBundler(
-  deps: Record<string, string>,
-): { bundler?: Bundler; version?: string } | undefined {
-  const bundlerMap: { key: string; bundler: Bundler }[] = [
-    { key: "vite", bundler: "vite" },
-    { key: "@rsbuild/core", bundler: "rsbuild" },
-    { key: "webpack", bundler: "webpack" },
-    { key: "@farmfe/core", bundler: "farm" },
-    { key: "@rspack/core", bundler: "rspack" },
-    { key: "parcel", bundler: "parcel" },
-    { key: "esbuild", bundler: "esbuild" },
-    { key: "rollup", bundler: "rollup" },
-    { key: "wmr", bundler: "wmr" },
-  ];
+function detectBundler(deps: Record<string, string>): { bundler?: Bundler; version?: string } | undefined {
+    const bundlerMap: { key: string; bundler: Bundler }[] = [
+        { key: "vite", bundler: "vite" },
+        { key: "@rsbuild/core", bundler: "rsbuild" },
+        { key: "webpack", bundler: "webpack" },
+        { key: "@farmfe/core", bundler: "farm" },
+        { key: "@rspack/core", bundler: "rspack" },
+        { key: "parcel", bundler: "parcel" },
+        { key: "esbuild", bundler: "esbuild" },
+        { key: "rollup", bundler: "rollup" },
+        { key: "wmr", bundler: "wmr" },
+    ];
 
-  // Next.js / Nuxt 自带 bundler
-  if (deps["next"]) {
-    return { bundler: "turbopack", version: deps["next"] };
-  }
-  if (deps["nuxt"]) {
-    return { bundler: "vite", version: deps["nuxt"] };
-  }
-
-  for (const { key, bundler } of bundlerMap) {
-    if (deps[key]) {
-      return { bundler, version: deps[key] };
+    // Next.js / Nuxt 自带 bundler
+    if (deps["next"]) {
+        return { bundler: "turbopack", version: deps["next"] };
     }
-  }
+    if (deps["nuxt"]) {
+        return { bundler: "vite", version: deps["nuxt"] };
+    }
 
-  return undefined;
+    for (const { key, bundler } of bundlerMap) {
+        if (deps[key]) {
+            return { bundler, version: deps[key] };
+        }
+    }
+
+    return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 测试框架检测
 // ─────────────────────────────────────────────────────────────────────────────
 function detectTestFramework(
-  deps: Record<string, string>,
+    deps: Record<string, string>
 ): { testFramework?: TestFramework; version?: string } | undefined {
-  const testMap: { key: string; tf: TestFramework }[] = [
-    { key: "vitest", tf: "vitest" },
-    { key: "jest", tf: "jest" },
-    { key: "playwright", tf: "playwright" },
-    { key: "cypress", tf: "cypress" },
-    { key: "mocha", tf: "mocha" },
-    { key: "karma", tf: "karma" },
-    { key: "ava", tf: "ava" },
-  ];
+    const testMap: { key: string; tf: TestFramework }[] = [
+        { key: "vitest", tf: "vitest" },
+        { key: "jest", tf: "jest" },
+        { key: "playwright", tf: "playwright" },
+        { key: "cypress", tf: "cypress" },
+        { key: "mocha", tf: "mocha" },
+        { key: "karma", tf: "karma" },
+        { key: "ava", tf: "ava" },
+    ];
 
-  for (const { key, tf } of testMap) {
-    if (deps[key]) {
-      return { testFramework: tf, version: deps[key] };
+    for (const { key, tf } of testMap) {
+        if (deps[key]) {
+            return { testFramework: tf, version: deps[key] };
+        }
     }
-  }
 
-  return undefined;
+    return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 状态管理检测
 // ─────────────────────────────────────────────────────────────────────────────
 function detectStateManager(
-  deps: Record<string, string>,
+    deps: Record<string, string>
 ): { stateManager?: StateManager; version?: string } | undefined {
-  const smMap: { key: string; sm: StateManager }[] = [
-    { key: "zustand", sm: "zustand" },
-    { key: "jotai", sm: "jotai" },
-    { key: "recoil", sm: "recoil" },
-    { key: "valtio", sm: "valtio" },
-    { key: "mobx", sm: "mobx" },
-    { key: "redux", sm: "redux" },
-    { key: "pinia", sm: "pinia" },
-    { key: "vuex", sm: "vuex" },
-  ];
+    const smMap: { key: string; sm: StateManager }[] = [
+        { key: "zustand", sm: "zustand" },
+        { key: "jotai", sm: "jotai" },
+        { key: "recoil", sm: "recoil" },
+        { key: "valtio", sm: "valtio" },
+        { key: "mobx", sm: "mobx" },
+        { key: "redux", sm: "redux" },
+        { key: "pinia", sm: "pinia" },
+        { key: "vuex", sm: "vuex" },
+    ];
 
-  for (const { key, sm } of smMap) {
-    if (deps[key]) {
-      return { stateManager: sm, version: deps[key] };
+    for (const { key, sm } of smMap) {
+        if (deps[key]) {
+            return { stateManager: sm, version: deps[key] };
+        }
     }
-  }
 
-  return undefined;
+    return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 样式方案检测
 // ─────────────────────────────────────────────────────────────────────────────
-function detectStyling(
-  deps: Record<string, string>,
-): { styling?: StylingSolution; version?: string } | undefined {
-  const styleMap: { key: string; style: StylingSolution }[] = [
-    { key: "tailwindcss", style: "tailwindcss" },
-    { key: "styled-components", style: "styled-components" },
-    { key: "@emotion/react", style: "emotion" },
-    { key: "@emotion/styled", style: "emotion" },
-    { key: "sass", style: "sass" },
-    { key: "less", style: "less" },
-    { key: "postcss-modules", style: "css-modules" },
-    { key: "@vanilla-extract/css", style: "vanilla-extract" },
-    { key: "unocss", style: "unocss" },
-    { key: "windicss", style: "windicss" },
-  ];
+function detectStyling(deps: Record<string, string>): { styling?: StylingSolution; version?: string } | undefined {
+    const styleMap: { key: string; style: StylingSolution }[] = [
+        { key: "tailwindcss", style: "tailwindcss" },
+        { key: "styled-components", style: "styled-components" },
+        { key: "@emotion/react", style: "emotion" },
+        { key: "@emotion/styled", style: "emotion" },
+        { key: "sass", style: "sass" },
+        { key: "less", style: "less" },
+        { key: "postcss-modules", style: "css-modules" },
+        { key: "@vanilla-extract/css", style: "vanilla-extract" },
+        { key: "unocss", style: "unocss" },
+        { key: "windicss", style: "windicss" },
+    ];
 
-  for (const { key, style } of styleMap) {
-    if (deps[key]) {
-      return { styling: style, version: deps[key] };
+    for (const { key, style } of styleMap) {
+        if (deps[key]) {
+            return { styling: style, version: deps[key] };
+        }
     }
-  }
 
-  return undefined;
+    return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 路由检测
 // ─────────────────────────────────────────────────────────────────────────────
-function detectRouter(
-  deps: Record<string, string>,
-): { router?: RouterLib; version?: string } | undefined {
-  const routerMap: { key: string; router: RouterLib }[] = [
-    { key: "react-router-dom", router: "react-router" },
-    { key: "react-router", router: "react-router" },
-    { key: "vue-router", router: "vue-router" },
-    { key: "@tanstack/react-router", router: "tanstack-router" },
-    { key: "wouter", router: "wouter" },
-  ];
+function detectRouter(deps: Record<string, string>): { router?: RouterLib; version?: string } | undefined {
+    const routerMap: { key: string; router: RouterLib }[] = [
+        { key: "react-router-dom", router: "react-router" },
+        { key: "react-router", router: "react-router" },
+        { key: "vue-router", router: "vue-router" },
+        { key: "@tanstack/react-router", router: "tanstack-router" },
+        { key: "wouter", router: "wouter" },
+    ];
 
-  for (const { key, router } of routerMap) {
-    if (deps[key]) {
-      return { router, version: deps[key] };
+    for (const { key, router } of routerMap) {
+        if (deps[key]) {
+            return { router, version: deps[key] };
+        }
     }
-  }
 
-  return undefined;
+    return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 包管理器检测 (通过 lockfile)
 // ─────────────────────────────────────────────────────────────────────────────
 function detectPackageManager(projectDir: string): PackageManager {
-  if (existsSync(resolve(projectDir, "bun.lockb")) || existsSync(resolve(projectDir, "bun.lock"))) {
-    return "bun";
-  }
-  if (existsSync(resolve(projectDir, "pnpm-lock.yaml"))) {
-    return "pnpm";
-  }
-  if (existsSync(resolve(projectDir, "yarn.lock"))) {
-    return "yarn";
-  }
-  return "npm";
+    if (existsSync(resolve(projectDir, "bun.lockb")) || existsSync(resolve(projectDir, "bun.lock"))) {
+        return "bun";
+    }
+    if (existsSync(resolve(projectDir, "pnpm-lock.yaml"))) {
+        return "pnpm";
+    }
+    if (existsSync(resolve(projectDir, "yarn.lock"))) {
+        return "yarn";
+    }
+    return "npm";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Linter / Formatter 检测
 // ─────────────────────────────────────────────────────────────────────────────
 function detectLinter(deps: Record<string, string>): LinterTool | undefined {
-  const linterMap: { key: string; linter: LinterTool }[] = [
-    { key: "eslint", linter: "eslint" },
-    { key: "@biomejs/biome", linter: "biome" },
-    { key: "oxlint", linter: "oxlint" },
-    { key: "prettier", linter: "prettier" },
-    { key: "stylelint", linter: "stylelint" },
-  ];
+    const linterMap: { key: string; linter: LinterTool }[] = [
+        { key: "eslint", linter: "eslint" },
+        { key: "@biomejs/biome", linter: "biome" },
+        { key: "oxlint", linter: "oxlint" },
+        { key: "prettier", linter: "prettier" },
+        { key: "stylelint", linter: "stylelint" },
+    ];
 
-  for (const { key, linter } of linterMap) {
-    if (deps[key]) {
-      return linter;
+    for (const { key, linter } of linterMap) {
+        if (deps[key]) {
+            return linter;
+        }
     }
-  }
 
-  return undefined;
+    return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monorepo 工具检测
 // ─────────────────────────────────────────────────────────────────────────────
-function detectMonorepo(
-  projectDir: string,
-  deps: Record<string, string>,
-): MonorepoTool | undefined {
-  if (existsSync(resolve(projectDir, "pnpm-workspace.yaml"))) {
-    return "pnpm-workspace";
-  }
-  if (existsSync(resolve(projectDir, "nx.json"))) {
-    return "nx";
-  }
-  if (existsSync(resolve(projectDir, "turbo.json"))) {
-    return "turborepo";
-  }
-  if (deps["lerna"]) {
-    return "lerna";
-  }
-  if (deps["@rushstack/rush-sdk"]) {
-    return "rush";
-  }
+function detectMonorepo(projectDir: string, deps: Record<string, string>): MonorepoTool | undefined {
+    if (existsSync(resolve(projectDir, "pnpm-workspace.yaml"))) {
+        return "pnpm-workspace";
+    }
+    if (existsSync(resolve(projectDir, "nx.json"))) {
+        return "nx";
+    }
+    if (existsSync(resolve(projectDir, "turbo.json"))) {
+        return "turborepo";
+    }
+    if (deps["lerna"]) {
+        return "lerna";
+    }
+    if (deps["@rushstack/rush-sdk"]) {
+        return "rush";
+    }
 
-  return undefined;
+    return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runtime 检测
 // ─────────────────────────────────────────────────────────────────────────────
 function detectRuntime(pkg: Record<string, unknown>): Runtime {
-  const engines = (pkg.engines as Record<string, string>) || {};
+    const engines = (pkg.engines as Record<string, string>) || {};
 
-  if (pkg.packageManager) {
-    const pm = String(pkg.packageManager);
-    if (pm.startsWith("bun@")) return "bun";
-  }
+    if (pkg.packageManager) {
+        const pm = String(pkg.packageManager);
+        if (pm.startsWith("bun@")) return "bun";
+    }
 
-  if (engines.bun) return "bun";
-  // Deno projects often use deno.json
-  if (
-    existsSync(resolve(process.cwd(), "deno.json")) ||
-    existsSync(resolve(process.cwd(), "deno.jsonc"))
-  ) {
-    return "deno";
-  }
+    if (engines.bun) return "bun";
+    // Deno projects often use deno.json
+    if (existsSync(resolve(process.cwd(), "deno.json")) || existsSync(resolve(process.cwd(), "deno.jsonc"))) {
+        return "deno";
+    }
 
-  return "node";
+    return "node";
 }
