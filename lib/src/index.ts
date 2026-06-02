@@ -51,3 +51,4 @@ export { crossFileRules } from "./scanners/cross-file-scanner.js";
 export { componentRules } from "./scanners/component-scanner.js";
 export { hooksRules } from "./scanners/hooks-scanner.js";
 export { platformRules } from "./scanners/platform-scanner.js";
+export { svelteRules } from "./scanners/svelte-scanner.js";

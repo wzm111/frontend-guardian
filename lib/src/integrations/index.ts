@@ -15,8 +15,4 @@ export { _typescriptIntegration as typescriptIntegration };
 export { _stylelintIntegration as stylelintIntegration };
 
 /** 所有可用的外部工具列表 */
-export const allExternalTools = [
-    _eslintIntegration,
-    _typescriptIntegration,
-    _stylelintIntegration,
-];
+export const allExternalTools = [_eslintIntegration, _typescriptIntegration, _stylelintIntegration];

@@ -51,7 +51,7 @@ export const eslintIntegration: ExternalTool = {
         const stdout = runCommand(
             `npx eslint --format json --no-error-on-unmatched-pattern ${target}`,
             projectDir,
-            120000,
+            120000
         );
 
         if (!stdout) {

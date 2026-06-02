@@ -45,15 +45,9 @@ export const stylelintIntegration: ExternalTool = {
     },
 
     run(projectDir: string, files?: string[]): Issue[] {
-        const patterns = files && files.length > 0
-            ? files.join(" ")
-            : '"src/**/*.{css,scss,less,sass}"';
+        const patterns = files && files.length > 0 ? files.join(" ") : '"src/**/*.{css,scss,less,sass}"';
 
-        const stdout = runCommand(
-            `npx stylelint ${patterns} --formatter json --allow-empty-input`,
-            projectDir,
-            120000,
-        );
+        const stdout = runCommand(`npx stylelint ${patterns} --formatter json --allow-empty-input`, projectDir, 120000);
 
         if (!stdout) {
             return [];

@@ -22,7 +22,10 @@ export type Framework =
     | "taro"
     | "flutter"
     | "react-native"
-    | "harmony";
+    | "harmony"
+    | "svelte"
+    | "solidjs"
+    | "astro";
 export type ComponentLib = "antd" | "element-plus" | "mui" | "vuetify" | "nutui" | "tdesign" | "shadcn" | "none";
 
 export interface Issue {

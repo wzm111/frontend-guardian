@@ -91,6 +91,9 @@ function detectFramework(
         { key: "flutter", framework: "flutter" },
         { key: "react", framework: "react" },
         { key: "vue", framework: "vue" },
+        { key: "svelte", framework: "svelte" },
+        { key: "solid-js", framework: "solidjs" },
+        { key: "astro", framework: "astro" },
     ];
 
     for (const { key, framework } of fwOrder) {

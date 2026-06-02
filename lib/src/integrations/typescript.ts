@@ -55,9 +55,7 @@ export const typescriptIntegration: ExternalTool = {
 
     run(projectDir: string, files?: string[]): Issue[] {
         // 如果指定了文件列表，只检查这些文件
-        const cmd = files && files.length > 0
-            ? `npx tsc --noEmit ${files.join(" ")}`
-            : "npx tsc --noEmit";
+        const cmd = files && files.length > 0 ? `npx tsc --noEmit ${files.join(" ")}` : "npx tsc --noEmit";
 
         const stdout = runCommand(cmd, projectDir, 180000);
 

@@ -465,9 +465,7 @@ export class RuleEngine {
         console.log(pc.cyan("🔌 运行外部工具集成..."));
 
         // 获取当前扫描文件列表（用于增量模式）
-        const scanFiles = this.options.staged || this.options.diffRange
-            ? this.getDiffFiles()
-            : undefined;
+        const scanFiles = this.options.staged || this.options.diffRange ? this.getDiffFiles() : undefined;
 
         return runAllExternalTools(this.options.projectDir, targetTools, scanFiles);
     }

@@ -67,7 +67,11 @@ export function eslintSeverityToFg(severity: number): Severity {
  * 检查项目是否安装了某 npm 包（本地或全局）
  */
 export function hasPackage(projectDir: string, pkgName: string): boolean {
-    const result = runCommand(`npx --no-install ${pkgName} --version 2>/dev/null || echo "NOT_FOUND"`, projectDir, 5000);
+    const result = runCommand(
+        `npx --no-install ${pkgName} --version 2>/dev/null || echo "NOT_FOUND"`,
+        projectDir,
+        5000
+    );
     return result !== null && !result.includes("NOT_FOUND") && !result.includes("cannot find");
 }
 
@@ -87,11 +91,7 @@ export function hasConfigFile(projectDir: string, filenames: string[]): boolean 
 }
 
 /** 运行所有可用的外部工具 */
-export function runAllExternalTools(
-    projectDir: string,
-    tools: ExternalTool[],
-    files?: string[],
-): ExternalToolResult[] {
+export function runAllExternalTools(projectDir: string, tools: ExternalTool[], files?: string[]): ExternalToolResult[] {
     const results: ExternalToolResult[] = [];
 
     for (const tool of tools) {
