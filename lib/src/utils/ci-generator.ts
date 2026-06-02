@@ -3,7 +3,7 @@
  * 一键生成 GitHub Actions / GitLab CI 配置文件
  */
 
-import { existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 export type CIProvider = "github" | "gitlab" | "both";
@@ -22,6 +22,8 @@ export interface CIGeneratorOptions {
     scanArgs?: string;
     /** 门禁配置 */
     gate?: boolean;
+    /** 是否在 MR/PR 中自动发布评论 */
+    postComment?: boolean;
 }
 
 const GITHUB_ACTIONS_TEMPLATE = `name: Frontend Guardian
@@ -35,6 +37,9 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 {{NODE_SETUP}}
@@ -42,6 +47,13 @@ jobs:
 {{TEST}}
       - name: 🛡️ Frontend Guardian Scan
         run: npx fg-core . --scan --gate --output fg-report.md{{ARGS}}
+        continue-on-error: true
+
+      - name: 💬 Post PR Comment
+        if: github.event_name == 'pull_request'
+        run: npx fg-core . --scan --post-comment{{ARGS}}
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
       - name: 📊 Upload Report
@@ -60,13 +72,28 @@ jobs:
           npx fg-core . --scan --gate{{ARGS}}
 `;
 
-const GITLAB_CI_TEMPLATE = `frontend-guardian-scan:
+const GITLAB_CI_TEMPLATE = `stages:
+  - test
+
+variables:
+  NPM_CONFIG_CACHE: .npm
+
+frontend-guardian-scan:
   stage: test
   image: node:{{NODE_VERSION}}-alpine
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  cache:
+    key:
+      files:
+        - {{LOCK_FILE}}
+    paths:
+      - .npm/
   before_script:
 {{INSTALL}}
   script:
-    - npx fg-core . --scan --gate --output fg-report.md{{ARGS}}
+    - npx fg-core . --scan --gate --output fg-report.md --post-comment{{ARGS}}
   artifacts:
     when: always
     paths:
@@ -100,11 +127,57 @@ function renderTest(runTests: boolean): string {
 
 function renderGitlabInstall(pm: string): string {
     const cmds: Record<string, string> = {
-        npm: "    - npm ci",
+        npm: "    - npm ci --cache .npm --prefer-offline",
         yarn: "    - yarn install --frozen-lockfile",
         pnpm: "    - npm install -g pnpm\n    - pnpm install --frozen-lockfile",
     };
     return cmds[pm] || cmds.npm;
+}
+
+function renderLockFile(pm: string): string {
+    const files: Record<string, string> = {
+        npm: "package-lock.json",
+        yarn: "yarn.lock",
+        pnpm: "pnpm-lock.yaml",
+    };
+    return files[pm] || files.npm;
+}
+
+/**
+ * 自动检测项目使用的 CI 平台
+ * 基于目录结构和 git remote URL 推断
+ */
+export function detectCIProvider(projectDir: string): "github" | "gitlab" {
+    // 1. 检查现有 CI 配置文件
+    if (existsSync(resolve(projectDir, ".gitlab-ci.yml"))) {
+        return "gitlab";
+    }
+    if (existsSync(resolve(projectDir, ".github", "workflows"))) {
+        return "github";
+    }
+
+    // 2. 检查 git remote URL
+    try {
+        const configPath = resolve(projectDir, ".git", "config");
+        if (existsSync(configPath)) {
+            const config = readFileSync(configPath, "utf-8");
+            const urlMatch = config.match(/\[remote "origin"\]\s*\n\s*url\s*=\s*(.+)/);
+            if (urlMatch) {
+                const remoteUrl = urlMatch[1].trim();
+                if (remoteUrl.includes("gitlab.com") || remoteUrl.includes("gitlab")) {
+                    return "gitlab";
+                }
+                if (remoteUrl.includes("github.com") || remoteUrl.includes("github")) {
+                    return "github";
+                }
+            }
+        }
+    } catch {
+        // 读取失败，忽略
+    }
+
+    // 3. 默认 GitHub
+    return "github";
 }
 
 /**
@@ -141,6 +214,7 @@ export function generateCIConfig(projectDir: string, options: CIGeneratorOptions
             let content = GITLAB_CI_TEMPLATE;
             content = content.replace(/{{NODE_VERSION}}/g, nodeVersion);
             content = content.replace("{{INSTALL}}", renderGitlabInstall(pm));
+            content = content.replace(/{{LOCK_FILE}}/g, renderLockFile(pm));
             content = content.replace(/{{ARGS}}/g, args);
 
             const path = resolve(projectDir, ".gitlab-ci.yml");

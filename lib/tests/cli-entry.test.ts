@@ -127,6 +127,27 @@ describe("CLI — 特殊命令", () => {
         expect(result.stdout).toContain("CI");
     });
 
+    it("--init-ci --init-ci-provider gitlab 应生成 GitLab CI 配置", () => {
+        const result = runCLI(["--init-ci", "--init-ci-provider", "gitlab"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("已创建");
+        expect(result.stdout).toContain(".gitlab-ci.yml");
+    });
+
+    it("--init-ci --init-ci-provider both 应同时生成两种配置", () => {
+        const result = runCLI(["--init-ci", "--init-ci-provider", "both"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain(".github");
+        expect(result.stdout).toContain(".gitlab-ci.yml");
+    });
+
+    it("--init-ci 在无参数时应自动检测 GitLab 项目", () => {
+        writeFileSync(join(tempDir, ".gitlab-ci.yml"), "stages:\n  - test\n", "utf-8");
+        const result = runCLI(["--init-ci"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("gitlab");
+    });
+
     it("--install-hooks 在有 git 仓库时应成功安装", () => {
         execSync("git init", { cwd: tempDir, stdio: "ignore" });
         const result = runCLI(["--install-hooks"]);

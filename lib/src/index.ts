@@ -34,7 +34,8 @@ export { detectProjectMeta } from "./utils/project-detector.js";
 export { loadConfig } from "./utils/config-loader.js";
 export { initConfig, generateDefaultConfig } from "./utils/init-config.js";
 export { installGitHooks, uninstallGitHooks, hasGitHook, detectHusky } from "./utils/git-hooks.js";
-export { generateCIConfig } from "./utils/ci-generator.js";
+export { generateCIConfig, detectCIProvider } from "./utils/ci-generator.js";
+export type { CIProvider, CIGeneratorOptions } from "./utils/ci-generator.js";
 export { HistoryReport } from "./utils/history-report.js";
 export type { HistoryEntry, TrendAnalysis } from "./utils/history-report.js";
 

@@ -182,6 +182,26 @@ fg-core . --scan --gate    # 有问题时退出码非 0，可阻断 CI
 
 配合 `--sarif report.sarif` 可将结果上传到 GitHub Security tab。
 
+#### Step 4 — 初始化 CI 配置（可选）
+
+```bash
+# 自动检测平台（根据 .github/、.gitlab-ci.yml 或 git remote URL）
+fg-core . --init-ci
+
+# 显式指定 GitLab CI
+fg-core . --init-ci --init-ci-provider gitlab
+
+# 同时生成 GitHub Actions + GitLab CI
+fg-core . --init-ci --init-ci-provider both
+```
+
+生成的 GitLab CI 模板包含：
+- `stages` 阶段定义
+- `rules`（MR 事件 + 默认分支推送）
+- `cache`（基于 lock 文件的缓存键）
+- `artifacts`（扫描报告产物）
+- `--post-comment` 自动发布 MR 评论
+
 - **配置**
   - 新建项目：`--init-config` 生成默认配置
   - 已有项目：手动调整配置，或用 `--baseline` 渐进式治理
@@ -194,7 +214,7 @@ fg-core . --scan --gate    # 有问题时退出码非 0，可阻断 CI
 
 ---
 
-### 7 个核心命令
+### 核心命令
 
 > 以下所有命令，`fg-core` 和 `/frontend-guardian` 均可使用，将 `fg-core .` 替换为 `/frontend-guardian` 即可。
 
@@ -221,6 +241,11 @@ fg-core . --init-config
 fg-core . --install-hooks
 fg-core . --install-hooks --install-hooks-type pre-push
 fg-core . --install-hooks --install-hooks-type both
+
+# 8️⃣ 初始化 CI 配置（自动检测平台）
+fg-core . --init-ci
+fg-core . --init-ci --init-ci-provider gitlab
+fg-core . --init-ci --init-ci-provider both
 ```
 
 ### 单模块扫描
@@ -294,7 +319,8 @@ fg-core . --scan --post-comment
 | `--init-config` | 生成 `.frontend-guardian.yml` 智能配置 | - |
 | `--install-hooks` | 安装 Git pre-commit hook | - |
 | `--install-hooks-type` | hook 类型：`pre-commit` / `pre-push` / `both` | `pre-commit` |
-| `--init-ci` | 生成 CI 配置文件（GitHub Actions） | - |
+| `--init-ci` | 生成 CI 配置文件（自动检测 GitHub / GitLab） | - |
+| `--init-ci-provider <p>` | CI 平台：`github` / `gitlab` / `both` | `auto` |
 | `--sarif <file>` | 输出 SARIF 格式报告 | - |
 | `--github-actions` | 启用 GitHub Actions Annotation 输出 | 自动检测 |
 | `--baseline <file>` | Baseline 模式：仅报告新增问题 | - |

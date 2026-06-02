@@ -131,7 +131,7 @@
 
 - [ ] **扫描范围智能推断**：大项目支持"仅扫描最近修改的 N 个目录"模式，基于 `git diff --name-only` 自动推断最小扫描范围
 - [ ] **报告托管/上传**：历史报告支持上传至 S3 / 内部服务器，生成团队共享的趋势看板 URL
-- [ ] **GitLab CI 模板完善**：`--init-ci` 生成含 `rules` / `artifacts` / `merge_requests` 的完整 GitLab 模板（当前仅有 GitHub Actions）
+- [x] **GitLab CI 模板完善**：`--init-ci` 生成含 `rules` / `artifacts` / `cache` / `--post-comment` 的完整 GitLab 模板，支持 `--init-ci-provider gitlab|both`，自动检测平台
 
 ### P2 — 排期实现
 
