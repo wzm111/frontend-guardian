@@ -6,7 +6,7 @@
  */
 
 import { execSync } from "node:child_process";
-import type { Issue, Severity } from "../types.js";
+import type { Issue, Severity } from "@/types.js";
 import pc from "picocolors";
 
 /** 外部工具集成接口 */

@@ -145,6 +145,8 @@ export interface RuleContext {
     projectMeta: ProjectMeta;
     /** Utility helpers */
     utils: RuleUtils;
+    /** v2.1.1: 单次扫描内规则间共享的缓存（按文件隔离） */
+    sharedCache?: Map<string, unknown>;
 }
 
 export interface RuleUtils {

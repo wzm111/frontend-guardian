@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Issue } from "../types.js";
+import type { Issue } from "@/types.js";
 
 export interface CacheEntry {
     /** 文件内容 SHA-256 */

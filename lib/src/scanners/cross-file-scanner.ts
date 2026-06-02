@@ -18,9 +18,9 @@ import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import type { Rule, RuleContext, Issue, ImportInfo } from "../types.js";
-import { parseAST, getImports } from "../utils/ast-parser.js";
-import { getFileExt, getJSXTagName } from "../utils/common.js";
+import type { Rule, RuleContext, Issue, ImportInfo } from "@/types.js";
+import { parseAST, getImports } from "@/utils/ast-parser.js";
+import { getFileExt, getJSXTagName } from "@/utils/common.js";
 
 // ============================================================================
 // 类型定义
@@ -133,8 +133,16 @@ export const crossFileRules: Rule[] = [
 // 文件图构建
 // ============================================================================
 
-/** 构建项目文件图 */
+const FILE_GRAPH_CACHE_KEY = "__crossFileGraph";
+
+/** 构建项目文件图（带 sharedCache 复用） */
 function buildFileGraph(context: RuleContext): FileGraph {
+    // v2.1.1: 优先从 sharedCache 复用文件图（同目录同轮扫描）
+    if (context.sharedCache) {
+        const cached = context.sharedCache.get(FILE_GRAPH_CACHE_KEY) as FileGraph | undefined;
+        if (cached) return cached;
+    }
+
     const graph: FileGraph = {
         components: new Map(),
         imports: new Map(),
@@ -203,6 +211,11 @@ function buildFileGraph(context: RuleContext): FileGraph {
         } catch {
             // 文件读取失败，跳过
         }
+    }
+
+    // v2.1.1: 存入 sharedCache，供同轮扫描的其他规则复用
+    if (context.sharedCache) {
+        context.sharedCache.set(FILE_GRAPH_CACHE_KEY, graph);
     }
 
     return graph;

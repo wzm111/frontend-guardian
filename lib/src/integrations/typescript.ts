@@ -4,7 +4,7 @@
  * 调用 npx tsc --noEmit 并解析类型错误为 Issue 格式
  */
 
-import type { Issue, Severity } from "../types.js";
+import type { Issue, Severity } from "@/types.js";
 import type { ExternalTool } from "./base.js";
 import { runCommand } from "./base.js";
 

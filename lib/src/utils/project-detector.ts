@@ -33,7 +33,7 @@ import type {
     LinterTool,
     MonorepoTool,
     Runtime,
-} from "../types.js";
+} from "@/types.js";
 
 export function detectProjectMeta(projectDir: string, config?: ProjectConfig): ProjectMeta {
     const pkgPath = resolve(projectDir, "package.json");

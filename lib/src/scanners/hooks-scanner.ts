@@ -13,8 +13,8 @@
 
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
-import type { Rule, RuleContext, Issue } from "../types.js";
-import { getFileExt } from "../utils/common.js";
+import type { Rule, RuleContext, Issue } from "@/types.js";
+import { getFileExt } from "@/utils/common.js";
 
 /** 常见的响应式变量名 */
 const REACTIVE_NAMES = new Set([

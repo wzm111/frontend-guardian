@@ -10,7 +10,7 @@
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Rule, RuleConfig, RuleCategory, Severity } from "../types.js";
+import type { Rule, RuleConfig, RuleCategory, Severity } from "@/types.js";
 import pc from "picocolors";
 
 /** 规则注册中心 */

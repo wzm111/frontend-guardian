@@ -10,8 +10,8 @@
 
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
-import type { Rule, RuleContext, Issue } from "../types.js";
-import { getFileExt, getJSXTagName } from "../utils/common.js";
+import type { Rule, RuleContext, Issue } from "@/types.js";
+import { getFileExt, getJSXTagName } from "@/utils/common.js";
 
 export const componentRules: Rule[] = [
     {

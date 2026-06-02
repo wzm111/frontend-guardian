@@ -7,7 +7,7 @@ import { parse as babelParse } from "@babel/parser";
 import type { ParseResult, ParserOptions } from "@babel/parser";
 import type { File, Node } from "@babel/types";
 import traverse from "@babel/traverse";
-import type { ImportInfo } from "../types.js";
+import type { ImportInfo } from "@/types.js";
 
 export interface ParseOptions {
     ext?: string;

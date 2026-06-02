@@ -12,9 +12,9 @@
 import type { Node } from "@babel/types";
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
-import type { Rule, RuleContext, Issue } from "../types.js";
-import { parseAST } from "../utils/ast-parser.js";
-import { getFileExt } from "../utils/common.js";
+import type { Rule, RuleContext, Issue } from "@/types.js";
+import { parseAST } from "@/utils/ast-parser.js";
+import { getFileExt } from "@/utils/common.js";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname, extname } from "node:path";
 

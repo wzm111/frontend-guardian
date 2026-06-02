@@ -1,6 +1,6 @@
 {
     "name": "frontend-guardian-core",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "description": "Core analysis engine for frontend-guardian — AST-based scanning and auto-fixing",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -8,7 +8,7 @@
         "fg-core": "./bin/fg-core.js"
     },
     "scripts": {
-        "build": "tsc",
+        "build": "tsc && tsc-alias",
         "dev": "tsc --watch",
         "test": "vitest run",
         "test:watch": "vitest",
@@ -37,7 +37,6 @@
         "@babel/traverse": "^7.26.0",
         "@babel/types": "^7.26.0",
         "globby": "^14.1.0",
-        "jscodeshift": "^17.1.0",
         "minimatch": "^10.0.1",
         "picocolors": "^1.1.0",
         "yaml": "^2.7.0"
@@ -46,9 +45,9 @@
         "@biomejs/biome": "^2.4.16",
         "@types/babel__core": "^7.20.5",
         "@types/babel__traverse": "^7.20.6",
-        "@types/jscodeshift": "^0.12.0",
         "@types/node": "^22.13.0",
         "eslint": "^9.20.0",
+        "tsc-alias": "^1.8.17",
         "typescript": "^5.7.0",
         "vitest": "^3.0.0"
     }

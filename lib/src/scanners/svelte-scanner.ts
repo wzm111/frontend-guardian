@@ -10,7 +10,7 @@
  * 5. svelte-event-modifier — 使用过时的 event modifier（Svelte 5 已弃用）
  */
 
-import type { Rule, RuleContext, Issue } from "../types.js";
+import type { Rule, RuleContext, Issue } from "@/types.js";
 
 export const svelteRules: Rule[] = [
     {

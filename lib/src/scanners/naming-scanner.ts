@@ -17,8 +17,8 @@
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
 import { dirname, basename, extname } from "node:path";
-import type { Rule, RuleContext, Issue, NamingConfig } from "../types.js";
-import { getFileExt } from "../utils/common.js";
+import type { Rule, RuleContext, Issue, NamingConfig } from "@/types.js";
+import { getFileExt } from "@/utils/common.js";
 
 /** 默认命名规范配置 */
 const DEFAULT_NAMING: NamingConfig = {

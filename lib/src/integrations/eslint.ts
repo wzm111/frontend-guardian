@@ -4,7 +4,7 @@
  * 调用 npx eslint --format json 并解析为 Issue 格式
  */
 
-import type { Issue } from "../types.js";
+import type { Issue } from "@/types.js";
 import type { ExternalTool } from "./base.js";
 import { runCommand, eslintSeverityToFg, hasPackage } from "./base.js";
 

@@ -5,8 +5,8 @@
 
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
-import type { Rule, RuleContext, Issue } from "../types.js";
-import { getFileExt } from "../utils/common.js";
+import type { Rule, RuleContext, Issue } from "@/types.js";
+import { getFileExt } from "@/utils/common.js";
 
 /** 组件库入口包名 */
 const BARREL_PACKAGES = [

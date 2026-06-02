@@ -13,7 +13,7 @@
 
 import { existsSync, statSync, readdirSync } from "node:fs";
 import { resolve, dirname, extname } from "node:path";
-import type { Rule, RuleContext, Issue } from "../types.js";
+import type { Rule, RuleContext, Issue } from "@/types.js";
 
 export const platformRules: Rule[] = [
     {

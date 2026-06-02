@@ -4,7 +4,7 @@
  * 调用 npx stylelint --formatter json 并解析 CSS 规范问题为 Issue 格式
  */
 
-import type { Issue, Severity } from "../types.js";
+import type { Issue, Severity } from "@/types.js";
 import type { ExternalTool } from "./base.js";
 import { runCommand, hasPackage } from "./base.js";
 

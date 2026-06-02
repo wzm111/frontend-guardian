@@ -6,7 +6,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import YAML from "yaml";
-import type { ProjectConfig } from "../types.js";
+import type { ProjectConfig } from "@/types.js";
 
 export function loadConfig(projectDir: string, configFile?: string): ProjectConfig {
     // 1. 尝试指定配置文件

@@ -738,7 +738,14 @@ platform:
 
 ## 版本演进
 
-### v2.1 — 性能与架构优化（已交付，155 测试通过）
+### v2.1.1 — 架构收尾优化（已交付，155 测试通过）
+
+- **规则预过滤优化**：`scan()` 先根据 `projectMeta` 过滤规则，无匹配规则时直接跳过 `glob`，避免不必要的文件遍历
+- **跨文件扫描器文件图缓存**：`cross-file-scanner` 的 5 条规则共享 `RuleContext.sharedCache` 中的文件图，同一目录只解析一次 AST，不再重复构建
+- **移除 jscodeshift 依赖**：源码零引用，删除 `jscodeshift` + `@types/jscodeshift`，减少安装体积
+- **tsconfig paths 对齐**：源码全部改用 `@/*` 路径映射（`@/types.js`、`@/utils/ast-parser.js` 等），开发体验更清晰；编译后 `tsc-alias` 自动重写为相对路径，不影响发布
+
+### v2.1.0 — 性能与架构优化（已交付，155 测试通过）
 
 - **真正并行扫描**：`RuleEngine.scan()` 文件级 `Promise.all` 并行（`concurrentMap`），默认并发数 = CPU 核心数，大项目扫描速度提升与核心数成正比
 - **AST 解析结果缓存**：`SmartCache` 扩展内存级 AST 缓存层，同一文件在单次扫描中只 `parseAST()` 一次，规则间复用 AST

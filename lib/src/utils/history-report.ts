@@ -10,7 +10,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Issue, ScanResult } from "../types.js";
+import type { Issue, ScanResult } from "@/types.js";
 
 export interface HistoryEntry {
     /** 扫描时间戳 */

@@ -24,21 +24,21 @@ import type {
     ParseOptions,
     Position,
     FixPreview,
-} from "../types.js";
-import { parseAST, getImports } from "../utils/ast-parser.js";
+} from "@/types.js";
+import { parseAST, getImports } from "@/utils/ast-parser.js";
 import type { ParseResult } from "@babel/parser";
 import type { File } from "@babel/types";
-import { detectProjectMeta } from "../utils/project-detector.js";
-import { loadConfig } from "../utils/config-loader.js";
-import { RuleRegistry, createRegistry } from "../rules/registry.js";
+import { detectProjectMeta } from "@/utils/project-detector.js";
+import { loadConfig } from "@/utils/config-loader.js";
+import { RuleRegistry, createRegistry } from "@/rules/registry.js";
 import { globby } from "globby";
 import pc from "picocolors";
-import type { ExternalTool, ExternalToolResult } from "../integrations/index.js";
-import { runAllExternalTools } from "../integrations/index.js";
+import type { ExternalTool, ExternalToolResult } from "@/integrations/index.js";
+import { runAllExternalTools } from "@/integrations/index.js";
 import { SmartCache } from "./cache.js";
-import { HistoryReport } from "../utils/history-report.js";
-import { runFormat } from "../integrations/formatter.js";
-import { concurrentMap, getDefaultConcurrency } from "../utils/concurrent.js";
+import { HistoryReport } from "@/utils/history-report.js";
+import { runFormat } from "@/integrations/formatter.js";
+import { concurrentMap, getDefaultConcurrency } from "@/utils/concurrent.js";
 
 export interface EngineOptions {
     /** 项目根目录 */
@@ -160,11 +160,7 @@ export class RuleEngine {
             suggestion: [],
         };
 
-        // 获取扫描文件列表
-        const files = await this.getScanFiles();
-        let filesWithIssues = 0;
-
-        // 过滤出当前模块相关的规则
+        // 先根据 projectMeta 过滤规则，无匹配规则则跳过 glob
         const category = this.moduleToCategory(module);
         const activeRules = this.filterRules({
             category,
@@ -172,6 +168,21 @@ export class RuleEngine {
             platform: this.projectMeta.platforms[0],
             componentLib: this.projectMeta.componentLib,
         });
+
+        if (activeRules.length === 0) {
+            return {
+                module,
+                total: 0,
+                issues,
+                duration: 0,
+                filesScanned: 0,
+                filesWithIssues: 0,
+            };
+        }
+
+        // 获取扫描文件列表
+        const files = await this.getScanFiles();
+        let filesWithIssues = 0;
 
         console.log(pc.blue(`🔍 [${module}] 扫描 ${files.length} 个文件，${activeRules.length} 条规则...`));
 
@@ -253,6 +264,7 @@ export class RuleEngine {
                 config: this.config,
                 projectMeta: this.projectMeta,
                 utils,
+                sharedCache: new Map(),
             };
 
             for (const rule of rules) {

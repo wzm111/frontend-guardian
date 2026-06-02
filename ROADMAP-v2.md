@@ -36,12 +36,12 @@
 - [x] **RuleEngine 核心测试**：新增 `tests/rule-engine.test.ts`，14 个测试覆盖 scan / applyFixes / clusterIssues / register / filter
 - [x] **清除全局缓存污染**：`i18n-scanner.ts` 模块级 `localeKeyCache` / `allCodeKeysCache` 改为 `Map<string, Set>`
 
-### P1 — 尽量完成 🚧
+### P1 — 尽量完成 ✅ (2026-06-02)
 
-- [ ] **跨文件扫描器文件图缓存**：`cross-file-scanner` 文件图缓存复用，避免重复解析兄弟文件
-- [ ] **规则预过滤优化**：先根据 `projectMeta` 过滤规则，再决定 glob 模式，减少文件读取
-- [ ] **移除无用依赖**：删除 `jscodeshift` 及其类型定义（源码零引用）
-- [ ] **tsconfig paths 对齐**：源码统一使用 `@/*` 路径映射，替代相对路径 `../types.js`
+- [x] **跨文件扫描器文件图缓存**：`cross-file-scanner` 文件图缓存复用，避免重复解析兄弟文件（`RuleContext.sharedCache`）
+- [x] **规则预过滤优化**：先根据 `projectMeta` 过滤规则，无匹配规则则跳过 glob，减少文件读取
+- [x] **移除无用依赖**：删除 `jscodeshift` 及其类型定义（源码零引用）
+- [x] **tsconfig paths 对齐**：源码统一使用 `@/*` 路径映射，`tsc-alias` 编译后重写为相对路径
 
 ---
 
