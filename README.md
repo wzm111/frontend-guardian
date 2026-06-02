@@ -69,66 +69,29 @@ frontend-guardian --init-scaffold ./my-project --stack nextjs --force
 ### 快速命令
 
 ```text
+# 全量扫描（推荐）
 /frontend-guardian                          # 自动检测技术栈，执行全端扫描
 /frontend-guardian --scan                   # 全量治理扫描（9 大模块）
 /frontend-guardian --scan --gate            # CI 门禁模式（发现问题退出码非0）
+/frontend-guardian --scan --staged          # 仅检查 git staged 文件
+/frontend-guardian --scan --since HEAD~3    # 检查最近 3 个 commit
+/frontend-guardian --scan --fix             # 扫描并自动修复
+/frontend-guardian --scan --json            # JSON 格式输出
 
-# i18n 治理
-/frontend-guardian --i18n                   # 扫描硬编码文案，输出提取建议
-/frontend-guardian --i18n-extract           # 自动提取硬编码到语言包
-/frontend-guardian --i18n-missing           # 检测缺失 key
-/frontend-guardian --i18n-dead              # 扫描未使用的 key
-/frontend-guardian --i18n-lint              # 命名规范检查（module.page.element）
-/frontend-guardian --i18n-translate         # 自动翻译缺失语言（调用翻译 API）
-/frontend-guardian --i18n --fix             # 自动修复（提取 + 替换 + 清理死key）
+# 单模块扫描
+/frontend-guardian --module i18n            # i18n 治理（硬编码、缺失 key、死 key）
+/frontend-guardian --module component       # 组件医生（反模式、token、性能）
+/frontend-guardian --module hooks           # Hooks / Composables 检查
+/frontend-guardian --module platform        # 多端平台适配
+/frontend-guardian --module performance     # 性能优化
+/frontend-guardian --module security        # 安全扫描
+/frontend-guardian --module a11y            # 可访问性
+/frontend-guardian --module naming          # 命名规范
+/frontend-guardian --module cross-file      # 跨文件分析
 
-# 组件医生
-/frontend-guardian --component              # 组件反模式检测
-/frontend-guardian --component-token        # 主题/token 一致性检查
-/frontend-guardian --component-a11y         # 可访问性检查
-/frontend-guardian --component-perf         # 性能陷阱检测
-/frontend-guardian --component-upgrade      # 组件库版本升级影响分析
-
-# Hooks / Composables 检查
-/frontend-guardian --hooks                  # React Hooks 全量检查
-/frontend-guardian --hooks-closure          # 闭包陷阱专项
-/frontend-guardian --hooks-custom           # 自定义 Hook 规范
-/frontend-guardian --composables            # Vue Composables 检查
-/frontend-guardian --hooks-state            # 状态提升建议
-
-# 多端平台适配
-/frontend-guardian --platform               # 多端适配全量检查
-/frontend-guardian --platform-mp            # 小程序专项（微信/支付宝/抖音）
-/frontend-guardian --platform-mobile        # 移动端性能与体验
-/frontend-guardian --platform-harmony       # 鸿蒙 ArkTS/ArkUI 规范
-/frontend-guardian --platform-responsive    # 响应式断点检查
-
-# 命名规范
-/frontend-guardian --naming                 # 命名规范全量检查
-/frontend-guardian --naming-class           # 类名检查（PascalCase）
-/frontend-guardian --naming-function        # 函数名检查（camelCase）
-/frontend-guardian --naming-file            # 文件名检查（kebab-case）
-
-# 跨文件分析
-/frontend-guardian --cross-file             # 跨文件分析（props / 重复代码）
-
-# 安全扫描
-/frontend-guardian --security               # 安全全量扫描
-/frontend-guardian --sec-xss                # XSS 专项
-/frontend-guardian --sec-eval               # eval / new Function 专项
-
-# 性能优化
-/frontend-guardian --performance            # 性能全量扫描
-/frontend-guardian --perf-waterfall         # 请求瀑布检测
-/frontend-guardian --perf-barrel            # 整库导入检测
-/frontend-guardian --perf-memo             # 昂贵计算缓存检测
-/frontend-guardian --perf-lazy             # 大组件懒加载检测
-
-# 可访问性
-/frontend-guardian --a11y                   # 可访问性全量扫描
-/frontend-guardian --a11y-img              # 图片 alt 检查
-/frontend-guardian --a11y-form             # 表单 label 检查
-/frontend-guardian --a11y-contrast         # 颜色对比度检查
+# 初始化
+/frontend-guardian --init-scaffold ./my-project
+/frontend-guardian --init-ai claude
 ```
 
 ### 组合命令
@@ -168,23 +131,11 @@ frontend-guardian --init-scaffold ./my-project --stack nextjs --force
 | `--staged` | 仅检查 git staged 文件 | false |
 | `--since <ref>` | 检查指定 commit 以来的变更 | `HEAD~1` |
 | `--fix` | 自动修复可修复的问题 | false |
-| `--locale <lang>` | 报告语言（zh/en） | `zh` |
+| `--json` | 以 JSON 格式输出原始扫描结果 | false |
 | `--severity <level>` | 最低输出严重级别 | `warning` |
-| `--mp-type <type>` | 小程序类型：`wechat` / `alipay` / `douyin` / `uniapp` | 自动检测 |
-| `--mobile-type <type>` | 移动端类型：`h5` / `rn` / `flutter` / `native` | 自动检测 |
-| `--component-lib <lib>` | 指定组件库：`antd` / `element-plus` / `mui` / `vuetify` | 自动检测 |
-| `--i18n-format <format>` | 语言包格式：`json` / `yaml` / `js` / `ts` | 自动检测 |
-| `--i18n-locales <langs>` | 目标语言列表，如 `zh-CN,en-US,ja-JP` | 自动检测 |
+| `--module <name>` | 扫描模块：`i18n` / `performance` / `a11y` / `security` / `naming` / `cross-file` / `component` / `hooks` / `platform` / `all` | `all` |
 | `--init-ai <agent>` | 初始化 AI 上下文：`claude` / `cursor` / `copilot` / `all` | 不初始化 |
-| `--knip` | 扫描未使用依赖/导出/文件（集成 Knip） | false |
-| `--performance` | 性能规则扫描 | false |
-| `--security` | 安全规则扫描 | false |
-| `--a11y` | 可访问性规则扫描 | false |
-| `--naming` | 命名规范扫描 | false |
-| `--cross-file` | 跨文件分析 | false |
-| `--fix` | 自动修复可修复的问题 | false |
 | `--init-scaffold` | 一键初始化项目脚手架 | - |
-| `--ast` | 使用 AST 级别分析（Node.js 核心引擎） | false |
 
 ### AI 上下文初始化
 
@@ -288,6 +239,7 @@ npx fg-core ./my-project --module i18n --severity warning
 | component | `--module component` | 3 | 反模式（Form/Table/Modal）、硬编码 token、性能陷阱 |
 | hooks | `--module hooks` | 6 | useEffect 依赖、定时器清理、Hook 命名、Vue reactive、computed 副作用、状态提升 |
 | platform | `--module platform` | 6 | 小程序体积/base64/HTTP、安全区域、鸿蒙规范、响应式断点 |
+| **all** | **`--module all`** | **48** | **一次扫描全部 9 个模块** |
 
 ### 自动修复（--fix）
 
@@ -303,21 +255,27 @@ npx fg-core ./my-project --module component --fix
 
 | 规则 | 修复内容 |
 | ---- | -------- |
+| `i18n-hardcoded-string` | `"中文"` → `t('key')` |
+| `i18n-hardcoded-jsx-text` | `中文` → `{t('key')}` |
 | `perf-avoid-barrel-import` | 将整库导入拆分为子模块导入 |
-| `composables-reactive` | 将解构的 reactive 改为 `toRefs(reactive(...))` |
 | `perf-dynamic-import` | 插入 React.lazy / defineAsyncComponent 代码 |
+| `composables-reactive` | 将解构的 reactive 改为 `toRefs(reactive(...))` |
+| `component-token` (颜色) | `#1890ff` → `var(--primary-color)` |
+| `component-token` (间距) | `margin: 16px` → `theme.spacing.md` |
+| `naming-*` (系列) | 不规范命名 → 自动修正为规范命名 |
 
 修复逻辑：
 1. 按文件收集所有带 `fix` 字段的问题
 2. 按行号倒序排列（从文件末尾开始修复，避免行号偏移）
 3. 应用文本替换并写回文件
 
-### 与 Bash 引擎的关系
+### 与 Bash 引擎的关系（v2.0 统一架构）
 
-- **Bash 引擎**：零依赖，适合 CI/CD 环境，正则匹配
-- **Node.js 引擎**：需要 Node.js ≥ 18，AST 精确分析，自动修复，48 条规则
+- **AST 引擎（主要）**：`fg-core --module all` 一次调用扫描全部 9 个模块，48 条规则，精确到语法树节点
+- **Bash 引擎（补充）**：覆盖 AST 引擎尚未迁移的规则（如小程序 `#ifdef` 检查、平台专有 API 检测）
+- **外部工具（Knip）**：检测未使用依赖/导出/文件
 
-`full-scan.sh` 检测到 `lib/dist/index.js` 存在时，自动调用 Node.js 引擎进行深度分析。
+`full-scan.sh` 统一调用 AST 引擎获取主要结果，再调用 Bash 引擎补充，最后合并生成统一报告。
 
 ---
 

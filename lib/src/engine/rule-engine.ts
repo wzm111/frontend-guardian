@@ -96,6 +96,16 @@ export class RuleEngine {
     });
   }
 
+  /** 模块名到规则 category 的映射 */
+  private moduleToCategory(module: string): string {
+    const map: Record<string, string> = {
+      a11y: 'accessibility',
+      naming: 'style',
+      'cross-file': 'architecture',
+    };
+    return map[module] || module;
+  }
+
   /** 执行扫描 */
   async scan(module: string): Promise<ScanResult> {
     const startTime = Date.now();
@@ -110,8 +120,9 @@ export class RuleEngine {
     let filesWithIssues = 0;
 
     // 过滤出当前模块相关的规则
+    const category = this.moduleToCategory(module);
     const activeRules = this.filterRules({
-      category: module,
+      category,
       framework: this.projectMeta.framework,
       platform: this.projectMeta.platforms[0],
       componentLib: this.projectMeta.componentLib,

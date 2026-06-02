@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 #
-# frontend-guardian — 全量扫描入口
+# frontend-guardian — 统一扫描入口（v2.0 简化版）
 # Usage: full-scan.sh [options] [project_path]
+#
+# 核心变更：
+#   - AST 引擎成为主要引擎（--module all 一次扫描全部 9 个模块）
+#   - Bash scanner 作为补充引擎保留
+#   - 统一 JSON + Markdown 输出
 #
 # Options:
 #   --gate          门禁模式（发现 Critical 问题时 exit 1）
@@ -11,6 +16,7 @@
 #   --severity <l>  最低输出级别: critical | warning | suggestion
 #   --fix           自动修复可修复的问题
 #   --init-ai       扫描后初始化/更新 AI 上下文文件
+#   --json          以 JSON 格式输出原始扫描结果
 #
 # Examples:
 #   full-scan.sh                              # 全量扫描当前目录
@@ -33,6 +39,7 @@ SINCE_REF=""
 OUTPUT_FILE=""
 SEVERITY="warning"
 FIX_MODE=false
+JSON_MODE=false
 INIT_AI=false
 AI_AGENT=""
 CONFIG_FILE=".frontend-guardian.yml"
@@ -42,12 +49,15 @@ declare -i CRITICAL_COUNT=0
 declare -i WARNING_COUNT=0
 declare -i SUGGESTION_COUNT=0
 
+# AST 引擎 JSON 输出路径
+AST_OUTPUT="/tmp/fg-ast-all.json"
+
 # 颜色
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # ---------------------------------------------------------------------------
 # 解析参数
@@ -60,6 +70,7 @@ while [[ $# -gt 0 ]]; do
     --output)     OUTPUT_FILE="$2"; shift 2 ;;
     --severity)   SEVERITY="$2"; shift 2 ;;
     --fix)        FIX_MODE=true; shift ;;
+    --json)       JSON_MODE=true; shift ;;
     --init-ai)
       INIT_AI=true
       if [[ $# -gt 1 && ! "$2" =~ ^-- ]]; then
@@ -71,7 +82,7 @@ while [[ $# -gt 0 ]]; do
       fi
       ;;
     --help|-h)
-      head -n 20 "$0" | tail -n +3 | sed 's/^# //'
+      head -n 22 "$0" | tail -n +3 | sed 's/^# //'
       exit 0
       ;;
     -*)
@@ -86,9 +97,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 cd "$PROJECT_DIR"
-PROJECT_DIR="$(pwd)"  # 转为绝对路径
+PROJECT_DIR="$(pwd)"
 
-# 如果未指定输出文件，使用默认
 if [[ -z "$OUTPUT_FILE" ]]; then
   OUTPUT_FILE="./frontend-guardian-report.md"
 fi
@@ -99,10 +109,8 @@ fi
 load_config() {
   if [[ -f "$CONFIG_FILE" ]]; then
     echo "📄 加载配置: $CONFIG_FILE"
-    # 简单 YAML 解析（支持 key: value 和 key:
-    #   subkey: value 格式）
     if command -v yq &>/dev/null; then
-      CONFIG=$(yq -r '.' "$CONFIG_FILE" 2>/dev/null || echo "{}")
+      : # yq 可用，保留给未来使用
     fi
   fi
 }
@@ -114,45 +122,35 @@ detect_stack() {
   local stack="Unknown"
   local platforms=()
 
-  # 检测 UniApp
   if [[ -f "manifest.json" && -f "pages.json" ]] && grep -q '"name".*"uni-app"' package.json 2>/dev/null; then
     stack="UniApp"
     platforms+=("小程序" "H5" "App")
-  # 检测 Taro
   elif [[ -f "config/index.js" || -f "config/index.ts" ]] && grep -q 'taro' package.json 2>/dev/null; then
     stack="Taro"
     platforms+=("小程序" "H5" "App" "RN")
-  # 检测 Next.js
   elif [[ -f "next.config.js" || -f "next.config.ts" || -f "next.config.mjs" ]]; then
     stack="Next.js"
     platforms+=("PC Web" "H5")
-  # 检测 Nuxt
   elif [[ -f "nuxt.config.ts" || -f "nuxt.config.js" ]]; then
     stack="Nuxt"
     platforms+=("PC Web" "H5")
-  # 检测 React
   elif grep -q '"react"' package.json 2>/dev/null; then
     stack="React"
     platforms+=("PC Web" "H5")
-  # 检测 Vue
   elif grep -q '"vue"' package.json 2>/dev/null; then
     stack="Vue"
     platforms+=("PC Web" "H5")
-  # 检测 Flutter
   elif [[ -f "pubspec.yaml" ]]; then
     stack="Flutter"
     platforms+=("iOS" "Android")
-  # 检测 React Native
   elif [[ -f "metro.config.js" ]] || grep -q '"react-native"' package.json 2>/dev/null; then
     stack="React Native"
     platforms+=("iOS" "Android")
-  # 检测鸿蒙
   elif [[ -d "entry/src/main/ets" ]] || [[ -f "hvigorfile.ts" ]]; then
     stack="HarmonyOS"
     platforms+=("鸿蒙")
   fi
 
-  # 检测小程序原生
   if [[ -f "app.json" && -f "project.config.json" ]]; then
     platforms+=("微信小程序")
   elif [[ -f "mini.project.json" ]]; then
@@ -170,17 +168,14 @@ get_files() {
   local files=()
 
   if $STAGED_ONLY; then
-    # 仅 staged 文件
     while IFS= read -r line; do
       [[ -n "$line" ]] && files+=("$line")
     done < <(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
   elif [[ -n "$SINCE_REF" ]]; then
-    # 指定 commit 以来的变更
     while IFS= read -r line; do
       [[ -n "$line" ]] && files+=("$line")
     done < <(git diff --name-only "$SINCE_REF" HEAD 2>/dev/null || true)
   else
-    # 全量扫描源码文件
     while IFS= read -r line; do
       files+=("$line")
     done < <(find . -type f \( \
@@ -218,15 +213,8 @@ run_knip() {
   fi
 
   if [[ -s "$knip_output.json" ]]; then
-    # 解析 JSON 输出
-    local unused_deps unused_devdeps unused_exports unused_files
-    unused_deps=$(grep -o '"unlisted"\|"unresolved"\|"unlisted"' "$knip_output.json" | wc -l | tr -d ' ')
-    unused_deps=${unused_deps:-0}
-
-    # 更友好的终端输出
     echo "   📦 扫描完成（通过 Knip）"
 
-    # 尝试提取有用信息
     if command -v node &>/dev/null; then
       node -e "
         try {
@@ -245,114 +233,135 @@ run_knip() {
       "
     fi
 
-    # 统计问题数
+    local KNIP_WARNING
     KNIP_WARNING=$(grep -c 'unused\|unlisted\|duplicate' "$knip_output.json" 2>/dev/null || echo 0)
     KNIP_WARNING=${KNIP_WARNING:-0}
+    WARNING_COUNT=$((WARNING_COUNT + KNIP_WARNING))
   else
     echo "   ℹ️ Knip 未检测到问题或项目未配置"
-    KNIP_WARNING=0
   fi
-
-  WARNING_COUNT=$((WARNING_COUNT + KNIP_WARNING))
 }
 
 # ---------------------------------------------------------------------------
-# Node.js AST 引擎扫描
+# AST 引擎（主要引擎）— 一次调用扫描所有模块
 # ---------------------------------------------------------------------------
-run_node_engine() {
-  # 检测 Node.js 引擎是否可用
+run_ast_engine() {
   local engine_path=""
-  local has_node=false
 
-  if command -v node &>/dev/null; then
-    has_node=true
-  fi
-
-  # 检测引擎路径优先级：node_modules > 本地 lib
   if [[ -x "$PROJECT_DIR/node_modules/.bin/fg-core" ]]; then
     engine_path="$PROJECT_DIR/node_modules/.bin/fg-core"
-  elif [[ -f "$SCRIPT_DIR/../lib/bin/fg-core.js" ]] && $has_node; then
+  elif [[ -f "$SCRIPT_DIR/../lib/bin/fg-core.js" ]] && command -v node &>/dev/null; then
     engine_path="node $SCRIPT_DIR/../lib/bin/fg-core.js"
-  elif [[ -f "$SCRIPT_DIR/../lib/dist/index.js" ]] && $has_node; then
+  elif [[ -f "$SCRIPT_DIR/../lib/dist/index.js" ]] && command -v node &>/dev/null; then
     engine_path="node $SCRIPT_DIR/../lib/dist/index.js"
   fi
 
   if [[ -z "$engine_path" ]]; then
+    echo "   ⚠️ 未检测到 Node.js 或 AST 引擎，跳过 AST 深度分析"
     return
   fi
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "🔍 AST 深度分析 (Node.js 引擎)"
+  echo "🔍 AST 深度分析（9 大模块）"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  local modules=("i18n" "performance" "a11y" "security" "naming" "cross-file" "component" "hooks" "platform")
-  local total_ast_issues=0
+  local fix_flag=""
+  if $FIX_MODE; then
+    fix_flag="--fix"
+  fi
 
-  for module in "${modules[@]}"; do
-    local module_output="/tmp/fg-ast-$module.json"
-    echo "   🔬 $module ..."
+  if $engine_path "$PROJECT_DIR" --module all --severity "${SEVERITY:-suggestion}" $fix_flag --json > "$AST_OUTPUT" 2>/dev/null; then
+    if [[ -s "$AST_OUTPUT" ]]; then
+      # 解析 JSON 统计各模块问题数
+      local json_total json_c json_w json_s
+      json_total=$(node -e "
+        const data = require('$AST_OUTPUT');
+        let t = 0;
+        for (const mod of Object.values(data.modules || {})) {
+          t += mod.total || 0;
+        }
+        console.log(t);
+      " 2>/dev/null || echo 0)
 
-    local fix_flag=""
-    if $FIX_MODE; then
-      fix_flag="--fix"
-    fi
-    if $engine_path "$PROJECT_DIR" --module "$module" --severity "${SEVERITY:-suggestion}" $fix_flag --json > "$module_output" 2>/dev/null; then
-      if [[ -s "$module_output" ]]; then
-        local ast_c ast_w ast_s
-        ast_c=$(node -e "
-          const data = require('$module_output');
-          console.log(data.issues?.critical?.length || 0);
-        " 2>/dev/null || echo 0)
-        ast_w=$(node -e "
-          const data = require('$module_output');
-          console.log(data.issues?.warning?.length || 0);
-        " 2>/dev/null || echo 0)
-        ast_s=$(node -e "
-          const data = require('$module_output');
-          console.log(data.issues?.suggestion?.length || 0);
-        " 2>/dev/null || echo 0)
+      json_c=$(node -e "
+        const data = require('$AST_OUTPUT');
+        let c = 0;
+        for (const mod of Object.values(data.modules || {})) {
+          c += mod.issues?.critical?.length || 0;
+        }
+        console.log(c);
+      " 2>/dev/null || echo 0)
 
-        ast_c=${ast_c:-0}
-        ast_w=${ast_w:-0}
-        ast_s=${ast_s:-0}
+      json_w=$(node -e "
+        const data = require('$AST_OUTPUT');
+        let w = 0;
+        for (const mod of Object.values(data.modules || {})) {
+          w += mod.issues?.warning?.length || 0;
+        }
+        console.log(w);
+      " 2>/dev/null || echo 0)
 
-        if [[ $((ast_c + ast_w + ast_s)) -gt 0 ]]; then
-          echo "      🔴 Critical: $ast_c | 🟡 Warning: $ast_w | 💡 Suggestion: $ast_s"
-          CRITICAL_COUNT=$((CRITICAL_COUNT + ast_c))
-          WARNING_COUNT=$((WARNING_COUNT + ast_w))
-          SUGGESTION_COUNT=$((SUGGESTION_COUNT + ast_s))
-          total_ast_issues=$((total_ast_issues + ast_c + ast_w + ast_s))
-        fi
+      json_s=$(node -e "
+        const data = require('$AST_OUTPUT');
+        let s = 0;
+        for (const mod of Object.values(data.modules || {})) {
+          s += mod.issues?.suggestion?.length || 0;
+        }
+        console.log(s);
+      " 2>/dev/null || echo 0)
+
+      CRITICAL_COUNT=$((CRITICAL_COUNT + json_c))
+      WARNING_COUNT=$((WARNING_COUNT + json_w))
+      SUGGESTION_COUNT=$((SUGGESTION_COUNT + json_s))
+
+      # 终端输出各模块摘要
+      node -e "
+        const data = require('$AST_OUTPUT');
+        const mods = data.modules || {};
+        const order = ['i18n','performance','a11y','security','naming','cross-file','component','hooks','platform'];
+        const c = { r: s => '\x1b[31m' + s + '\x1b[0m', y: s => '\x1b[33m' + s + '\x1b[0m', b: s => '\x1b[34m' + s + '\x1b[0m' };
+        for (const name of order) {
+          const m = mods[name];
+          if (!m || m.total === 0) continue;
+          const parts = [];
+          if (m.issues.critical.length) parts.push(c.r('🔴C:' + m.issues.critical.length));
+          if (m.issues.warning.length) parts.push(c.y('🟡W:' + m.issues.warning.length));
+          if (m.issues.suggestion.length) parts.push(c.b('💡S:' + m.issues.suggestion.length));
+          console.log('   📦 ' + name.padEnd(12) + ' ' + parts.join(' | '));
+        }
+      " 2>/dev/null || true
+
+      if [[ $json_total -eq 0 ]]; then
+        echo "   ✅ AST 分析未发现问题"
+      else
+        echo "   📊 AST 分析共发现 $json_total 个问题"
       fi
+    else
+      echo "   ✅ AST 分析未发现问题"
     fi
-  done
-
-  if [[ $total_ast_issues -eq 0 ]]; then
-    echo "   ✅ AST 分析未发现问题"
   else
-    echo "   📊 AST 分析共发现 $total_ast_issues 个问题"
+    echo "   ⚠️ AST 引擎执行失败（项目可能不是 Node.js 项目）"
   fi
 }
 
 # ---------------------------------------------------------------------------
-# 执行子扫描脚本
+# Bash 补充扫描
 # ---------------------------------------------------------------------------
-run_scanner() {
+run_bash_scanner() {
   local name="$1"
   local script="$2"
   local output_file="$3"
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "🔍 $name"
+  echo "🔍 $name（补充扫描）"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   if [[ -x "$SCRIPT_DIR/$script" ]]; then
     "$SCRIPT_DIR/$script" "$PROJECT_DIR" > "$output_file" 2>&1 || true
     cat "$output_file"
 
-    # 统计问题数（head -1 防止多行输出）
     local c w s
     c=$(grep -cE "❌|🔴|Critical|严重" "$output_file" 2>/dev/null | head -1 | tr -d '\n')
     c=${c:-0}
@@ -397,79 +406,93 @@ generate_report() {
     echo "| 💡 Suggestion | $SUGGESTION_COUNT |"
     echo ""
 
-    # 各模块详细结果
-    echo "## 🌍 i18n 治理"
-    echo ""
-    if [[ -f "/tmp/fg-i18n.txt" && -s "/tmp/fg-i18n.txt" ]]; then
-      echo '```'
-      cat "/tmp/fg-i18n.txt"
-      echo '```'
-    else
-      echo "✅ 未发现问题"
-    fi
-    echo ""
+    # AST 引擎详细结果
+    if [[ -f "$AST_OUTPUT" && -s "$AST_OUTPUT" ]]; then
+      node -e "
+        const data = require('$AST_OUTPUT');
+        const modules = data.modules || {};
+        const labels = {
+          i18n: '🌍 i18n 治理',
+          performance: '⚡ 性能优化',
+          a11y: '♿ 可访问性',
+          security: '🛡️ 安全扫描',
+          naming: '🏷️ 命名规范',
+          'cross-file': '🔗 跨文件分析',
+          component: '🏥 组件医生',
+          hooks: '⚡ Hooks / Composables',
+          platform: '📱 多端平台适配',
+        };
+        for (const [key, label] of Object.entries(labels)) {
+          const mod = modules[key];
+          if (!mod || mod.total === 0) continue;
+          console.log('## ' + label);
+          console.log('');
+          const all = [
+            ...(mod.issues?.critical || []),
+            ...(mod.issues?.warning || []),
+            ...(mod.issues?.suggestion || []),
+          ];
+          for (const issue of all) {
+            const sev = issue.severity.toUpperCase();
+            const icon = sev === 'CRITICAL' ? '🔴' : sev === 'WARNING' ? '🟡' : '💡';
+            console.log('### ' + icon + ' [' + sev + '] ' + issue.title);
+            console.log('');
+            console.log('- **文件**: \`' + issue.file + ':' + issue.line + ':' + issue.column + '\`');
+            console.log('- **说明**: ' + issue.description);
+            if (issue.source) {
+              console.log('- **源码**: ');
+              console.log('  \`\`\`');
+              console.log('  ' + issue.source.split('\n').join('\n  '));
+              console.log('  \`\`\`');
+            }
+            if (issue.fix) {
+              console.log('- **修复建议**: 将 \`' + issue.source + '\` 替换为 \`' + issue.fix.text + '\`');
+            }
+            console.log('');
+          }
+        }
 
-    echo "## 🏥 组件医生"
-    echo ""
-    if [[ -f "/tmp/fg-component.txt" && -s "/tmp/fg-component.txt" ]]; then
-      echo '```'
-      cat "/tmp/fg-component.txt"
-      echo '```'
-    else
-      echo "✅ 未发现问题"
+        // 修复统计
+        if (data.fix && data.fix.fixedCount > 0) {
+          console.log('## 🔧 自动修复');
+          console.log('');
+          console.log('- 已修复问题数: ' + data.fix.fixedCount);
+          console.log('- 修改文件数: ' + data.fix.filesModified.length);
+          for (const f of data.fix.filesModified) {
+            console.log('  - \`' + f + '\`');
+          }
+          console.log('');
+        }
+      " 2>/dev/null || echo "⚠️ 解析 AST 结果失败"
     fi
-    echo ""
 
-    echo "## ⚡ Hooks / Composables"
-    echo ""
-    if [[ -f "/tmp/fg-hooks.txt" && -s "/tmp/fg-hooks.txt" ]]; then
-      echo '```'
-      cat "/tmp/fg-hooks.txt"
-      echo '```'
-    else
-      echo "✅ 未发现问题"
-    fi
-    echo ""
+    # Bash 补充扫描结果
+    local bash_modules=(
+      "🌍 i18n 治理（补充）:/tmp/fg-i18n.txt"
+      "🏥 组件医生（补充）:/tmp/fg-component.txt"
+      "⚡ Hooks / Composables（补充）:/tmp/fg-hooks.txt"
+      "📱 多端平台适配（补充）:/tmp/fg-platform.txt"
+    )
+    for item in "${bash_modules[@]}"; do
+      local label="${item%%:*}"
+      local file="${item##*:}"
+      if [[ -f "$file" && -s "$file" ]]; then
+        echo "## $label"
+        echo ""
+        echo '\`\`\`'
+        cat "$file"
+        echo '\`\`\`'
+        echo ""
+      fi
+    done
 
-    echo "## 📱 多端平台适配"
-    echo ""
-    if [[ -f "/tmp/fg-platform.txt" && -s "/tmp/fg-platform.txt" ]]; then
-      echo '```'
-      cat "/tmp/fg-platform.txt"
-      echo '```'
-    else
-      echo "✅ 未发现问题"
-    fi
-    echo ""
-
-    echo "## 🎨 命名规范"
-    echo ""
-    if [[ -f "/tmp/fg-naming.txt" && -s "/tmp/fg-naming.txt" ]]; then
-      echo '```'
-      cat "/tmp/fg-naming.txt"
-      echo '```'
-    else
-      echo "✅ 未发现问题"
-    fi
-    echo ""
-
-    echo "## 🔗 跨文件分析"
-    echo ""
-    if [[ -f "/tmp/fg-cross-file.txt" && -s "/tmp/fg-cross-file.txt" ]]; then
-      echo '```'
-      cat "/tmp/fg-cross-file.txt"
-      echo '```'
-    else
-      echo "✅ 未发现问题"
-    fi
-    echo ""
-
+    # Knip
     echo "## 🧹 代码库瘦身 (Knip)"
     echo ""
     if [[ -f "/tmp/fg-knip.txt.json" && -s "/tmp/fg-knip.txt.json" ]]; then
-      echo '```json'
+      echo '\`\`\`json'
       cat "/tmp/fg-knip.txt.json"
-      echo '```'
+      echo '\`\`\`'
     else
       echo "ℹ️ Knip 扫描结果未生成（可能未安装 Node.js 或未安装 Knip）"
     fi
@@ -488,10 +511,9 @@ generate_report() {
 # ---------------------------------------------------------------------------
 main() {
   echo ""
-  echo "🛡️ Frontend Guardian v1.0.0"
+  echo "🛡️ Frontend Guardian v2.0.0"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  # 加载配置
   load_config
 
   # 检测技术栈
@@ -506,19 +528,19 @@ main() {
   FILE_COUNT=$(get_files | wc -l | tr -d ' ')
   echo "   共 $FILE_COUNT 个文件"
 
-  # 执行各模块扫描
-  run_scanner "i18n 治理" "scan-i18n.sh" "/tmp/fg-i18n.txt"
-  run_scanner "组件医生" "scan-components.sh" "/tmp/fg-component.txt"
-  run_scanner "Hooks 检查" "scan-hooks.sh" "/tmp/fg-hooks.txt"
-  run_scanner "多端适配" "scan-platform.sh" "/tmp/fg-platform.txt"
+  # 1. AST 深度分析（主要引擎，一次扫描所有模块）
+  run_ast_engine
 
-  # Knip 代码库瘦身扫描
+  # 2. Bash 补充扫描（覆盖 AST 未迁移的规则）
+  run_bash_scanner "i18n 治理" "scan-i18n.sh" "/tmp/fg-i18n.txt"
+  run_bash_scanner "组件医生" "scan-components.sh" "/tmp/fg-component.txt"
+  run_bash_scanner "Hooks 检查" "scan-hooks.sh" "/tmp/fg-hooks.txt"
+  run_bash_scanner "多端适配" "scan-platform.sh" "/tmp/fg-platform.txt"
+
+  # 3. Knip 代码库瘦身
   run_knip
 
-  # Node.js AST 引擎扫描（如果可用）
-  run_node_engine
-
-  # 生成报告
+  # 4. 生成报告
   generate_report "$STACK"
 
   # 终端摘要
@@ -531,13 +553,22 @@ main() {
   echo "   💡 Suggestion: $SUGGESTION_COUNT"
   echo ""
 
+  # JSON 模式：输出原始 AST 结果
+  if $JSON_MODE; then
+    if [[ -f "$AST_OUTPUT" ]]; then
+      echo ""
+      echo "📋 AST JSON 原始输出："
+      cat "$AST_OUTPUT"
+      echo ""
+    fi
+  fi
+
   # AI 上下文初始化/更新
   if $INIT_AI; then
     echo ""
     echo "🤖 正在更新 AI 上下文..."
     local init_ai_args=("$PROJECT_DIR" "--agent" "$AI_AGENT" "--report" "$OUTPUT_FILE")
     if [[ -f "$CONFIG_FILE" ]]; then
-      # 从配置读取 includeFiles（简单解析）
       local include_files
       include_files=$(grep -A 10 'includeFiles:' "$CONFIG_FILE" 2>/dev/null | grep '^  \- ' | sed 's/^  - //' | tr '\n' ',' | sed 's/,$//')
       if [[ -n "$include_files" ]]; then
@@ -563,7 +594,7 @@ main() {
     fi
   fi
 
-  # 严重级别过滤
+  # 严重级别过滤提示
   case "$SEVERITY" in
     critical)
       if [[ $CRITICAL_COUNT -gt 0 ]]; then
