@@ -9,8 +9,9 @@
  * 5. 支持增量扫描（git diff）
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { createInterface } from "node:readline";
 import { resolve } from "node:path";
 import type {
     Rule,
@@ -65,6 +66,10 @@ export interface EngineOptions {
     cacheTtl?: number;
     /** 修复预览模式（只展示不写入） */
     dryRun?: boolean;
+    /** 交互式修复模式（逐条确认） */
+    interactive?: boolean;
+    /** 大文件跳过阈值（字节，默认 500KB = 512000） */
+    skipLargeFilesThreshold?: number;
 }
 
 export class RuleEngine {
@@ -192,7 +197,12 @@ export class RuleEngine {
             this.scanFile(file, activeRules)
         );
 
-        for (const fileIssues of fileResults) {
+        let filesSkipped = 0;
+        for (const { issues: fileIssues, skipped } of fileResults) {
+            if (skipped) {
+                filesSkipped++;
+                continue;
+            }
             if (fileIssues.length > 0) {
                 filesWithIssues++;
                 for (const issue of fileIssues) {
@@ -207,6 +217,7 @@ export class RuleEngine {
         }
 
         const total = issues.critical.length + issues.warning.length + issues.suggestion.length;
+        const filesScanned = files.length - filesSkipped;
 
         // Phase 5: 保存缓存并输出统计
         if (this.cache) {
@@ -222,7 +233,7 @@ export class RuleEngine {
             total,
             issues,
             duration: Date.now() - startTime,
-            filesScanned: files.length,
+            filesScanned,
             filesWithIssues,
         };
 
@@ -243,16 +254,34 @@ export class RuleEngine {
         return result;
     }
 
-    /** 扫描单个文件（带智能缓存） */
-    private async scanFile(filePath: string, rules: Rule[]): Promise<Issue[]> {
+    /** 扫描单个文件（带智能缓存 + 大文件跳过） */
+    private async scanFile(filePath: string, rules: Rule[]): Promise<{ issues: Issue[]; skipped?: boolean }> {
         try {
+            // v2.4.0: 大文件智能跳过
+            const threshold = this.options.skipLargeFilesThreshold ?? 512_000;
+            if (threshold > 0) {
+                try {
+                    const stats = statSync(filePath);
+                    if (stats.size > threshold) {
+                        console.log(
+                            pc.yellow(
+                                `   ⚠️ 跳过超大文件: ${filePath} (${(stats.size / 1024).toFixed(1)}KB > ${(threshold / 1024).toFixed(0)}KB)`
+                            )
+                        );
+                        return { issues: [], skipped: true };
+                    }
+                } catch {
+                    // stat 失败继续尝试读取
+                }
+            }
+
             const source = readFileSync(filePath, "utf-8");
 
             // Phase 5: 智能缓存命中检查
             if (this.cache?.isCached(filePath, source)) {
                 const cached = this.cache.get(filePath);
                 if (cached) {
-                    return cached;
+                    return { issues: cached };
                 }
             }
 
@@ -270,6 +299,12 @@ export class RuleEngine {
             for (const rule of rules) {
                 try {
                     const result = await rule.execute(context);
+                    // v2.4.0: 为每个 issue 注入 docsUrl
+                    for (const issue of result) {
+                        if (rule.docsUrl && !issue.docsUrl) {
+                            issue.docsUrl = rule.docsUrl;
+                        }
+                    }
                     allIssues.push(...result);
                 } catch (err) {
                     console.error(pc.red(`  Rule "${rule.id}" failed on ${filePath}:`), err);
@@ -279,10 +314,10 @@ export class RuleEngine {
             // Phase 5: 缓存结果
             this.cache?.set(filePath, source, allIssues);
 
-            return allIssues;
+            return { issues: allIssues };
         } catch (err) {
             // 文件读取失败，静默跳过
-            return [];
+            return { issues: [] };
         }
     }
 
@@ -411,9 +446,11 @@ export class RuleEngine {
      * @param issues 包含 fix 字段的 Issue 列表
      * @returns 修复统计（dryRun 模式下 filesModified 为空，fixedCount 为预览数量）
      */
-    applyFixes(issues: Issue[]): { fixedCount: number; filesModified: string[]; errors: string[]; previews?: FixPreview[] } {
+    applyFixes(issues: Issue[]): { fixedCount: number; filesModified: string[]; errors: string[]; previews?: FixPreview[]; skippedByUser?: number } {
         const dryRun = this.options.dryRun;
+        const interactive = this.options.interactive;
         let fixedCount = 0;
+        let skippedByUser = 0;
         const filesModified: string[] = [];
         const errors: string[] = [];
         const previews: FixPreview[] = [];
@@ -441,6 +478,7 @@ export class RuleEngine {
 
                 for (const issue of sorted) {
                     const fix = issue.fix!;
+                    const confidence = fix.confidence ?? "high";
                     const patched = this.applySingleFix(source, fix);
 
                     if (dryRun) {
@@ -453,9 +491,34 @@ export class RuleEngine {
                             diff,
                         });
                         fixedCount++;
+                        source = patched;
+                        continue;
                     }
 
-                    source = patched;
+                    if (interactive) {
+                        // v2.4.0: 交互式修复模式 — 逐条确认
+                        const shouldApply = this.promptForFix(issue, confidence, source, patched);
+                        if (shouldApply) {
+                            const before = source;
+                            source = patched;
+                            if (source !== before) {
+                                fixedCount++;
+                            }
+                        } else {
+                            skippedByUser++;
+                        }
+                    } else {
+                        // 自动修复：低置信度自动跳过
+                        if (confidence === "low") {
+                            skippedByUser++;
+                            continue;
+                        }
+                        const before = source;
+                        source = patched;
+                        if (source !== before) {
+                            fixedCount++;
+                        }
+                    }
                 }
 
                 if (source !== originalSource) {
@@ -463,18 +526,78 @@ export class RuleEngine {
                         writeFileSync(filePath, source, "utf-8");
                     }
                     filesModified.push(filePath);
-                    fixedCount += fileIssues.length;
                 }
             } catch (err) {
                 errors.push(`修复 ${filePath} 失败: ${err}`);
             }
         }
 
-        const result: { fixedCount: number; filesModified: string[]; errors: string[]; previews?: FixPreview[] } =
-            { fixedCount, filesModified, errors };
+        const result: { fixedCount: number; filesModified: string[]; errors: string[]; previews?: FixPreview[]; skippedByUser?: number } =
+            { fixedCount, filesModified, errors, skippedByUser };
         if (dryRun) {
             result.previews = previews;
         }
+        return result;
+    }
+
+    /**
+     * v2.4.0: 交互式修复 — 向用户展示 diff 并询问是否应用
+     * 同步阻塞式输入（基于 readline），适用于 CLI 场景
+     */
+    private promptForFix(issue: Issue, confidence: string, original: string, patched: string): boolean {
+        const diff = this.makeDiffPreview(original, patched, issue.fix!);
+        const confidenceIcon = confidence === "high" ? pc.green("●") : confidence === "medium" ? pc.yellow("●") : pc.red("●");
+        const confidenceLabel = confidence === "high" ? "高置信度" : confidence === "medium" ? "中置信度" : "低置信度";
+
+        console.log(pc.cyan(`\n  📄 ${issue.file}:${issue.line}`));
+        console.log(pc.yellow(`     [${issue.ruleId}] ${issue.title}`));
+        console.log(pc.gray(`     置信度: ${confidenceIcon} ${confidenceLabel}`));
+        if (issue.fix?.description) {
+            console.log(pc.gray(`     说明: ${issue.fix.description}`));
+        }
+        console.log(diff);
+        console.log(pc.gray("     选项: [y] 应用  [n] 跳过  [a] 全部应用  [q] 退出"));
+
+        // 使用同步 readline 读取用户输入
+        const rl = createInterface({ input: process.stdin, output: process.stdout });
+        try {
+            // 简单同步读取（适用于 Node.js CLI）
+            const answer = this.readSyncLine(rl);
+            const trimmed = answer.trim().toLowerCase();
+            if (trimmed === "a") {
+                // 全部应用：关闭交互模式，后续自动应用
+                this.options.interactive = false;
+                return true;
+            }
+            if (trimmed === "q") {
+                console.log(pc.gray("     已退出交互式修复"));
+                process.exit(0);
+            }
+            return trimmed === "y" || trimmed === "yes" || trimmed === "";
+        } finally {
+            rl.close();
+        }
+    }
+
+    /** 同步读取一行输入 */
+    private readSyncLine(rl: import("node:readline").Interface): string {
+        const { stdin, stdout } = process;
+        stdin.setRawMode?.(true);
+        stdin.resume();
+        let result = "";
+        const buf = Buffer.alloc(1);
+        while (true) {
+            const bytesRead = (stdin as any).readSync ? (stdin as any).readSync(buf) : 0;
+            if (bytesRead === 0) continue;
+            const char = buf.toString("utf8");
+            if (char === "\n" || char === "\r") break;
+            if (char === "") process.exit(0); // Ctrl+C
+            result += char;
+            stdout.write(char);
+        }
+        stdout.write("\n");
+        stdin.setRawMode?.(false);
+        stdin.pause();
         return result;
     }
 

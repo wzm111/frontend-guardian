@@ -51,9 +51,14 @@ export interface Issue {
     source?: string;
     /** Suggested fix */
     fix?: Fix;
+    /** 规则文档链接（终端可点击跳转） */
+    docsUrl?: string;
     /** Additional metadata */
     meta?: Record<string, unknown>;
 }
+
+/** 修复置信度级别 */
+export type FixConfidence = "high" | "medium" | "low";
 
 export interface Fix {
     /** Replacement text */
@@ -62,6 +67,10 @@ export interface Fix {
     start: Position;
     /** End position in file */
     end: Position;
+    /** 修复置信度（默认 high） */
+    confidence?: FixConfidence;
+    /** 修复说明（交互式模式下展示给用户） */
+    description?: string;
 }
 
 /** Fix preview for dry-run mode */
@@ -117,6 +126,8 @@ export interface Rule {
     platforms?: Platform[];
     /** Rule metadata (params, notes, etc.) */
     meta?: Record<string, unknown>;
+    /** 规则文档链接 */
+    docsUrl?: string;
     /** Execute rule on a file */
     execute(context: RuleContext): Issue[] | Promise<Issue[]>;
 }

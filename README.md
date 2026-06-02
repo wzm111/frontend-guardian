@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v2.3.1**
+> **当前版本：v2.4.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -27,46 +27,57 @@
 
 ## 安装
 
+### 方式一：作为 AI 智能体 Skill 安装（推荐）
+
+各智能体的 Skill 安装路径：
+
+| 智能体 | Skill 目录 |
+| ------ | ---------- |
+| Claude Code | `.claude/skills/` |
+| Codex (OpenAI) | `.codex/skills/` |
+| Kimi Code | `.kimi/skills/` |
+| Qode | `.qode/skills/` |
+| Gemini CLI | `.gemini/skills/` |
+| Hermes | `.hermes/skills/` |
+| 通用 / 其他 | `.ai/skills/` |
+
 ```bash
+# 以 Claude Code 为例，其他智能体替换对应目录即可
 cp -r frontend-guardian /your/project/.claude/skills/
 ```
 
-## 使用方式
-
-### 一键初始化脚手架
+### 方式二：作为 npm CLI 工具使用
 
 ```bash
-# 自动检测技术栈并创建项目结构
-frontend-guardian --init-scaffold ./my-project
-
-# 指定技术栈
-frontend-guardian --init-scaffold ./my-project --stack react
-frontend-guardian --init-scaffold ./my-project --stack uniapp
-frontend-guardian --init-scaffold ./my-project --stack harmony
-
-# 强制覆盖已有文件
-frontend-guardian --init-scaffold ./my-project --stack nextjs --force
+cd lib && npm install && npm run build
+npx fg-core ./my-project --module all
 ```
 
-> **路径说明**：`./my-project` 表示在**当前运行目录**下创建 `my-project` 子目录。支持相对路径（`../my-project`）和绝对路径（`/home/user/my-project`）。
+## AI 智能体兼容性
+
+frontend-guardian 设计为**跨智能体兼容**的 Skill/插件，不绑定任何特定 AI 平台。
+
+| 智能体 | Skill 目录 | 命令格式 | 状态 |
+| ------ | ---------- | -------- | ---- |
+| Claude Code | `.claude/skills/` | `/frontend-guardian` | ✅ 已验证 |
+| Codex (OpenAI) | `.codex/skills/` | `/frontend-guardian` | 🚧 待验证 |
+| Kimi Code | `.kimi/skills/` | `/frontend-guardian` | 🚧 待验证 |
+| Qode | `.qode/skills/` | `/frontend-guardian` | 🚧 待验证 |
+| Gemini CLI | `.gemini/skills/` | `/frontend-guardian` | 🚧 待验证 |
+| Hermes | `.hermes/skills/` | `/frontend-guardian` | 🚧 待验证 |
+| 其他 / 自定义 | `.ai/skills/` | `/frontend-guardian` | 🚧 待验证 |
+
+> ⚠️ **诚实说明**：目前仅 Claude Code 的 Skill 系统经过实际验证。其他智能体的 Skill/插件机制是否存在、目录结构、文件格式均需根据各自生态确认。上述"待验证"状态表示**设计层面兼容**（标准 slash command + 纯文本规则 + 独立 CLI），但**实际安装路径和加载机制需查阅对应智能体的官方文档**。
 >
-> | 命令示例 | 创建位置 |
-> | -------- | -------- |
-> | `--init-scaffold ./my-project` | 当前目录下的 `my-project/` |
-> | `--init-scaffold ../my-project` | 父目录下的 `my-project/` |
-> | `--init-scaffold /home/user/my-project` | 绝对路径 `/home/user/my-project/` |
+> 如果你在某个智能体上验证成功，欢迎提 PR 更新此表格。
 
-脚手架会自动完成：
-- 创建技术栈对应的目录结构（src/components / hooks / services / locales 等）
-- 生成 `.frontend-guardian.yml` 完整治理配置
-- 生成示例文件（i18n 工具函数、请求封装、API 常量、双语语言包）
-- 生成 `.gitignore`
-- 初始化 AI 上下文文件
-- 安装推荐依赖（react-i18next / vue-i18n / typescript / eslint 等）
+**设计原则**（便于移植）：
+1. **标准 slash command**：所有命令采用 `/command --flag` 格式，各智能体通用
+2. **纯文本规则文件**：`rules/*.md` 为纯 Markdown，不依赖任何智能体专有语法
+3. **Node.js CLI 核心**：`fg-core` 为独立可执行文件，智能体仅作为调用入口
+4. **零外部依赖**：Skill 文件自包含，不调用智能体专有 API
 
-支持的技术栈：`react` `vue` `nextjs` `nuxt` `uniapp` `taro` `wechat-mp` `harmony`
-
----
+## 使用方式
 
 ### 7 个核心命令
 
@@ -164,55 +175,14 @@ fg-core . --scan --baseline baseline.json --generate-baseline
 | `--github-actions` | 启用 GitHub Actions Annotation 输出 | 自动检测 |
 | `--baseline <file>` | Baseline 模式：仅报告新增问题 | - |
 | `--generate-baseline` | 生成 baseline 文件 | - |
+| `--interactive` | 交互式修复（逐条确认，类似 `git add -p`） | false |
+| `--skip-large-files-threshold <bytes>` | 大文件跳过阈值（默认 512000 = 500KB，0 表示不跳过） | 512000 |
 
-### AI 上下文初始化
-
-在目标项目中自动生成 AI 智能体上下文文件，让 Claude / Cursor / Copilot 等智能体理解项目技术栈和规范：
-
-```text
-# 为 Claude Code 生成 .claude/CLAUDE.md
-/frontend-guardian --init-ai claude
-
-# 为 Cursor 生成 .cursorrules
-/frontend-guardian --init-ai cursor
-
-# 为 GitHub Copilot 生成 .github/copilot-instructions.md
-/frontend-guardian --init-ai copilot
-
-# 同时生成所有格式（+ 通用 AI_CONTEXT.md）
-/frontend-guardian --init-ai all
-
-# 扫描后自动更新 AI 上下文（包含扫描结果）
-/frontend-guardian --scan --init-ai claude
-```
-
-生成的 AI 上下文文件包含：
-- 项目技术栈概况（框架、组件库、目标平台、版本信息）
-- 前端治理规则摘要（基于检测到的技术栈自动提取对应 rules）
-- 最近一次扫描结果统计
-- 项目目录结构约定
-- AI 助手指令（代码风格、组件规范、状态管理、国际化等）
-- 额外引用的项目文档（在 `.frontend-guardian.yml` 中配置 `aiContext.includeFiles`）
-
-**配置示例**（`.frontend-guardian.yml`）：
-
-```yaml
-aiContext:
-  agent: claude                    # 默认智能体类型
-  includeFiles:                    # 额外引用的文档
-    - README.md
-    - CONTRIBUTING.md
-    - docs/architecture.md
-  autoUpdate: true                 # 扫描后自动更新
-```
-
----
-
-## 触发条件
+## 使用场景
 
 Skill 在以下场景自动激活：
 
-- 用户输入 `/frontend-guardian`
+- 用户通过 AI 智能体 Skill 调用 frontend-guardian（Claude Code / Codex / Kimi Code / Qode / Gemini / Hermes 等）
 - 检测到 `i18n/`、`locales/`、`lang/`、`messages/` 目录
 - 检测到 `vue-i18n`、`react-intl`、`i18next`、`@dcloudio/uni-i18n` 依赖
 - 检测到 `antd`、`element-plus`、`@mui/material`、`@nutui/nutui-react` 等组件库
@@ -684,7 +654,7 @@ bash scripts/full-scan.sh --since HEAD~3
 ### CI 门禁模式（--gate）
 
 ```bash
-/frontend-guardian --scan --gate
+fg-core . --scan --gate
 # 发现 Critical 问题 → 退出码 1，阻断 CI
 ```
 
@@ -760,6 +730,15 @@ platform:
 ---
 
 ## 版本演进
+
+### v2.4.0 — 开发者体验（已交付，376 测试通过）
+
+- **修复置信度系统 `SmartFix`**：`Fix` 接口扩展 `confidence: "high" | "medium" | "low"` + `description`，`applyFixes()` 自动跳过低置信度修复（需 `--interactive` 或手动确认）
+- **交互式修复 `--fix --interactive`**：类似 `git add -p`，逐条展示 diff 并确认 `[y/n/a/q]`，支持全部应用后退出交互模式
+- **规则文档内联链接 `docsUrl`**：`Rule` 接口扩展 `docsUrl`，Issue 输出自动附带规则文档链接（终端可点击跳转）
+- **大文件智能跳过**：`scanFile()` 检测文件大小，默认 > 500KB 自动跳过并 warn，可通过 `--skip-large-files-threshold` 调整阈值（0 表示不跳过）
+- **指令统一**：README 统一使用 `fg-core .` CLI 格式，移除 SKILL 特有的 `/frontend-guardian` 指令
+- **测试**：新增 `tests/v2.4.0-smart-fix.test.ts`（10 测试），覆盖置信度过滤、docsUrl 传递、大文件跳过阈值
 
 ### v2.3.1 — CI/CD 增强补全（已交付，366 测试通过）
 
@@ -856,7 +835,7 @@ platform:
 
 ```
 frontend-guardian/
-├── SKILL.md                              # Claude Code 入口（触发条件 + 指令路由）
+├── SKILL.md                              # AI 智能体 Skill 入口（触发条件 + 指令路由，兼容 Claude Code / Codex / Kimi Code / Qode / Gemini / Hermes）
 ├── README.md                             # 本文档
 ├── .frontend-guardian.yml                # 配置模板
 ├── rules/

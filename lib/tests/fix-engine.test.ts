@@ -180,8 +180,7 @@ describe("applyFixes — dry-run 模式", () => {
 
         expect(readFileSync(file, "utf-8")).toBe(original);
         expect(result.filesModified).toContain(file);
-        // 注：dry-run 模式下源码对 fixedCount 有 double-count（循环+结尾各+1）
-        expect(result.fixedCount).toBe(2);
+        expect(result.fixedCount).toBe(1);
         expect(result.previews).toBeDefined();
         expect(result.previews!.length).toBe(1);
         expect(result.previews![0].file).toBe(file);

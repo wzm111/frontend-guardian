@@ -1,10 +1,14 @@
-# frontend-guardian — 前端统一治理助手
+# frontend-guardian — 前端统一治理助手（跨 AI 智能体 Skill）
+
+> **兼容性**：本 Skill 采用标准 slash command 格式，设计目标为跨 AI 智能体兼容（Claude Code、Codex、Kimi Code、Qode、Gemini CLI、Hermes 等）。
+>
+> ⚠️ **诚实说明**：目前仅 Claude Code 的 Skill 系统经过实际验证。其他智能体的 Skill/插件机制、目录结构、文件格式均需根据各自生态确认。设计层面（标准 slash command + 纯文本规则 + 独立 CLI）是通用的，但实际安装路径和加载机制请查阅对应智能体的官方文档。
 
 ## 触发条件
 
 当满足以下任一条件时，自动激活本 Skill：
 
-- 用户输入 `/frontend-guardian`
+- 用户输入 `/frontend-guardian`（各智能体通用的 slash command）
 - 检测到项目中的 `i18n/`、`locales/`、`lang/`、`messages/` 目录
 - 检测到 `vue-i18n`、`react-intl`、`i18next`、`@dcloudio/uni-i18n` 依赖
 - 检测到 `antd`、`element-plus`、`@mui/material`、`@nutui/nutui-react` 等组件库
