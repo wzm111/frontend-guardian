@@ -39,6 +39,10 @@ export type { CIProvider, CIGeneratorOptions } from "./utils/ci-generator.js";
 export { HistoryReport } from "./utils/history-report.js";
 export type { HistoryEntry, TrendAnalysis } from "./utils/history-report.js";
 
+// v2.5.0: 报告上传
+export { uploadReport, detectUploadConfig } from "./utils/report-uploader.js";
+export type { UploadConfig, UploadResult } from "./utils/report-uploader.js";
+
 // Phase v2.3.0: Baseline 管理
 export { BaselineManager, compareWithBaseline, generateBaseline, loadBaseline, saveBaseline, toBaselineIssue } from "./utils/baseline.js";
 export type { BaselineFile, BaselineIssue, BaselineResult } from "./utils/baseline.js";

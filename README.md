@@ -329,6 +329,8 @@ fg-core . --scan --post-comment
 | `--github-actions` | 启用 GitHub Actions Annotation 输出 | 自动检测 |
 | `--baseline <file>` | Baseline 模式：仅报告新增问题 | - |
 | `--generate-baseline` | 生成 baseline 文件 | - |
+| `--output <file>` | 将扫描报告写入指定 Markdown 文件 | - |
+| `--upload` | 上传报告（需配置 FG_UPLOAD_PROVIDER 环境变量） | - |
 | `--interactive` | 交互式修复（逐条确认，类似 `git add -p`） | false |
 | `--skip-large-files-threshold <bytes>` | 大文件跳过阈值（默认 512000 = 500KB，0 表示不跳过） | 512000 |
 

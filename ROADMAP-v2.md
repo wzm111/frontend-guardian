@@ -130,7 +130,7 @@
 ### P1 — 尽量完成
 
 - [x] **扫描范围智能推断**：`--auto-scope` 自动检测未提交修改 → 最近 5 次提交 → 全量回退，大项目秒级精准扫描
-- [ ] **报告托管/上传**：历史报告支持上传至 S3 / 内部服务器，生成团队共享的趋势看板 URL
+- [x] **报告托管/上传**：`--upload` + `--output` 支持 HTTP webhook 和文件复制上传，自动检测 FG_UPLOAD_PROVIDER 环境变量配置
 - [x] **GitLab CI 模板完善**：`--init-ci` 生成含 `rules` / `artifacts` / `cache` / `--post-comment` 的完整 GitLab 模板，支持 `--init-ci-provider gitlab|both`，自动检测平台
 
 ### P2 — 排期实现
