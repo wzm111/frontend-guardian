@@ -75,11 +75,11 @@
 
 **预计发布**：2026-06-29
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅ (2026-06-02)
 
-- [ ] **SARIF 格式输出** `--sarif`：输出 GitHub Security tab 可消费的 SARIF JSON
-- [ ] **GitHub Actions Annotation**：CI 输出内联代码注解，PR 中直接看到问题行
-- [ ] **Baseline 模式** `--baseline`：已有问题不阻塞，仅关注新增问题（遗留项目渐进式治理）
+- [x] **SARIF 格式输出** `--sarif`：输出 GitHub Security tab 可消费的 SARIF JSON
+- [x] **GitHub Actions Annotation**：CI 输出内联代码注解，PR 中直接看到问题行
+- [x] **Baseline 模式** `--baseline`：已有问题不阻塞，仅关注新增问题（遗留项目渐进式治理）
 
 ### P1 — 尽量完成
 

@@ -1,6 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
+> **当前版本：v2.3.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -737,6 +738,14 @@ platform:
 ---
 
 ## 版本演进
+
+### v2.3.0 — CI/CD 与提交增强（已交付，349 测试通过）
+
+- **SARIF 格式输出** `--sarif`：新增 `formatters/sarif.ts`，将 Issue 列表转换为 SARIF 2.1.0 JSON，支持 GitHub Security tab 消费，含 rule 定义、location、fix replacement
+- **GitHub Actions Annotation**：新增 `formatters/github-annotation.ts`，输出 `::error file=...::message` 格式命令，PR diff 内联显示问题；支持 `GITHUB_STEP_SUMMARY` Markdown 汇总
+- **Baseline 模式** `--baseline`：新增 `utils/baseline.ts`，`BaselineManager` 支持保存/加载/对比 baseline，遗留项目渐进式治理（已有问题不阻塞，仅关注新增）；列号容差 ±5
+- **CLI 集成**：`fg-core.js` 新增 `--sarif`、`--github-actions`、`--baseline <file>`、`--generate-baseline` 参数，自动检测 `GITHUB_ACTIONS` 环境
+- **测试**：新增 `tests/sarif-formatter.test.ts`（15 测试）、`tests/github-annotation.test.ts`（14 测试）、`tests/baseline.test.ts`（17 测试）
 
 ### v2.2.0 — 测试覆盖与质量（已交付，303 测试通过）
 
