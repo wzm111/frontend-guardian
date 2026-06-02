@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -153,6 +153,27 @@ describe("CLI — 特殊命令", () => {
         const result = runCLI(["--install-hooks"]);
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain("已安装");
+    });
+
+    it("--install-hooks --install-hooks-type commit-msg 应安装 commit-msg hook", () => {
+        execSync("git init", { cwd: tempDir, stdio: "ignore" });
+        const result = runCLI(["--install-hooks", "--install-hooks-type", "commit-msg"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("已安装");
+        // 验证 hook 文件包含 Conventional Commits 检查
+        const hookPath = join(tempDir, ".git", "hooks", "commit-msg");
+        const hookContent = readFileSync(hookPath, "utf-8");
+        expect(hookContent).toContain("Conventional Commits");
+        expect(hookContent).toContain("frontend-guardian");
+    });
+
+    it("--install-hooks --install-hooks-type all 应安装全部三个 hook", () => {
+        execSync("git init", { cwd: tempDir, stdio: "ignore" });
+        const result = runCLI(["--install-hooks", "--install-hooks-type", "all"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("pre-commit");
+        expect(result.stdout).toContain("pre-push");
+        expect(result.stdout).toContain("commit-msg");
     });
 });
 
