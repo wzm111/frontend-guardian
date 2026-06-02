@@ -762,11 +762,26 @@ platform:
 - **新增 11 项单元测试**：`tests/rule-registry.test.ts` 覆盖注册、配置覆盖、severity 调整、参数化、过滤、清除等全部场景
 - 框架抽象层：useEffect / watchEffect 等抽象为通用 EffectHook 模式
 
-#### Phase 4: 覆盖全面化（规划中）
+#### Phase 4: 覆盖全面化（已交付）
 
-- 规则扩增到 100+（当前 48 条）
-- 集成 ESLint / TypeScript / Stylelint 作为外部工具
-- 支持 Svelte / SolidJS / Astro 等现代框架
+- **外部工具集成**：`lib/src/integrations/` — ESLint（`--format json`）、TypeScript（`tsc --noEmit`）、Stylelint（`--formatter json`）
+  - 统一转换为 Issue 格式，与内置规则一起输出
+  - CLI 新增 `--external` 参数，自动检测可用工具并执行
+  - 关键 TS 错误码分类（TS2322/2345/2531 等为 critical，未使用变量为 warning）
+- **规则扩增**：hooks 模块 6 → 10 条
+  - `hooks-memo-deps`: useMemo/useCallback 缺少依赖数组或空依赖
+  - `hooks-callback-misuse`: 简单回调不需要 useCallback 包裹
+  - `hooks-missing-key`: 列表渲染 map() 缺少 key 属性
+  - `hooks-conditional`: Hook 在条件/循环中调用（违反 Hook 规则）
+- **现代框架支持**：新增 Svelte 模块（`--module svelte`）
+  - `svelte-reactive-statement`: $: 响应式语句使用未声明变量
+  - `svelte-store-unsubscribe`: Store 订阅未取消（内存泄漏）
+  - `svelte-props-mutate`: 直接修改 props（Svelte props 只读）
+  - `svelte-event-modifier`: Svelte 5 已弃用的事件修饰符
+  - Framework 类型扩展：svelte | solidjs | astro
+  - project-detector 自动检测 svelte / solid-js / astro 依赖
+- **总计规则数**：47 → 51 条内置规则 + 3 个外部工具集成
+- **测试覆盖**：129 个单元测试全部通过
 
 ---
 

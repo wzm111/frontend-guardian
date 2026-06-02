@@ -33,6 +33,9 @@ Skill 会自动检测项目类型并加载对应规则：
 | `react` + 无多端标记 | React PC/H5 | `rules/react.md` |
 | `next.config` | Next.js | `rules/nextjs.md` |
 | `nuxt.config` | Nuxt | `rules/nuxt.md` |
+| `svelte` | Svelte | `rules/svelte.md` |
+| `solid-js` | SolidJS | `rules/solidjs.md` |
+| `astro` | Astro | `rules/astro.md` |
 
 ## 指令路由
 
@@ -49,6 +52,7 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --scan --json                # JSON 格式输出
 /frontend-guardian --scan --output report.md    # 指定报告输出路径
 /frontend-guardian --scan --no-cluster          # 禁用 Issue 聚类
+/frontend-guardian --scan --external            # 同时运行 ESLint / TypeScript / Stylelint
 ```
 
 ### 单模块扫描
@@ -63,9 +67,10 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --module a11y            # 可访问性
 /frontend-guardian --module naming          # 命名规范
 /frontend-guardian --module cross-file      # 跨文件分析
+/frontend-guardian --module svelte          # Svelte 专项检查
 ```
 
-单模块支持 `--fix`、`--json`、`--severity`、`--staged`、`--diff` 参数：
+单模块支持 `--fix`、`--json`、`--severity`、`--staged`、`--diff`、`--external` 参数：
 ```
 /frontend-guardian --module naming --fix
 /frontend-guardian --module i18n --severity warning --json

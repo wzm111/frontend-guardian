@@ -371,11 +371,14 @@ const integrations: ExternalToolIntegration[] = [
 - [x] 自定义规则支持：`customRules:` 加载用户 JS 规则文件
 - [ ] ~~框架抽象层：通用 Hook/Effect 模式~~（推迟到 Phase 4，优先级降低）
 
-### Sprint 4: 覆盖全面化（持续）
-- [ ] 规则扩增到 100+
-- [ ] ESLint / TypeScript / Stylelint 集成
-- [ ] Svelte / SolidJS / Astro 支持
-- [ ] Bundle 分析集成
+### Sprint 4: 覆盖全面化 ✅（核心已交付）
+- [x] ESLint / TypeScript / Stylelint 集成：`lib/src/integrations/` 统一输出 Issue 格式，CLI `--external` 支持
+- [x] 规则扩增：hooks 6→10 条（新增 memo-deps / callback-misuse / missing-key / conditional）
+- [x] Svelte 支持：`--module svelte`，4 条 Svelte 专项规则，Framework 类型扩展
+- [x] Framework 检测扩展：自动检测 svelte / solid-js / astro 依赖
+- [ ] ~~规则扩增到 100+~~（持续迭代，当前 51 条内置 + 3 外部工具）
+- [ ] ~~Bundle 分析集成~~（待后续版本）
+- [ ] ~~SolidJS / Astro 规则~~（框架检测已支持，专项规则待后续版本）
 
 ---
 
