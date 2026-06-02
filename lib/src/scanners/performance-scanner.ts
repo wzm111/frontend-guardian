@@ -3,39 +3,39 @@
  * 参考 Vercel React Best Practices 的 57 条规则
  */
 
-import type { ParseResult } from '@babel/parser';
-import traverse from '@babel/traverse';
-import type { Rule, RuleContext, Issue } from '../types.js';
+import type { ParseResult } from "@babel/parser";
+import traverse from "@babel/traverse";
+import type { Rule, RuleContext, Issue } from "../types.js";
 
 /** 组件库入口包名 */
 const BARREL_PACKAGES = [
-  'antd',
-  '@ant-design/react-native',
-  'ant-design-vue',
-  'element-plus',
-  '@mui/material',
-  'vuetify',
-  '@nutui/nutui-react',
-  '@nutui/nutui',
-  'tdesign-react',
-  'tdesign-vue-next',
-  '@arco-design/web-react',
-  'naive-ui',
-  'quasar',
-  'primevue',
-  'primereact',
-  'bootstrap-vue-next',
+  "antd",
+  "@ant-design/react-native",
+  "ant-design-vue",
+  "element-plus",
+  "@mui/material",
+  "vuetify",
+  "@nutui/nutui-react",
+  "@nutui/nutui",
+  "tdesign-react",
+  "tdesign-vue-next",
+  "@arco-design/web-react",
+  "naive-ui",
+  "quasar",
+  "primevue",
+  "primereact",
+  "bootstrap-vue-next",
 ];
 
 export const performanceRules: Rule[] = [
   {
-    id: 'perf-avoid-waterfall',
-    name: '避免请求瀑布',
-    description: '不要连续使用 await 获取独立数据，应并行发起请求',
-    severity: 'warning',
-    category: 'performance',
+    id: "perf-avoid-waterfall",
+    name: "避免请求瀑布",
+    description: "不要连续使用 await 获取独立数据，应并行发起请求",
+    severity: "warning",
+    category: "performance",
     defaultEnabled: true,
-    frameworks: ['react', 'nextjs', 'vue', 'nuxt'],
+    frameworks: ["react", "nextjs", "vue", "nuxt"],
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
       const ast = context.utils.parseAST(context.source, {
@@ -53,7 +53,7 @@ export const performanceRules: Rule[] = [
           checkConsecutiveAwait(path.node.body, issues, context.filePath);
         },
         ArrowFunctionExpression(path) {
-          if (path.node.body.type === 'BlockStatement') {
+          if (path.node.body.type === "BlockStatement") {
             checkConsecutiveAwait(path.node.body, issues, context.filePath);
           }
         },
@@ -64,13 +64,13 @@ export const performanceRules: Rule[] = [
   },
 
   {
-    id: 'perf-dynamic-import',
-    name: '大组件懒加载',
-    description: '超过 50KB 的组件应使用动态导入（React.lazy / defineAsyncComponent）',
-    severity: 'suggestion',
-    category: 'performance',
+    id: "perf-dynamic-import",
+    name: "大组件懒加载",
+    description: "超过 50KB 的组件应使用动态导入（React.lazy / defineAsyncComponent）",
+    severity: "suggestion",
+    category: "performance",
     defaultEnabled: true,
-    frameworks: ['react', 'nextjs', 'vue'],
+    frameworks: ["react", "nextjs", "vue"],
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
       const source = context.source;
@@ -103,10 +103,10 @@ export const performanceRules: Rule[] = [
 
       const sizeKB = Math.round(source.length / 1024);
       issues.push({
-        ruleId: 'perf-dynamic-import',
+        ruleId: "perf-dynamic-import",
         title: `页面组件体积较大 (${sizeKB}KB)，建议使用动态导入`,
         description: `该文件源码 ${sizeKB}KB，超过 ${Math.round(FILE_SIZE_THRESHOLD / 1024)}KB 建议阈值。路由级组件应使用 React.lazy()（React）或 defineAsyncComponent()（Vue）实现懒加载，减少首屏 bundle 体积`,
-        severity: 'suggestion',
+        severity: "suggestion",
         file: context.filePath,
         line: 1,
         column: 1,
@@ -123,13 +123,13 @@ export const performanceRules: Rule[] = [
   },
 
   {
-    id: 'perf-avoid-barrel-import',
-    name: '避免整库导入',
-    description: '不要从组件库入口导入，应从子模块导入',
-    severity: 'warning',
-    category: 'performance',
+    id: "perf-avoid-barrel-import",
+    name: "避免整库导入",
+    description: "不要从组件库入口导入，应从子模块导入",
+    severity: "warning",
+    category: "performance",
     defaultEnabled: true,
-    frameworks: ['react', 'vue', 'nextjs', 'nuxt'],
+    frameworks: ["react", "vue", "nextjs", "nuxt"],
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
       const ast = context.utils.parseAST(context.source, {
@@ -149,10 +149,10 @@ export const performanceRules: Rule[] = [
               const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
 
               issues.push({
-                ruleId: 'perf-avoid-barrel-import',
-                title: '避免从组件库入口导入',
+                ruleId: "perf-avoid-barrel-import",
+                title: "避免从组件库入口导入",
                 description: `从 "${pkg}" 入口导入会导致整库被打包，建议改为子模块导入（如 "${pkg}/es/button"）`,
-                severity: 'warning',
+                severity: "warning",
                 file: context.filePath,
                 line,
                 column,
@@ -174,13 +174,13 @@ export const performanceRules: Rule[] = [
   },
 
   {
-    id: 'perf-memo-expensive',
-    name: '昂贵计算使用 memo',
-    description: '渲染中的复杂计算（map/filter/reduce/sort）应使用 useMemo / computed 缓存',
-    severity: 'suggestion',
-    category: 'performance',
+    id: "perf-memo-expensive",
+    name: "昂贵计算使用 memo",
+    description: "渲染中的复杂计算（map/filter/reduce/sort）应使用 useMemo / computed 缓存",
+    severity: "suggestion",
+    category: "performance",
     defaultEnabled: true,
-    frameworks: ['react', 'nextjs', 'vue'],
+    frameworks: ["react", "nextjs", "vue"],
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
       const ast = context.utils.parseAST(context.source, {
@@ -191,8 +191,16 @@ export const performanceRules: Rule[] = [
 
       // 昂贵的数组方法
       const expensiveMethods = new Set([
-        'map', 'filter', 'reduce', 'sort', 'find', 'findIndex',
-        'every', 'some', 'flatMap', 'groupBy',
+        "map",
+        "filter",
+        "reduce",
+        "sort",
+        "find",
+        "findIndex",
+        "every",
+        "some",
+        "flatMap",
+        "groupBy",
       ]);
 
       traverse(ast, {
@@ -204,7 +212,7 @@ export const performanceRules: Rule[] = [
           checkExpensiveCalls(path.node.body, issues, context.filePath, expensiveMethods);
         },
         ArrowFunctionExpression(path) {
-          if (path.node.body.type === 'BlockStatement') {
+          if (path.node.body.type === "BlockStatement") {
             checkExpensiveCalls(path.node.body, issues, context.filePath, expensiveMethods);
           } else {
             // 直接返回表达式的箭头函数
@@ -212,7 +220,7 @@ export const performanceRules: Rule[] = [
           }
         },
         ClassMethod(path) {
-          if (path.node.key.type === 'Identifier' && path.node.key.name === 'render') {
+          if (path.node.key.type === "Identifier" && path.node.key.name === "render") {
             checkExpensiveCalls(path.node.body, issues, context.filePath, expensiveMethods);
           }
         },
@@ -228,11 +236,7 @@ export const performanceRules: Rule[] = [
 // ============================================================================
 
 /** 检测函数体内的连续 await */
-function checkConsecutiveAwait(
-  body: any,
-  issues: Issue[],
-  filePath: string
-): void {
+function checkConsecutiveAwait(body: any, issues: Issue[], filePath: string): void {
   if (!body?.body || !Array.isArray(body.body)) return;
 
   const statements = body.body;
@@ -240,13 +244,13 @@ function checkConsecutiveAwait(
 
   for (const stmt of statements) {
     // 检查是否是 await 赋值语句
-    if (stmt.type === 'VariableDeclaration') {
+    if (stmt.type === "VariableDeclaration") {
       let hasAwait = false;
       let line = 0;
       let column = 0;
 
       for (const decl of stmt.declarations) {
-        if (decl.init?.type === 'AwaitExpression') {
+        if (decl.init?.type === "AwaitExpression") {
           hasAwait = true;
           line = decl.init.loc?.start?.line || 0;
           column = decl.init.loc?.start?.column || 0;
@@ -285,14 +289,14 @@ function checkConsecutiveAwait(
 function reportWaterfall(
   issues: Issue[],
   filePath: string,
-  awaitStmts: Array<{ line: number; column: number; source: string }>
+  awaitStmts: Array<{ line: number; column: number; source: string }>,
 ): void {
   const first = awaitStmts[0];
   issues.push({
-    ruleId: 'perf-avoid-waterfall',
-    title: '检测到请求瀑布',
+    ruleId: "perf-avoid-waterfall",
+    title: "检测到请求瀑布",
     description: `发现 ${awaitStmts.length} 个连续的 await，总耗时 = 各请求之和。建议使用 Promise.all() 并行`,
-    severity: 'warning',
+    severity: "warning",
     file: filePath,
     line: first.line,
     column: first.column,
@@ -303,20 +307,20 @@ function reportWaterfall(
 /** 获取文件扩展名 */
 function getFileExt(filePath: string): string {
   const match = filePath.match(/\.[^.]+$/);
-  return match ? match[0] : '.js';
+  return match ? match[0] : ".js";
 }
 
 /** 建议懒加载导入代码 */
 function suggestLazyImport(filePath: string): string {
   const ext = getFileExt(filePath);
-  const baseName = filePath.replace(/^.*[\\/]/, '').replace(ext, '');
+  const baseName = filePath.replace(/^.*[\\/]/, "").replace(ext, "");
 
   // React
   if (ext.match(/\.tsx?/)) {
     return `const ${baseName} = React.lazy(() => import('./${baseName}${ext}'));`;
   }
   // Vue
-  if (ext === '.vue') {
+  if (ext === ".vue") {
     return `const ${baseName} = defineAsyncComponent(() => import('./${baseName}${ext}'));`;
   }
   return `// TODO: 使用框架对应的懒加载方式导入该组件`;
@@ -325,13 +329,16 @@ function suggestLazyImport(filePath: string): string {
 /** 建议子模块导入 */
 function suggestSubmoduleImport(pkg: string, specifiers: any[]): string {
   const imports = specifiers
-    .filter(s => s.type === 'ImportSpecifier' && s.local?.type === 'Identifier')
-    .map(s => {
+    .filter((s) => s.type === "ImportSpecifier" && s.local?.type === "Identifier")
+    .map((s) => {
       const name = s.local.name;
-      const kebab = name.replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '');
+      const kebab = name
+        .replace(/([A-Z])/g, "-$1")
+        .toLowerCase()
+        .replace(/^-/, "");
       return `import ${name} from '${pkg}/es/${kebab}';`;
     })
-    .join('\n');
+    .join("\n");
 
   return imports || `// TODO: 手动改为子模块导入`;
 }
@@ -341,54 +348,59 @@ function checkExpensiveCalls(
   body: any,
   issues: Issue[],
   filePath: string,
-  expensiveMethods: Set<string>
+  expensiveMethods: Set<string>,
 ): void {
   if (!body) return;
 
-  traverse(body, {
-    CallExpression(path) {
-      // 跳过 useMemo / useCallback / computed 内部的调用
-      if (isInsideMemo(path)) return;
+  traverse(
+    body,
+    {
+      CallExpression(path) {
+        // 跳过 useMemo / useCallback / computed 内部的调用
+        if (isInsideMemo(path)) return;
 
-      const callee = path.node.callee;
-      let methodName: string | null = null;
+        const callee = path.node.callee;
+        let methodName: string | null = null;
 
-      // 检测: array.map(), array.filter() 等
-      if (callee.type === 'MemberExpression' &&
-          callee.property.type === 'Identifier') {
-        methodName = callee.property.name;
-      }
-
-      // 检测: lodash _.map(), _.filter() 等
-      if (callee.type === 'MemberExpression' &&
-          callee.object.type === 'Identifier' &&
-          callee.object.name === '_' &&
-          callee.property.type === 'Identifier') {
-        methodName = callee.property.name;
-      }
-
-      if (methodName && expensiveMethods.has(methodName)) {
-        const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
-
-        // 检查是否是简单的单元素操作（如 [1,2,3].map(...)）
-        const obj = (callee as any).object;
-        if (obj?.type === 'ArrayExpression' && obj.elements.length <= 3) {
-          return; // 小数组操作，不提示
+        // 检测: array.map(), array.filter() 等
+        if (callee.type === "MemberExpression" && callee.property.type === "Identifier") {
+          methodName = callee.property.name;
         }
 
-        issues.push({
-          ruleId: 'perf-memo-expensive',
-          title: `渲染中的 ${methodName}() 建议缓存`,
-          description: `在组件渲染中直接调用 ${methodName}() 会在每次渲染时重新执行。建议使用 useMemo（React）或 computed（Vue）缓存结果`,
-          severity: 'suggestion',
-          file: filePath,
-          line,
-          column,
-          source: `${methodName}(...)`,
-        });
-      }
+        // 检测: lodash _.map(), _.filter() 等
+        if (
+          callee.type === "MemberExpression" &&
+          callee.object.type === "Identifier" &&
+          callee.object.name === "_" &&
+          callee.property.type === "Identifier"
+        ) {
+          methodName = callee.property.name;
+        }
+
+        if (methodName && expensiveMethods.has(methodName)) {
+          const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
+
+          // 检查是否是简单的单元素操作（如 [1,2,3].map(...)）
+          const obj = (callee as any).object;
+          if (obj?.type === "ArrayExpression" && obj.elements.length <= 3) {
+            return; // 小数组操作，不提示
+          }
+
+          issues.push({
+            ruleId: "perf-memo-expensive",
+            title: `渲染中的 ${methodName}() 建议缓存`,
+            description: `在组件渲染中直接调用 ${methodName}() 会在每次渲染时重新执行。建议使用 useMemo（React）或 computed（Vue）缓存结果`,
+            severity: "suggestion",
+            file: filePath,
+            line,
+            column,
+            source: `${methodName}(...)`,
+          });
+        }
+      },
     },
-  }, body);
+    body,
+  );
 }
 
 /** 检测直接返回表达式中的昂贵计算 */
@@ -396,22 +408,24 @@ function checkExpensiveExpression(
   expr: any,
   issues: Issue[],
   filePath: string,
-  expensiveMethods: Set<string>
+  expensiveMethods: Set<string>,
 ): void {
   if (!expr) return;
 
   // 直接返回表达式: () => items.map(...)
-  if (expr.type === 'CallExpression') {
+  if (expr.type === "CallExpression") {
     const callee = expr.callee;
-    if (callee.type === 'MemberExpression' &&
-        callee.property.type === 'Identifier' &&
-        expensiveMethods.has(callee.property.name)) {
+    if (
+      callee.type === "MemberExpression" &&
+      callee.property.type === "Identifier" &&
+      expensiveMethods.has(callee.property.name)
+    ) {
       const { line, column } = expr.loc?.start || { line: 0, column: 0 };
       issues.push({
-        ruleId: 'perf-memo-expensive',
+        ruleId: "perf-memo-expensive",
         title: `渲染中的 ${callee.property.name}() 建议缓存`,
         description: `在组件渲染中直接调用 ${callee.property.name}() 会在每次渲染时重新执行。建议使用 useMemo（React）或 computed（Vue）缓存结果`,
-        severity: 'suggestion',
+        severity: "suggestion",
         file: filePath,
         line,
         column,
@@ -427,13 +441,17 @@ function isInsideMemo(path: any): boolean {
   while (current) {
     if (current.isCallExpression()) {
       const callee = current.node.callee;
-      if (callee.type === 'Identifier' &&
-          ['useMemo', 'useCallback', 'computed', 'memo'].includes(callee.name)) {
+      if (
+        callee.type === "Identifier" &&
+        ["useMemo", "useCallback", "computed", "memo"].includes(callee.name)
+      ) {
         return true;
       }
-      if (callee.type === 'MemberExpression' &&
-          callee.property.type === 'Identifier' &&
-          ['computed', 'memo'].includes(callee.property.name)) {
+      if (
+        callee.type === "MemberExpression" &&
+        callee.property.type === "Identifier" &&
+        ["computed", "memo"].includes(callee.property.name)
+      ) {
         return true;
       }
     }

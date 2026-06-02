@@ -3,11 +3,14 @@
  * 导出所有公共 API
  */
 
-export { RuleEngine, createEngine } from './engine/rule-engine.js';
-export type { EngineOptions } from './engine/rule-engine.js';
+export { RuleEngine, createEngine } from "./engine/rule-engine.js";
+export type { EngineOptions } from "./engine/rule-engine.js";
+export { RuleRegistry, createRegistry } from "./rules/registry.js";
 export type {
   Rule,
   RuleContext,
+  RuleConfig,
+  CustomRuleConfig,
   Issue,
   Severity,
   ScanResult,
@@ -22,19 +25,19 @@ export type {
   Platform,
   ComponentLib,
   RuleCategory,
-} from './types.js';
+} from "./types.js";
 
-export { parseAST, getImports, hasImport, walkAST } from './utils/ast-parser.js';
-export { detectProjectMeta } from './utils/project-detector.js';
-export { loadConfig } from './utils/config-loader.js';
+export { parseAST, getImports, hasImport, walkAST } from "./utils/ast-parser.js";
+export { detectProjectMeta } from "./utils/project-detector.js";
+export { loadConfig } from "./utils/config-loader.js";
 
-export { i18nRules } from './scanners/i18n-scanner.js';
+export { i18nRules } from "./scanners/i18n-scanner.js";
 
-export { performanceRules } from './scanners/performance-scanner.js';
-export { a11yRules } from './scanners/a11y-scanner.js';
-export { securityRules } from './scanners/security-scanner.js';
-export { namingRules } from './scanners/naming-scanner.js';
-export { crossFileRules } from './scanners/cross-file-scanner.js';
-export { componentRules } from './scanners/component-scanner.js';
-export { hooksRules } from './scanners/hooks-scanner.js';
-export { platformRules } from './scanners/platform-scanner.js';
+export { performanceRules } from "./scanners/performance-scanner.js";
+export { a11yRules } from "./scanners/a11y-scanner.js";
+export { securityRules } from "./scanners/security-scanner.js";
+export { namingRules } from "./scanners/naming-scanner.js";
+export { crossFileRules } from "./scanners/cross-file-scanner.js";
+export { componentRules } from "./scanners/component-scanner.js";
+export { hooksRules } from "./scanners/hooks-scanner.js";
+export { platformRules } from "./scanners/platform-scanner.js";

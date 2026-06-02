@@ -753,9 +753,13 @@ platform:
 - **Issue 聚类**：同一文件同一规则的多个问题自动聚合为 `(×N)` 聚合 Issue，减少重复输出
 - **增量扫描**：`--staged` / `--diff main...feature` 仅扫描 git 变更文件，大型项目扫描速度大幅提升
 
-#### Phase 3: 通用化（规划中）
+#### Phase 3: 通用化（已交付）
 
-- 插件化规则体系：规则注册中心 + 配置驱动 + 自定义规则支持
+- **规则注册中心 (`RuleRegistry`)**：`lib/src/rules/registry.ts` — 统一管理内置规则 + 自定义规则，支持注册/注销/查询/按条件过滤
+- **配置驱动规则**：`.frontend-guardian.yml` 的 `rules:` 节点支持启用/禁用/调整 severity/参数化，如关闭某规则、调高 severity、修改 `maxDeps` 阈值
+- **自定义规则支持**：`customRules:` 配置加载用户自己的 JS 规则文件（`module.exports = { id, name, execute }`），实现热插拔扩展
+- **引擎集成 Registry**：`RuleEngine` 启动时自动读取配置文件中的 `rules` + `customRules`，无需改代码即可调整规则行为
+- **新增 11 项单元测试**：`tests/rule-registry.test.ts` 覆盖注册、配置覆盖、severity 调整、参数化、过滤、清除等全部场景
 - 框架抽象层：useEffect / watchEffect 等抽象为通用 EffectHook 模式
 
 #### Phase 4: 覆盖全面化（规划中）

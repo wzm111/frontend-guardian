@@ -9,9 +9,9 @@
  * 5. 支持增量扫描（git diff）
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { readFileSync, writeFileSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { resolve } from "node:path";
 import type {
   Rule,
   RuleContext,
@@ -23,12 +23,13 @@ import type {
   RuleUtils,
   ParseOptions,
   Position,
-} from '../types.js';
-import { parseAST, getImports } from '../utils/ast-parser.js';
-import { detectProjectMeta } from '../utils/project-detector.js';
-import { loadConfig } from '../utils/config-loader.js';
-import { globby } from 'globby';
-import pc from 'picocolors';
+} from "../types.js";
+import { parseAST, getImports } from "../utils/ast-parser.js";
+import { detectProjectMeta } from "../utils/project-detector.js";
+import { loadConfig } from "../utils/config-loader.js";
+import { RuleRegistry, createRegistry } from "../rules/registry.js";
+import { globby } from "globby";
+import pc from "picocolors";
 
 export interface EngineOptions {
   /** 项目根目录 */
@@ -50,7 +51,7 @@ export interface EngineOptions {
 }
 
 export class RuleEngine {
-  private rules: Map<string, Rule> = new Map();
+  private registry: RuleRegistry;
   private config: ProjectConfig = {};
   private projectMeta: ProjectMeta;
   private options: EngineOptions;
@@ -59,31 +60,53 @@ export class RuleEngine {
     this.options = options;
     this.config = loadConfig(options.projectDir, options.configFile);
     this.projectMeta = detectProjectMeta(options.projectDir, this.config);
+    this.registry = createRegistry();
+
+    // Phase 3: 从配置加载规则覆盖和自定义规则
+    this.loadConfigRules();
+  }
+
+  /** ── Phase 3: 配置驱动规则加载 ── */
+  private loadConfigRules(): void {
+    // 1. 加载规则配置覆盖（启用/禁用/severity/params）
+    if (this.config.rules && this.config.rules.length > 0) {
+      this.registry.loadFromConfig(this.config.rules);
+    }
+
+    // 2. 加载自定义规则文件
+    if (this.config.customRules && this.config.customRules.length > 0) {
+      const paths = this.config.customRules.map((c) => c.path);
+      const result = this.registry.loadCustomRules(paths, this.options.projectDir);
+      if (result.loaded.length > 0) {
+        console.log(pc.blue(`🔌 已加载 ${result.loaded.length} 个自定义规则`));
+      }
+      if (result.failed.length > 0) {
+        console.log(pc.yellow(`⚠️  ${result.failed.length} 个自定义规则加载失败`));
+      }
+    }
   }
 
   /** 注册规则 */
   register(rule: Rule): this {
-    this.rules.set(rule.id, rule);
+    this.registry.register(rule);
     return this;
   }
 
   /** 批量注册 */
   registerAll(rules: Rule[]): this {
-    for (const rule of rules) {
-      this.register(rule);
-    }
+    this.registry.registerAll(rules);
     return this;
   }
 
   /** 注销规则 */
   unregister(ruleId: string): this {
-    this.rules.delete(ruleId);
+    this.registry.unregister(ruleId);
     return this;
   }
 
-  /** 获取所有已注册规则 */
+  /** 获取所有已注册规则（应用配置覆盖后） */
   getRules(): Rule[] {
-    return Array.from(this.rules.values());
+    return this.registry.getActiveRules();
   }
 
   /** 根据条件过滤规则 */
@@ -93,21 +116,15 @@ export class RuleEngine {
     platform?: string;
     componentLib?: string;
   }): Rule[] {
-    return this.getRules().filter((rule) => {
-      if (options?.category && rule.category !== options.category) return false;
-      if (options?.framework && rule.frameworks && !rule.frameworks.includes(options.framework as any)) return false;
-      if (options?.platform && rule.platforms && !rule.platforms.includes(options.platform as any)) return false;
-      if (options?.componentLib && rule.componentLibs && !rule.componentLibs.includes(options.componentLib as any)) return false;
-      return true;
-    });
+    return this.registry.filterRules(options);
   }
 
   /** 模块名到规则 category 的映射 */
   private moduleToCategory(module: string): string {
     const map: Record<string, string> = {
-      a11y: 'accessibility',
-      naming: 'style',
-      'cross-file': 'architecture',
+      a11y: "accessibility",
+      naming: "style",
+      "cross-file": "architecture",
     };
     return map[module] || module;
   }
@@ -134,7 +151,9 @@ export class RuleEngine {
       componentLib: this.projectMeta.componentLib,
     });
 
-    console.log(pc.blue(`🔍 [${module}] 扫描 ${files.length} 个文件，${activeRules.length} 条规则...`));
+    console.log(
+      pc.blue(`🔍 [${module}] 扫描 ${files.length} 个文件，${activeRules.length} 条规则...`),
+    );
 
     // 并行扫描文件
     for (const file of files) {
@@ -144,7 +163,7 @@ export class RuleEngine {
         for (const issue of fileIssues) {
           // severity 过滤
           const severityOrder = { critical: 3, warning: 2, suggestion: 1 };
-          const minSev = this.options.minSeverity || 'suggestion';
+          const minSev = this.options.minSeverity || "suggestion";
           if (severityOrder[issue.severity] >= severityOrder[minSev]) {
             issues[issue.severity].push(issue);
           }
@@ -169,7 +188,7 @@ export class RuleEngine {
     const allIssues: Issue[] = [];
 
     try {
-      const source = readFileSync(filePath, 'utf-8');
+      const source = readFileSync(filePath, "utf-8");
       const utils = this.createUtils(filePath, source);
       const context: RuleContext = {
         filePath,
@@ -203,26 +222,26 @@ export class RuleEngine {
         return [];
       }
       // 过滤出符合扩展名的文件
-      const include = this.config.scan?.includeExtensions || ['.js', '.ts', '.jsx', '.tsx', '.vue'];
-      return diffFiles.filter(f => include.some(ext => f.endsWith(ext)));
+      const include = this.config.scan?.includeExtensions || [".js", ".ts", ".jsx", ".tsx", ".vue"];
+      return diffFiles.filter((f) => include.some((ext) => f.endsWith(ext)));
     }
 
     if (this.options.files && this.options.files.length > 0) {
       return this.options.files;
     }
 
-    const include = this.config.scan?.includeExtensions || ['.js', '.ts', '.jsx', '.tsx', '.vue'];
+    const include = this.config.scan?.includeExtensions || [".js", ".ts", ".jsx", ".tsx", ".vue"];
     const exclude = [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/build/**',
-      '**/.git/**',
-      '**/coverage/**',
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.git/**",
+      "**/coverage/**",
       ...(this.options.exclude || []),
-      ...(this.config.scan?.excludeDirs?.map(d => `**/${d}/**`) || []),
+      ...(this.config.scan?.excludeDirs?.map((d) => `**/${d}/**`) || []),
     ];
 
-    const patterns = include.map(ext => `**/*${ext}`);
+    const patterns = include.map((ext) => `**/*${ext}`);
     return globby(patterns, {
       cwd: this.options.projectDir,
       ignore: exclude,
@@ -235,7 +254,7 @@ export class RuleEngine {
     try {
       let cmd: string;
       if (this.options.staged) {
-        cmd = 'git diff --cached --name-only --diff-filter=ACM';
+        cmd = "git diff --cached --name-only --diff-filter=ACM";
       } else if (this.options.diffRange) {
         cmd = `git diff --name-only --diff-filter=ACM ${this.options.diffRange}`;
       } else {
@@ -244,15 +263,15 @@ export class RuleEngine {
 
       const output = execSync(cmd, {
         cwd: this.options.projectDir,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'ignore'],
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "ignore"],
       });
 
       return output
         .trim()
-        .split('\n')
+        .split("\n")
         .filter(Boolean)
-        .map(f => resolve(this.options.projectDir, f));
+        .map((f) => resolve(this.options.projectDir, f));
     } catch {
       return [];
     }
@@ -291,7 +310,7 @@ export class RuleEngine {
   private computeLineOffsets(source: string): number[] {
     const offsets: number[] = [0];
     for (let i = 0; i < source.length; i++) {
-      if (source[i] === '\n') {
+      if (source[i] === "\n") {
         offsets.push(i + 1);
       }
     }
@@ -323,7 +342,7 @@ export class RuleEngine {
 
     for (const [filePath, fileIssues] of byFile) {
       try {
-        let source = readFileSync(filePath, 'utf-8');
+        let source = readFileSync(filePath, "utf-8");
         const originalSource = source;
 
         // 按行号倒序排列，从文件末尾开始修复，避免行号偏移
@@ -339,7 +358,7 @@ export class RuleEngine {
         }
 
         if (source !== originalSource) {
-          writeFileSync(filePath, source, 'utf-8');
+          writeFileSync(filePath, source, "utf-8");
           filesModified.push(filePath);
           fixedCount += fileIssues.length;
         }
@@ -352,8 +371,8 @@ export class RuleEngine {
   }
 
   /** 对单文件应用单个修复 */
-  private applySingleFix(source: string, fix: NonNullable<Issue['fix']>): string {
-    const lines = source.split('\n');
+  private applySingleFix(source: string, fix: NonNullable<Issue["fix"]>): string {
+    const lines = source.split("\n");
     const { line: startLine, column: startCol } = fix.start;
     const { line: endLine, column: endCol } = fix.end;
 
@@ -365,7 +384,7 @@ export class RuleEngine {
       const before = targetLine.slice(0, Math.max(0, startCol - 1));
       const after = targetLine.slice(Math.max(0, endCol - 1));
       lines[idx] = before + fix.text + after;
-      return lines.join('\n');
+      return lines.join("\n");
     }
 
     // 多行修复：替换从 start 到 end 的所有内容
@@ -375,7 +394,7 @@ export class RuleEngine {
 
     const before = lines[startIdx].slice(0, Math.max(0, startCol - 1));
     const after = lines[endIdx].slice(Math.max(0, endCol - 1));
-    const newLines = fix.text.split('\n');
+    const newLines = fix.text.split("\n");
 
     // 合并首尾
     newLines[0] = before + newLines[0];
@@ -383,7 +402,7 @@ export class RuleEngine {
 
     // 替换行范围
     lines.splice(startIdx, endIdx - startIdx + 1, ...newLines);
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -414,12 +433,12 @@ export class RuleEngine {
       // 按行号排序，取第一个作为代表
       const sorted = [...groupIssues].sort((a, b) => a.line - b.line || a.column - b.column);
       const representative = sorted[0];
-      const allLines = sorted.map(i => i.line);
+      const allLines = sorted.map((i) => i.line);
 
       clustered.push({
         ...representative,
         title: `${representative.title} (×${groupIssues.length})`,
-        description: `${representative.description}\n\n聚类详情：在 ${groupIssues.length} 处发现同类问题（行: ${allLines.join(', ')}）`,
+        description: `${representative.description}\n\n聚类详情：在 ${groupIssues.length} 处发现同类问题（行: ${allLines.join(", ")}）`,
         meta: {
           ...representative.meta,
           clusterCount: groupIssues.length,

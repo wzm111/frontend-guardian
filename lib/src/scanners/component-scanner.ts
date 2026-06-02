@@ -8,17 +8,17 @@
  * 3. component-perf — 图片未懒加载、ECharts 未 dispose、长列表未虚拟化
  */
 
-import type { ParseResult } from '@babel/parser';
-import traverse from '@babel/traverse';
-import type { Rule, RuleContext, Issue } from '../types.js';
+import type { ParseResult } from "@babel/parser";
+import traverse from "@babel/traverse";
+import type { Rule, RuleContext, Issue } from "../types.js";
 
 export const componentRules: Rule[] = [
   {
-    id: 'component-anti-pattern',
-    name: '组件库反模式',
-    description: '检测组件库常见反模式使用',
-    severity: 'warning',
-    category: 'component',
+    id: "component-anti-pattern",
+    name: "组件库反模式",
+    description: "检测组件库常见反模式使用",
+    severity: "warning",
+    category: "component",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
@@ -34,24 +34,26 @@ export const componentRules: Rule[] = [
           if (!tagName) return;
 
           // Ant Design 反模式
-          if (tagName === 'Form.Item' || tagName === 'FormItem') {
-            const hasName = path.node.attributes.some((attr: any) =>
-              attr.type === 'JSXAttribute' &&
-              attr.name.type === 'JSXIdentifier' &&
-              attr.name.name === 'name'
+          if (tagName === "Form.Item" || tagName === "FormItem") {
+            const hasName = path.node.attributes.some(
+              (attr: any) =>
+                attr.type === "JSXAttribute" &&
+                attr.name.type === "JSXIdentifier" &&
+                attr.name.name === "name",
             );
-            const hasNoStyle = path.node.attributes.some((attr: any) =>
-              attr.type === 'JSXAttribute' &&
-              attr.name.type === 'JSXIdentifier' &&
-              attr.name.name === 'noStyle'
+            const hasNoStyle = path.node.attributes.some(
+              (attr: any) =>
+                attr.type === "JSXAttribute" &&
+                attr.name.type === "JSXIdentifier" &&
+                attr.name.name === "noStyle",
             );
             if (!hasName && !hasNoStyle) {
               const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
               issues.push({
-                ruleId: 'component-anti-pattern',
-                title: 'Form.Item 缺少 name 属性',
-                description: 'Ant Design Form.Item 缺少 name 属性，表单将无法收集数据',
-                severity: 'critical',
+                ruleId: "component-anti-pattern",
+                title: "Form.Item 缺少 name 属性",
+                description: "Ant Design Form.Item 缺少 name 属性，表单将无法收集数据",
+                severity: "critical",
                 file: context.filePath,
                 line,
                 column,
@@ -61,19 +63,20 @@ export const componentRules: Rule[] = [
           }
 
           // Table 缺少 rowKey
-          if (tagName === 'Table' || tagName === 'ElTable' || tagName === 'el-table') {
-            const hasRowKey = path.node.attributes.some((attr: any) =>
-              attr.type === 'JSXAttribute' &&
-              attr.name.type === 'JSXIdentifier' &&
-              (attr.name.name === 'rowKey' || attr.name.name === 'row-key')
+          if (tagName === "Table" || tagName === "ElTable" || tagName === "el-table") {
+            const hasRowKey = path.node.attributes.some(
+              (attr: any) =>
+                attr.type === "JSXAttribute" &&
+                attr.name.type === "JSXIdentifier" &&
+                (attr.name.name === "rowKey" || attr.name.name === "row-key"),
             );
             if (!hasRowKey) {
               const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
               issues.push({
-                ruleId: 'component-anti-pattern',
+                ruleId: "component-anti-pattern",
                 title: `${tagName} 缺少 rowKey 属性`,
-                description: 'Table 组件缺少 rowKey 会导致列表更新时 DOM 错误复用，建议指定唯一键',
-                severity: 'warning',
+                description: "Table 组件缺少 rowKey 会导致列表更新时 DOM 错误复用，建议指定唯一键",
+                severity: "warning",
                 file: context.filePath,
                 line,
                 column,
@@ -83,19 +86,20 @@ export const componentRules: Rule[] = [
           }
 
           // Modal/Drawer 缺少 destroyOnClose
-          if (tagName === 'Modal' || tagName === 'Drawer') {
-            const hasDestroyOnClose = path.node.attributes.some((attr: any) =>
-              attr.type === 'JSXAttribute' &&
-              attr.name.type === 'JSXIdentifier' &&
-              (attr.name.name === 'destroyOnClose' || attr.name.name === 'destroy-on-close')
+          if (tagName === "Modal" || tagName === "Drawer") {
+            const hasDestroyOnClose = path.node.attributes.some(
+              (attr: any) =>
+                attr.type === "JSXAttribute" &&
+                attr.name.type === "JSXIdentifier" &&
+                (attr.name.name === "destroyOnClose" || attr.name.name === "destroy-on-close"),
             );
             if (!hasDestroyOnClose) {
               const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
               issues.push({
-                ruleId: 'component-anti-pattern',
+                ruleId: "component-anti-pattern",
                 title: `${tagName} 建议添加 destroyOnClose`,
-                description: 'Modal/Drawer 关闭后子组件不会卸载，可能导致内存泄漏和状态残留',
-                severity: 'warning',
+                description: "Modal/Drawer 关闭后子组件不会卸载，可能导致内存泄漏和状态残留",
+                severity: "warning",
                 file: context.filePath,
                 line,
                 column,
@@ -105,20 +109,22 @@ export const componentRules: Rule[] = [
           }
 
           // Select 大数据未优化
-          if (tagName === 'Select' || tagName === 'ElSelect' || tagName === 'el-select') {
-            const hasVirtual = path.node.attributes.some((attr: any) =>
-              attr.type === 'JSXAttribute' &&
-              attr.name.type === 'JSXIdentifier' &&
-              (attr.name.name === 'virtual' || attr.name.name === 'showSearch')
+          if (tagName === "Select" || tagName === "ElSelect" || tagName === "el-select") {
+            const hasVirtual = path.node.attributes.some(
+              (attr: any) =>
+                attr.type === "JSXAttribute" &&
+                attr.name.type === "JSXIdentifier" &&
+                (attr.name.name === "virtual" || attr.name.name === "showSearch"),
             );
             // 简化检测：如果附近有 options/map 暗示数据量大
             if (!hasVirtual) {
               const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
               issues.push({
-                ruleId: 'component-anti-pattern',
+                ruleId: "component-anti-pattern",
                 title: `${tagName} 建议添加虚拟化或搜索`,
-                description: 'Select 数据量可能较大，建议添加 virtual/showSearch/filterOption 优化性能',
-                severity: 'suggestion',
+                description:
+                  "Select 数据量可能较大，建议添加 virtual/showSearch/filterOption 优化性能",
+                severity: "suggestion",
                 file: context.filePath,
                 line,
                 column,
@@ -128,20 +134,22 @@ export const componentRules: Rule[] = [
           }
 
           // Element Plus: ElForm 有 rules 但缺少 prop
-          if (tagName === 'ElFormItem' || tagName === 'el-form-item') {
-            const hasProp = path.node.attributes.some((attr: any) =>
-              attr.type === 'JSXAttribute' &&
-              attr.name.type === 'JSXIdentifier' &&
-              attr.name.name === 'prop'
+          if (tagName === "ElFormItem" || tagName === "el-form-item") {
+            const hasProp = path.node.attributes.some(
+              (attr: any) =>
+                attr.type === "JSXAttribute" &&
+                attr.name.type === "JSXIdentifier" &&
+                attr.name.name === "prop",
             );
             // 这个需要父级 ElForm 有 rules，简化处理
             if (!hasProp) {
               const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
               issues.push({
-                ruleId: 'component-anti-pattern',
-                title: 'ElFormItem 缺少 prop',
-                description: '如果父级 ElForm 配置了 rules，子级 ElFormItem 必须有 prop 绑定才能生效',
-                severity: 'warning',
+                ruleId: "component-anti-pattern",
+                title: "ElFormItem 缺少 prop",
+                description:
+                  "如果父级 ElForm 配置了 rules，子级 ElFormItem 必须有 prop 绑定才能生效",
+                severity: "warning",
                 file: context.filePath,
                 line,
                 column,
@@ -157,15 +165,15 @@ export const componentRules: Rule[] = [
   },
 
   {
-    id: 'component-token',
-    name: '应使用主题 Token',
-    description: '避免硬编码颜色和间距，使用设计系统 token',
-    severity: 'suggestion',
-    category: 'component',
+    id: "component-token",
+    name: "应使用主题 Token",
+    description: "避免硬编码颜色和间距，使用设计系统 token",
+    severity: "suggestion",
+    category: "component",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
-      const lines = context.source.split('\n');
+      const lines = context.source.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -173,26 +181,31 @@ export const componentRules: Rule[] = [
 
         // 跳过注释
         const trimmed = line.trim();
-        if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+        if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
 
         // 检测硬编码颜色（排除 CSS 变量）
         const colorMatch = line.match(/#[0-9a-fA-F]{3,6}|rgb\(|rgba\(|hsl\(/);
         if (colorMatch) {
           // 排除 theme/token/var 相关
-          if (!line.includes('theme') && !line.includes('token') && !line.includes('var(') && !line.includes('--')) {
+          if (
+            !line.includes("theme") &&
+            !line.includes("token") &&
+            !line.includes("var(") &&
+            !line.includes("--")
+          ) {
             if (line.match(/color|background|bg|border/i)) {
               const colStart = (colorMatch.index || 0) + 1;
               issues.push({
-                ruleId: 'component-token',
-                title: '硬编码颜色值',
+                ruleId: "component-token",
+                title: "硬编码颜色值",
                 description: `检测到硬编码颜色 "${colorMatch[0]}"，建议使用主题 token 统一管理`,
-                severity: 'suggestion',
+                severity: "suggestion",
                 file: context.filePath,
                 line: lineNum,
                 column: colStart,
                 source: line.trim(),
                 fix: {
-                  text: 'var(--primary-color)',
+                  text: "var(--primary-color)",
                   start: { line: lineNum, column: colStart },
                   end: { line: lineNum, column: colStart + colorMatch[0].length },
                 },
@@ -202,16 +215,23 @@ export const componentRules: Rule[] = [
         }
 
         // 检测硬编码间距
-        const spacingMatch = line.match(/margin\s*:\s*(\d+)px|padding\s*:\s*(\d+)px|gap\s*:\s*(\d+)px/);
+        const spacingMatch = line.match(
+          /margin\s*:\s*(\d+)px|padding\s*:\s*(\d+)px|gap\s*:\s*(\d+)px/,
+        );
         if (spacingMatch) {
-          if (!line.includes('theme') && !line.includes('token') && !line.includes('rpx') && !line.includes('pxTransform')) {
+          if (
+            !line.includes("theme") &&
+            !line.includes("token") &&
+            !line.includes("rpx") &&
+            !line.includes("pxTransform")
+          ) {
             const spStart = (spacingMatch.index || 0) + 1;
-            const pxVal = spacingMatch[1] || spacingMatch[2] || spacingMatch[3] || '';
+            const pxVal = spacingMatch[1] || spacingMatch[2] || spacingMatch[3] || "";
             issues.push({
-              ruleId: 'component-token',
-              title: '硬编码间距值',
+              ruleId: "component-token",
+              title: "硬编码间距值",
               description: `检测到硬编码间距 ${pxVal}px，建议使用设计 token 统一管理`,
-              severity: 'suggestion',
+              severity: "suggestion",
               file: context.filePath,
               line: lineNum,
               column: spStart,
@@ -231,11 +251,11 @@ export const componentRules: Rule[] = [
   },
 
   {
-    id: 'component-perf',
-    name: '组件性能陷阱',
-    description: '检测可能导致性能问题的组件使用方式',
-    severity: 'warning',
-    category: 'component',
+    id: "component-perf",
+    name: "组件性能陷阱",
+    description: "检测可能导致性能问题的组件使用方式",
+    severity: "warning",
+    category: "component",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
@@ -248,12 +268,12 @@ export const componentRules: Rule[] = [
         // 检查附近是否有 lazy/loading 属性
         const nearby = source.slice(Math.max(0, imgMatch.index - 200), imgMatch.index + 200);
         if (!nearby.match(/lazy|loading\s*=|lazyLoad/i)) {
-          const line = source.slice(0, imgMatch.index).split('\n').length;
+          const line = source.slice(0, imgMatch.index).split("\n").length;
           issues.push({
-            ruleId: 'component-perf',
-            title: '图片可能未懒加载',
+            ruleId: "component-perf",
+            title: "图片可能未懒加载",
             description: '检测到图片引用，建议添加 loading="lazy" 或 lazyLoad 属性优化首屏加载',
-            severity: 'suggestion',
+            severity: "suggestion",
             file: context.filePath,
             line,
             column: 1,
@@ -263,17 +283,18 @@ export const componentRules: Rule[] = [
       }
 
       // 检测 ECharts 实例未 dispose
-      if (source.includes('echarts.init') || source.includes('echarts\'\)')) {
-        if (!source.includes('.dispose()') && !source.includes('dispose(')) {
+      if (source.includes("echarts.init") || source.includes("echarts'\)")) {
+        if (!source.includes(".dispose()") && !source.includes("dispose(")) {
           // 简化：只要文件中有 echarts.init 但没有 dispose，就提示
-          const lines = source.split('\n');
+          const lines = source.split("\n");
           for (let i = 0; i < lines.length; i++) {
-            if (lines[i].includes('echarts.init')) {
+            if (lines[i].includes("echarts.init")) {
               issues.push({
-                ruleId: 'component-perf',
-                title: 'ECharts 实例可能未 dispose',
-                description: '检测到 echarts.init，但文件中没有对应的 dispose() 调用。组件卸载时应调用 chart.dispose() 释放内存',
-                severity: 'warning',
+                ruleId: "component-perf",
+                title: "ECharts 实例可能未 dispose",
+                description:
+                  "检测到 echarts.init，但文件中没有对应的 dispose() 调用。组件卸载时应调用 chart.dispose() 释放内存",
+                severity: "warning",
                 file: context.filePath,
                 line: i + 1,
                 column: 1,
@@ -291,12 +312,13 @@ export const componentRules: Rule[] = [
       while ((listMatch = listRegex.exec(source)) !== null) {
         const nearby = source.slice(Math.max(0, listMatch.index - 300), listMatch.index + 300);
         if (!nearby.match(/virtual|Virtual|recycle|window|fixed/i)) {
-          const line = source.slice(0, listMatch.index).split('\n').length;
+          const line = source.slice(0, listMatch.index).split("\n").length;
           issues.push({
-            ruleId: 'component-perf',
-            title: '长列表可能未使用虚拟化',
-            description: '检测到列表渲染（.map），数据量大时建议使用虚拟化组件（react-window、vue-virtual-scroller 等）',
-            severity: 'suggestion',
+            ruleId: "component-perf",
+            title: "长列表可能未使用虚拟化",
+            description:
+              "检测到列表渲染（.map），数据量大时建议使用虚拟化组件（react-window、vue-virtual-scroller 等）",
+            severity: "suggestion",
             file: context.filePath,
             line,
             column: 1,
@@ -317,20 +339,20 @@ export const componentRules: Rule[] = [
 
 /** 获取 JSX 标签名 */
 function getJSXTagName(name: any): string | null {
-  if (name.type === 'JSXIdentifier') return name.name;
-  if (name.type === 'JSXMemberExpression') {
+  if (name.type === "JSXIdentifier") return name.name;
+  if (name.type === "JSXMemberExpression") {
     const parts: string[] = [];
     let current = name;
     while (current) {
-      if (current.type === 'JSXIdentifier') {
+      if (current.type === "JSXIdentifier") {
         parts.unshift(current.name);
         break;
-      } else if (current.type === 'JSXMemberExpression') {
+      } else if (current.type === "JSXMemberExpression") {
         parts.unshift(current.property.name);
         current = current.object;
       } else break;
     }
-    return parts.join('.');
+    return parts.join(".");
   }
   return null;
 }
@@ -338,5 +360,5 @@ function getJSXTagName(name: any): string | null {
 /** 获取文件扩展名 */
 function getFileExt(filePath: string): string {
   const match = filePath.match(/\.[^.]+$/);
-  return match ? match[0] : '.js';
+  return match ? match[0] : ".js";
 }

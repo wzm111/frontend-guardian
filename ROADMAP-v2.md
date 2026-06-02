@@ -365,11 +365,11 @@ const integrations: ExternalToolIntegration[] = [
 - [x] 增量扫描：`--staged` / `--diff main...feature` 仅扫描 git 变更文件
 - [ ] ~~智能修复建议：`SmartFix` 带 diff 和置信度~~（推迟到 Phase 3）
 
-### Sprint 3: 通用化（1-2 周）
-- [ ] 规则注册中心：`RuleRegistry`
-- [ ] 配置驱动规则：`.frontend-guardian.yml` 规则开关
-- [ ] 自定义规则支持：加载用户 JS 规则文件
-- [ ] 框架抽象层：通用 Hook/Effect 模式
+### Sprint 3: 通用化 ✅（已交付）
+- [x] 规则注册中心：`RuleRegistry` 支持注册/注销/查询
+- [x] 配置驱动规则：`.frontend-guardian.yml` 的 `rules:` 节点支持启用/禁用/调整 severity/参数化
+- [x] 自定义规则支持：`customRules:` 加载用户 JS 规则文件
+- [ ] ~~框架抽象层：通用 Hook/Effect 模式~~（推迟到 Phase 4，优先级降低）
 
 ### Sprint 4: 覆盖全面化（持续）
 - [ ] 规则扩增到 100+

@@ -14,12 +14,12 @@
  * - 分析跨文件问题
  */
 
-import type { ParseResult } from '@babel/parser';
-import traverse from '@babel/traverse';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import type { Rule, RuleContext, Issue, ImportInfo } from '../types.js';
-import { parseAST, getImports } from '../utils/ast-parser.js';
+import type { ParseResult } from "@babel/parser";
+import traverse from "@babel/traverse";
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import type { Rule, RuleContext, Issue, ImportInfo } from "../types.js";
+import { parseAST, getImports } from "../utils/ast-parser.js";
 
 // ============================================================================
 // 类型定义
@@ -29,7 +29,7 @@ import { parseAST, getImports } from '../utils/ast-parser.js';
 interface ComponentInfo {
   name: string;
   filePath: string;
-  type: 'function' | 'class' | 'arrow-function';
+  type: "function" | "class" | "arrow-function";
   /** 声明的 props（从函数参数或接口提取） */
   declaredProps: Array<{ name: string; optional: boolean; type?: string }>;
   /** 实际使用的 props */
@@ -67,11 +67,11 @@ interface FileGraph {
 
 export const crossFileRules: Rule[] = [
   {
-    id: 'cross-unused-props',
-    name: '父组件传递了未使用的 props',
-    description: '父组件向子组件传递了 props，但子组件没有使用',
-    severity: 'warning',
-    category: 'architecture',
+    id: "cross-unused-props",
+    name: "父组件传递了未使用的 props",
+    description: "父组件向子组件传递了 props，但子组件没有使用",
+    severity: "warning",
+    category: "architecture",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const graph = buildFileGraph(context);
@@ -79,11 +79,11 @@ export const crossFileRules: Rule[] = [
     },
   },
   {
-    id: 'cross-missing-props',
-    name: '子组件缺少必要的 props',
-    description: '子组件声明了必传的 props，但父组件没有传递',
-    severity: 'warning',
-    category: 'architecture',
+    id: "cross-missing-props",
+    name: "子组件缺少必要的 props",
+    description: "子组件声明了必传的 props，但父组件没有传递",
+    severity: "warning",
+    category: "architecture",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const graph = buildFileGraph(context);
@@ -91,11 +91,11 @@ export const crossFileRules: Rule[] = [
     },
   },
   {
-    id: 'cross-context-overuse',
-    name: 'Context 过度使用',
-    description: '爷孙组件间只有单层嵌套时使用 Context 是不必要的，应使用 props 传递',
-    severity: 'suggestion',
-    category: 'architecture',
+    id: "cross-context-overuse",
+    name: "Context 过度使用",
+    description: "爷孙组件间只有单层嵌套时使用 Context 是不必要的，应使用 props 传递",
+    severity: "suggestion",
+    category: "architecture",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const graph = buildFileGraph(context);
@@ -103,11 +103,11 @@ export const crossFileRules: Rule[] = [
     },
   },
   {
-    id: 'cross-duplicate-code',
-    name: '兄弟组件存在重复代码',
-    description: '同级目录下的文件存在相似的函数或逻辑，建议提取公共模块',
-    severity: 'suggestion',
-    category: 'architecture',
+    id: "cross-duplicate-code",
+    name: "兄弟组件存在重复代码",
+    description: "同级目录下的文件存在相似的函数或逻辑，建议提取公共模块",
+    severity: "suggestion",
+    category: "architecture",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const graph = buildFileGraph(context);
@@ -115,11 +115,11 @@ export const crossFileRules: Rule[] = [
     },
   },
   {
-    id: 'cross-extract-common',
-    name: '建议提取公共逻辑',
-    description: '多个兄弟文件使用相似的逻辑，建议提取到 hooks/utils',
-    severity: 'suggestion',
-    category: 'architecture',
+    id: "cross-extract-common",
+    name: "建议提取公共逻辑",
+    description: "多个兄弟文件使用相似的逻辑，建议提取到 hooks/utils",
+    severity: "suggestion",
+    category: "architecture",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const graph = buildFileGraph(context);
@@ -154,7 +154,7 @@ function buildFileGraph(context: RuleContext): FileGraph {
       if (filePath === context.filePath) {
         source = context.source;
       } else {
-        source = readFileSync(filePath, 'utf-8');
+        source = readFileSync(filePath, "utf-8");
       }
       const ext = getFileExt(filePath);
       const ast = parseAST(source, { ext }) as ParseResult<any> | null;
@@ -175,20 +175,20 @@ function buildFileGraph(context: RuleContext): FileGraph {
       const importedFiles: string[] = [];
       for (const imp of imports) {
         // 解析相对路径为绝对路径
-        if (imp.source.startsWith('.')) {
+        if (imp.source.startsWith(".")) {
           const resolved = resolve(dirname(filePath), imp.source);
           // 尝试添加扩展名
-          for (const ext of ['.tsx', '.ts', '.jsx', '.js']) {
+          for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
             try {
               const fullPath = resolved + ext;
-              readFileSync(fullPath, 'utf-8');
+              readFileSync(fullPath, "utf-8");
               importedFiles.push(fullPath);
               break;
             } catch {
               // 尝试 index 文件
               try {
-                const indexPath = resolve(resolved, 'index' + ext);
-                readFileSync(indexPath, 'utf-8');
+                const indexPath = resolve(resolved, "index" + ext);
+                readFileSync(indexPath, "utf-8");
                 importedFiles.push(indexPath);
                 break;
               } catch {
@@ -209,8 +209,8 @@ function buildFileGraph(context: RuleContext): FileGraph {
 
 /** 获取兄弟文件（同目录下的其他文件） */
 function getSiblingFiles(dir: string, excludeFile: string): string[] {
-  const { readdirSync, statSync } = require('node:fs');
-  const { resolve, extname } = require('node:path');
+  const { readdirSync, statSync } = require("node:fs");
+  const { resolve, extname } = require("node:path");
 
   const siblings: string[] = [];
   try {
@@ -222,7 +222,7 @@ function getSiblingFiles(dir: string, excludeFile: string): string[] {
       if (fullPath === excludeFile) continue;
 
       const ext = extname(fullPath).toLowerCase();
-      if (['.js', '.ts', '.jsx', '.tsx', '.vue'].includes(ext)) {
+      if ([".js", ".ts", ".jsx", ".tsx", ".vue"].includes(ext)) {
         siblings.push(fullPath);
       }
     }
@@ -247,7 +247,7 @@ function getSiblingFiles(dir: string, excludeFile: string): string[] {
               const subStat = statSync(subPath);
               if (subStat.isFile()) {
                 const ext = extname(subPath).toLowerCase();
-                if (['.js', '.ts', '.jsx', '.tsx'].includes(ext)) {
+                if ([".js", ".ts", ".jsx", ".tsx"].includes(ext)) {
                   siblings.push(subPath);
                 }
               }
@@ -267,7 +267,11 @@ function getSiblingFiles(dir: string, excludeFile: string): string[] {
 }
 
 /** 从 AST 提取组件信息 */
-function extractComponents(filePath: string, ast: ParseResult<any>, source: string): ComponentInfo[] {
+function extractComponents(
+  filePath: string,
+  ast: ParseResult<any>,
+  source: string,
+): ComponentInfo[] {
   const components: ComponentInfo[] = [];
 
   traverse(ast, {
@@ -279,7 +283,7 @@ function extractComponents(filePath: string, ast: ParseResult<any>, source: stri
       const info: ComponentInfo = {
         name,
         filePath,
-        type: 'function',
+        type: "function",
         declaredProps: extractFunctionProps(path.node),
         usedProps: [],
         contextConsumers: [],
@@ -305,7 +309,7 @@ function extractComponents(filePath: string, ast: ParseResult<any>, source: stri
       const info: ComponentInfo = {
         name,
         filePath,
-        type: 'class',
+        type: "class",
         declaredProps: [],
         usedProps: [],
         contextConsumers: [],
@@ -320,7 +324,7 @@ function extractComponents(filePath: string, ast: ParseResult<any>, source: stri
 
       // 提取类中的 render 方法和 props 使用
       path.node.body.body.forEach((member: any) => {
-        if (member.type === 'ClassMethod' && member.key?.name === 'render') {
+        if (member.type === "ClassMethod" && member.key?.name === "render") {
           extractBodyInfo(member.body, info);
         }
       });
@@ -331,17 +335,17 @@ function extractComponents(filePath: string, ast: ParseResult<any>, source: stri
     // 箭头函数组件: const Foo = () => {}
     VariableDeclarator(path) {
       const id = path.node.id;
-      if (id.type !== 'Identifier') return;
+      if (id.type !== "Identifier") return;
       const name = id.name;
       if (!isComponentName(name)) return;
 
       const init = path.node.init;
-      if (!init || init.type !== 'ArrowFunctionExpression') return;
+      if (!init || init.type !== "ArrowFunctionExpression") return;
 
       const info: ComponentInfo = {
         name,
         filePath,
-        type: 'arrow-function',
+        type: "arrow-function",
         declaredProps: extractFunctionProps(init),
         usedProps: [],
         contextConsumers: [],
@@ -354,7 +358,7 @@ function extractComponents(filePath: string, ast: ParseResult<any>, source: stri
         column: id.loc?.start?.column || 0,
       };
 
-      if (init.body.type === 'BlockStatement') {
+      if (init.body.type === "BlockStatement") {
         extractBodyInfo(init.body, info);
       }
 
@@ -368,14 +372,26 @@ function extractComponents(filePath: string, ast: ParseResult<any>, source: stri
 /** 判断是否是组件名（PascalCase） */
 function isComponentName(name: string): boolean {
   // 排除常见的非组件名
-  const nonComponents = ['describe', 'it', 'test', 'beforeEach', 'afterEach', 'beforeAll', 'afterAll', 'expect', 'jest'];
+  const nonComponents = [
+    "describe",
+    "it",
+    "test",
+    "beforeEach",
+    "afterEach",
+    "beforeAll",
+    "afterAll",
+    "expect",
+    "jest",
+  ];
   if (nonComponents.includes(name)) return false;
   // PascalCase
   return /^[A-Z][a-zA-Z0-9]*$/.test(name) && /[a-z]/.test(name);
 }
 
 /** 提取函数参数中的 props */
-function extractFunctionProps(node: any): Array<{ name: string; optional: boolean; type?: string }> {
+function extractFunctionProps(
+  node: any,
+): Array<{ name: string; optional: boolean; type?: string }> {
   const props: Array<{ name: string; optional: boolean; type?: string }> = [];
 
   if (!node.params || node.params.length === 0) return props;
@@ -383,15 +399,15 @@ function extractFunctionProps(node: any): Array<{ name: string; optional: boolea
   const firstParam = node.params[0];
 
   // 解构: ({ foo, bar }) => {}
-  if (firstParam.type === 'ObjectPattern') {
+  if (firstParam.type === "ObjectPattern") {
     for (const prop of firstParam.properties) {
-      if (prop.type === 'ObjectProperty' && prop.key.type === 'Identifier') {
+      if (prop.type === "ObjectProperty" && prop.key.type === "Identifier") {
         props.push({
           name: prop.key.name,
           optional: prop.optional || false,
         });
       }
-      if (prop.type === 'RestElement' && prop.argument.type === 'Identifier') {
+      if (prop.type === "RestElement" && prop.argument.type === "Identifier") {
         props.push({
           name: `...${prop.argument.name}`,
           optional: true,
@@ -401,7 +417,7 @@ function extractFunctionProps(node: any): Array<{ name: string; optional: boolea
   }
 
   // 单个 props 参数: (props) => {}
-  if (firstParam.type === 'Identifier') {
+  if (firstParam.type === "Identifier") {
     props.push({
       name: firstParam.name,
       optional: firstParam.optional || false,
@@ -416,112 +432,120 @@ function extractBodyInfo(body: any, info: ComponentInfo): void {
   if (!body) return;
 
   // 使用 traverse 遍历函数体
-  traverse(body, {
-    // props 使用
-    MemberExpression(path) {
-      const node = path.node;
-      if (node.object.type === 'Identifier' && node.object.name === 'props') {
-        if (node.property.type === 'Identifier') {
-          info.usedProps.push(node.property.name);
+  traverse(
+    body,
+    {
+      // props 使用
+      MemberExpression(path) {
+        const node = path.node;
+        if (node.object.type === "Identifier" && node.object.name === "props") {
+          if (node.property.type === "Identifier") {
+            info.usedProps.push(node.property.name);
+          }
         }
-      }
-    },
+      },
 
-    // 解构中的 props 使用
-    VariableDeclarator(path) {
-      const init = path.node.init;
-      if (init?.type === 'MemberExpression' &&
-          init.object.type === 'Identifier' &&
-          init.object.name === 'props') {
-        const id = path.node.id;
-        if (id.type === 'Identifier') {
-          info.usedProps.push(id.name);
+      // 解构中的 props 使用
+      VariableDeclarator(path) {
+        const init = path.node.init;
+        if (
+          init?.type === "MemberExpression" &&
+          init.object.type === "Identifier" &&
+          init.object.name === "props"
+        ) {
+          const id = path.node.id;
+          if (id.type === "Identifier") {
+            info.usedProps.push(id.name);
+          }
         }
-      }
-    },
+      },
 
-    // useContext 调用
-    CallExpression(path) {
-      const callee = path.node.callee;
-      if (callee.type === 'Identifier' && callee.name === 'useContext') {
-        const firstArg = path.node.arguments[0];
-        if (firstArg?.type === 'Identifier') {
-          info.contextConsumers.push(firstArg.name);
+      // useContext 调用
+      CallExpression(path) {
+        const callee = path.node.callee;
+        if (callee.type === "Identifier" && callee.name === "useContext") {
+          const firstArg = path.node.arguments[0];
+          if (firstArg?.type === "Identifier") {
+            info.contextConsumers.push(firstArg.name);
+          }
         }
-      }
 
-      // Context.Provider
-      if (callee.type === 'MemberExpression' &&
-          callee.property.type === 'Identifier' &&
-          callee.property.name === 'Provider') {
-        const obj = callee.object;
-        if (obj.type === 'Identifier') {
-          info.contextProviders.push(obj.name);
+        // Context.Provider
+        if (
+          callee.type === "MemberExpression" &&
+          callee.property.type === "Identifier" &&
+          callee.property.name === "Provider"
+        ) {
+          const obj = callee.object;
+          if (obj.type === "Identifier") {
+            info.contextProviders.push(obj.name);
+          }
         }
-      }
-    },
+      },
 
-    // JSX 中使用的外部组件
-    JSXOpeningElement(path) {
-      const tagName = getJSXTagName(path.node.name);
-      if (!tagName) return;
+      // JSX 中使用的外部组件
+      JSXOpeningElement(path) {
+        const tagName = getJSXTagName(path.node.name);
+        if (!tagName) return;
 
-      // 检测 Context.Provider: <UserContext.Provider>
-      if (tagName.endsWith('.Provider')) {
-        const ctxName = tagName.split('.')[0];
-        if (ctxName) {
-          info.contextProviders.push(ctxName);
+        // 检测 Context.Provider: <UserContext.Provider>
+        if (tagName.endsWith(".Provider")) {
+          const ctxName = tagName.split(".")[0];
+          if (ctxName) {
+            info.contextProviders.push(ctxName);
+          }
+          return;
         }
-        return;
-      }
 
-      if (!isComponentName(tagName)) return; // 只关心组件，不关心 HTML 标签
+        if (!isComponentName(tagName)) return; // 只关心组件，不关心 HTML 标签
 
-      const usedProps: string[] = [];
-      for (const attr of path.node.attributes) {
-        if (attr.type === 'JSXAttribute' && attr.name.type === 'JSXIdentifier') {
-          usedProps.push(attr.name.name);
+        const usedProps: string[] = [];
+        for (const attr of path.node.attributes) {
+          if (attr.type === "JSXAttribute" && attr.name.type === "JSXIdentifier") {
+            usedProps.push(attr.name.name);
+          }
         }
-      }
 
-      info.usedComponents.push({
-        name: tagName,
-        props: usedProps,
-        line: path.node.loc?.start?.line || 0,
-        column: path.node.loc?.start?.column || 0,
-      });
-    },
-
-    // 函数定义
-    FunctionDeclaration(innerPath) {
-      const name = innerPath.node.id?.name;
-      if (name) {
-        info.functions.push({
-          name,
-          body: '', // 简化，不存储完整函数体
-          params: innerPath.node.params.map((p: any) => p.name || ''),
+        info.usedComponents.push({
+          name: tagName,
+          props: usedProps,
+          line: path.node.loc?.start?.line || 0,
+          column: path.node.loc?.start?.column || 0,
         });
-      }
+      },
+
+      // 函数定义
+      FunctionDeclaration(innerPath) {
+        const name = innerPath.node.id?.name;
+        if (name) {
+          info.functions.push({
+            name,
+            body: "", // 简化，不存储完整函数体
+            params: innerPath.node.params.map((p: any) => p.name || ""),
+          });
+        }
+      },
     },
-  }, body);
+    body,
+  );
 }
 
 /** 获取 JSX 标签名 */
 function getJSXTagName(name: any): string | null {
-  if (name.type === 'JSXIdentifier') return name.name;
-  if (name.type === 'JSXMemberExpression') {
+  if (name.type === "JSXIdentifier") return name.name;
+  if (name.type === "JSXMemberExpression") {
     const parts: string[] = [];
     let current = name;
     while (current) {
-      if (current.type === 'JSXIdentifier') {
+      if (current.type === "JSXIdentifier") {
         parts.unshift(current.name);
         break;
-      } else if (current.type === 'JSXMemberExpression') {
+      } else if (current.type === "JSXMemberExpression") {
         parts.unshift(current.property.name);
         current = current.object;
       } else break;
     }
-    return parts.join('.');
+    return parts.join(".");
   }
   return null;
 }
@@ -549,24 +573,26 @@ function analyzeUnusedProps(graph: FileGraph, context: RuleContext): Issue[] {
           childUsedProps.add(dp.name);
         }
 
-        const unusedProps = childUsage.props.filter(p =>
-          !childUsedProps.has(p) &&
-          p !== 'key' && p !== 'ref' &&
-          !p.startsWith('on') && // 事件处理器可能在子组件中通过 props 解构
-          !p.startsWith('data-') &&
-          !p.startsWith('aria-')
+        const unusedProps = childUsage.props.filter(
+          (p) =>
+            !childUsedProps.has(p) &&
+            p !== "key" &&
+            p !== "ref" &&
+            !p.startsWith("on") && // 事件处理器可能在子组件中通过 props 解构
+            !p.startsWith("data-") &&
+            !p.startsWith("aria-"),
         );
 
         if (unusedProps.length > 0) {
           issues.push({
-            ruleId: 'cross-unused-props',
+            ruleId: "cross-unused-props",
             title: `父组件 "${parent.name}" 向 "${child.name}" 传递了未使用的 props`,
-            description: `子组件 "${child.name}" 未使用以下 props: ${unusedProps.join(', ')}。建议移除父组件中的传递，或检查是否是拼写错误`,
-            severity: 'warning',
+            description: `子组件 "${child.name}" 未使用以下 props: ${unusedProps.join(", ")}。建议移除父组件中的传递，或检查是否是拼写错误`,
+            severity: "warning",
             file: context.filePath,
             line: parent.line,
             column: parent.column,
-            source: `<${child.name} ${unusedProps.map(p => `${p}=...`).join(' ')} />`,
+            source: `<${child.name} ${unusedProps.map((p) => `${p}=...`).join(" ")} />`,
           });
         }
       }
@@ -588,19 +614,20 @@ function analyzeMissingProps(graph: FileGraph, context: RuleContext): Issue[] {
 
         // 检查子组件声明的必传 props 是否都被传递了
         const passedProps = new Set(childUsage.props);
-        const missingProps = child.declaredProps.filter(dp =>
-          !dp.optional &&
-          !passedProps.has(dp.name) &&
-          dp.name !== 'children' &&
-          !dp.name.startsWith('...')
+        const missingProps = child.declaredProps.filter(
+          (dp) =>
+            !dp.optional &&
+            !passedProps.has(dp.name) &&
+            dp.name !== "children" &&
+            !dp.name.startsWith("..."),
         );
 
         if (missingProps.length > 0) {
           issues.push({
-            ruleId: 'cross-missing-props',
+            ruleId: "cross-missing-props",
             title: `"${parent.name}" 未传递 "${child.name}" 的必传 props`,
-            description: `子组件 "${child.name}" 需要以下必传 props: ${missingProps.map(p => p.name).join(', ')}`,
-            severity: 'warning',
+            description: `子组件 "${child.name}" 需要以下必传 props: ${missingProps.map((p) => p.name).join(", ")}`,
+            severity: "warning",
             file: context.filePath,
             line: parent.line,
             column: parent.column,
@@ -629,15 +656,17 @@ function analyzeContextOveruse(graph: FileGraph, context: RuleContext): Issue[] 
         // 检查是否在同文件中有 Provider
         const sameFileComponents = graph.components.get(comp.filePath) || [];
         const hasProviderInSameFile = sameFileComponents.some(
-          c => c.contextProviders.includes(`${ctxName}.Provider`) || c.contextProviders.includes(ctxName)
+          (c) =>
+            c.contextProviders.includes(`${ctxName}.Provider`) ||
+            c.contextProviders.includes(ctxName),
         );
 
         if (hasProviderInSameFile) {
           issues.push({
-            ruleId: 'cross-context-overuse',
+            ruleId: "cross-context-overuse",
             title: `"${comp.name}" 的 Context 使用可改为 props 传递`,
             description: `组件 "${comp.name}" 在同文件中消费了 "${ctxName}" Context。由于只有单层嵌套，建议直接用 props 传递数据，减少 Context 的复杂度`,
-            severity: 'suggestion',
+            severity: "suggestion",
             file: context.filePath,
             line: comp.line,
             column: comp.column,
@@ -690,23 +719,23 @@ function checkSimilarity(
   current: ComponentInfo,
   sibling: ComponentInfo,
   issues: Issue[],
-  context: RuleContext
+  context: RuleContext,
 ): void {
   if (current.name === sibling.name) return; // 跳过同名
 
   // 检测 props 结构是否相似（>50% 相同）
-  const currentPropNames = new Set(current.declaredProps.map(p => p.name));
-  const siblingPropNames = new Set(sibling.declaredProps.map(p => p.name));
+  const currentPropNames = new Set(current.declaredProps.map((p) => p.name));
+  const siblingPropNames = new Set(sibling.declaredProps.map((p) => p.name));
 
-  const intersection = [...currentPropNames].filter(p => siblingPropNames.has(p));
+  const intersection = [...currentPropNames].filter((p) => siblingPropNames.has(p));
   const union = new Set([...currentPropNames, ...siblingPropNames]);
 
   if (union.size > 0 && intersection.length / union.size >= 0.5 && intersection.length >= 2) {
     issues.push({
-      ruleId: 'cross-duplicate-code',
+      ruleId: "cross-duplicate-code",
       title: `"${current.name}" 与 "${sibling.name}" 有相似的 props 结构`,
-      description: `两个组件有 ${intersection.length} 个相同的 props: ${intersection.join(', ')}。如果逻辑也相似，建议提取公共的 Base 组件或 HOC`,
-      severity: 'suggestion',
+      description: `两个组件有 ${intersection.length} 个相同的 props: ${intersection.join(", ")}。如果逻辑也相似，建议提取公共的 Base 组件或 HOC`,
+      severity: "suggestion",
       file: context.filePath,
       line: current.line,
       column: current.column,
@@ -715,19 +744,18 @@ function checkSimilarity(
   }
 
   // 检测函数体中是否有相同的事件处理函数名
-  const currentFns = new Set(current.functions.map(f => f.name));
-  const siblingFns = new Set(sibling.functions.map(f => f.name));
-  const sameFns = [...currentFns].filter(f =>
-    siblingFns.has(f) &&
-    f.startsWith('handle') // 事件处理函数
+  const currentFns = new Set(current.functions.map((f) => f.name));
+  const siblingFns = new Set(sibling.functions.map((f) => f.name));
+  const sameFns = [...currentFns].filter(
+    (f) => siblingFns.has(f) && f.startsWith("handle"), // 事件处理函数
   );
 
   if (sameFns.length >= 2) {
     issues.push({
-      ruleId: 'cross-duplicate-code',
+      ruleId: "cross-duplicate-code",
       title: `"${current.name}" 与 "${sibling.name}" 有重复的事件处理逻辑`,
-      description: `发现 ${sameFns.length} 个同名事件处理函数: ${sameFns.join(', ')}。建议提取到公共 hooks 中`,
-      severity: 'suggestion',
+      description: `发现 ${sameFns.length} 个同名事件处理函数: ${sameFns.join(", ")}。建议提取到公共 hooks 中`,
+      severity: "suggestion",
       file: context.filePath,
       line: current.line,
       column: current.column,
@@ -745,11 +773,19 @@ function analyzeExtractCommon(graph: FileGraph, context: RuleContext): Issue[] {
 
   for (const comp of currentComps) {
     // 检测组件中是否有独立的工具函数（不依赖组件状态）
-    const utilityFns = comp.functions.filter(fn => {
+    const utilityFns = comp.functions.filter((fn) => {
       // 不是事件处理函数
-      if (fn.name.startsWith('handle') || fn.name.startsWith('on')) return false;
+      if (fn.name.startsWith("handle") || fn.name.startsWith("on")) return false;
       // 不是生命周期方法
-      const lifecycle = ['componentDidMount', 'componentWillUnmount', 'componentDidUpdate', 'useEffect', 'useState', 'useCallback', 'useMemo'];
+      const lifecycle = [
+        "componentDidMount",
+        "componentWillUnmount",
+        "componentDidUpdate",
+        "useEffect",
+        "useState",
+        "useCallback",
+        "useMemo",
+      ];
       if (lifecycle.includes(fn.name)) return false;
       // 参数列表简单（纯函数特征）
       return fn.params.length > 0 && fn.params.length <= 3;
@@ -757,14 +793,14 @@ function analyzeExtractCommon(graph: FileGraph, context: RuleContext): Issue[] {
 
     if (utilityFns.length >= 2) {
       issues.push({
-        ruleId: 'cross-extract-common',
+        ruleId: "cross-extract-common",
         title: `"${comp.name}" 中有 ${utilityFns.length} 个可提取的工具函数`,
-        description: `组件 "${comp.name}" 包含多个不依赖组件状态的工具函数（${utilityFns.map(f => f.name).join(', ')}）。建议提取到 utils/ 目录下的公共模块`,
-        severity: 'suggestion',
+        description: `组件 "${comp.name}" 包含多个不依赖组件状态的工具函数（${utilityFns.map((f) => f.name).join(", ")}）。建议提取到 utils/ 目录下的公共模块`,
+        severity: "suggestion",
         file: context.filePath,
         line: comp.line,
         column: comp.column,
-        source: utilityFns.map(f => f.name).join(', '),
+        source: utilityFns.map((f) => f.name).join(", "),
       });
     }
   }
@@ -775,5 +811,5 @@ function analyzeExtractCommon(graph: FileGraph, context: RuleContext): Issue[] {
 /** 获取文件扩展名 */
 function getFileExt(filePath: string): string {
   const match = filePath.match(/\.[^.]+$/);
-  return match ? match[0] : '.js';
+  return match ? match[0] : ".js";
 }

@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
-import { hooksRules } from '../src/scanners/hooks-scanner.js';
-import { parseAST } from '../src/utils/ast-parser.js';
-import type { RuleContext, ProjectMeta } from '../src/types.js';
+import { describe, it, expect } from "vitest";
+import { hooksRules } from "../src/scanners/hooks-scanner.js";
+import { parseAST } from "../src/utils/ast-parser.js";
+import type { RuleContext, ProjectMeta } from "../src/types.js";
 
-function createContext(source: string, filePath: string = 'test.tsx'): RuleContext {
+function createContext(source: string, filePath: string = "test.tsx"): RuleContext {
   return {
     filePath,
     source,
     config: {},
     projectMeta: {
-      platforms: ['pc'],
+      platforms: ["pc"],
       hasTypeScript: true,
       hasI18n: true,
       scripts: {},
@@ -23,10 +23,10 @@ function createContext(source: string, filePath: string = 'test.tsx'): RuleConte
   };
 }
 
-describe('hooks-effect-deps', () => {
-  const rule = hooksRules.find(r => r.id === 'hooks-effect-deps')!;
+describe("hooks-effect-deps", () => {
+  const rule = hooksRules.find((r) => r.id === "hooks-effect-deps")!;
 
-  it('should detect useEffect without deps array', () => {
+  it("should detect useEffect without deps array", () => {
     const source = `
 function MyComp() {
   useEffect(() => { console.log('hello'); });
@@ -34,11 +34,11 @@ function MyComp() {
 `;
     const issues = rule.execute(createContext(source));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].ruleId).toBe('hooks-effect-deps');
-    expect(issues[0].title).toContain('缺少依赖数组');
+    expect(issues[0].ruleId).toBe("hooks-effect-deps");
+    expect(issues[0].title).toContain("缺少依赖数组");
   });
 
-  it('should detect empty deps with state reference', () => {
+  it("should detect empty deps with state reference", () => {
     const source = `
 function MyComp() {
   const [state, setState] = useState(0);
@@ -46,34 +46,34 @@ function MyComp() {
 }
 `;
     const issues = rule.execute(createContext(source));
-    const issue = issues.find(i => i.title.includes('空依赖'));
+    const issue = issues.find((i) => i.title.includes("空依赖"));
     expect(issue).toBeDefined();
-    expect(issue!.severity).toBe('critical');
+    expect(issue!.severity).toBe("critical");
   });
 
-  it('should detect too many deps', () => {
+  it("should detect too many deps", () => {
     const source = `
 function MyComp() {
   useEffect(() => {}, [a, b, c, d, e, f, g]);
 }
 `;
     const issues = rule.execute(createContext(source));
-    const issue = issues.find(i => i.title.includes('依赖过多'));
+    const issue = issues.find((i) => i.title.includes("依赖过多"));
     expect(issue).toBeDefined();
   });
 
-  it('should allow normal deps array', () => {
+  it("should allow normal deps array", () => {
     const source = `
 function MyComp() {
   useEffect(() => {}, [dep1, dep2]);
 }
 `;
     const issues = rule.execute(createContext(source));
-    const issue = issues.find(i => i.title.includes('缺少') || i.title.includes('过多'));
+    const issue = issues.find((i) => i.title.includes("缺少") || i.title.includes("过多"));
     expect(issue).toBeUndefined();
   });
 
-  it('should warn about potentially missing deps', () => {
+  it("should warn about potentially missing deps", () => {
     const source = `
 function MyComp() {
   const [isLoading, setIsLoading] = useState(false);
@@ -83,14 +83,14 @@ function MyComp() {
 }
 `;
     const issues = rule.execute(createContext(source));
-    expect(issues.some(i => i.title.includes('可能缺少依赖'))).toBe(true);
+    expect(issues.some((i) => i.title.includes("可能缺少依赖"))).toBe(true);
   });
 });
 
-describe('hooks-closure', () => {
-  const rule = hooksRules.find(r => r.id === 'hooks-closure')!;
+describe("hooks-closure", () => {
+  const rule = hooksRules.find((r) => r.id === "hooks-closure")!;
 
-  it('should detect setInterval without cleanup in useEffect', () => {
+  it("should detect setInterval without cleanup in useEffect", () => {
     const source = `
 function Timer() {
   useEffect(() => {
@@ -100,12 +100,12 @@ function Timer() {
 `;
     const issues = rule.execute(createContext(source));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].ruleId).toBe('hooks-closure');
-    expect(issues[0].severity).toBe('critical');
-    expect(issues[0].title).toContain('setInterval 缺少 cleanup');
+    expect(issues[0].ruleId).toBe("hooks-closure");
+    expect(issues[0].severity).toBe("critical");
+    expect(issues[0].title).toContain("setInterval 缺少 cleanup");
   });
 
-  it('should detect setTimeout without cleanup in useEffect', () => {
+  it("should detect setTimeout without cleanup in useEffect", () => {
     const source = `
 function Delayed() {
   useEffect(() => {
@@ -115,10 +115,10 @@ function Delayed() {
 `;
     const issues = rule.execute(createContext(source));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].title).toContain('setTimeout 缺少 cleanup');
+    expect(issues[0].title).toContain("setTimeout 缺少 cleanup");
   });
 
-  it('should allow setInterval with cleanup', () => {
+  it("should allow setInterval with cleanup", () => {
     const source = `
 function Timer() {
   useEffect(() => {
@@ -131,7 +131,7 @@ function Timer() {
     expect(issues.length).toBe(0);
   });
 
-  it('should not flag setInterval outside useEffect', () => {
+  it("should not flag setInterval outside useEffect", () => {
     const source = `
 function handleClick() {
   setInterval(() => {}, 1000);
@@ -142,10 +142,10 @@ function handleClick() {
   });
 });
 
-describe('hooks-custom-naming', () => {
-  const rule = hooksRules.find(r => r.id === 'hooks-custom-naming')!;
+describe("hooks-custom-naming", () => {
+  const rule = hooksRules.find((r) => r.id === "hooks-custom-naming")!;
 
-  it('should detect function using hooks without use prefix', () => {
+  it("should detect function using hooks without use prefix", () => {
     const source = `
 function fetchData() {
   const [data, setData] = useState(null);
@@ -154,11 +154,11 @@ function fetchData() {
 `;
     const issues = rule.execute(createContext(source));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].ruleId).toBe('hooks-custom-naming');
-    expect(issues[0].title).toContain('fetchData');
+    expect(issues[0].ruleId).toBe("hooks-custom-naming");
+    expect(issues[0].title).toContain("fetchData");
   });
 
-  it('should allow function with use prefix', () => {
+  it("should allow function with use prefix", () => {
     const source = `
 function useFetchData() {
   const [data, setData] = useState(null);
@@ -169,7 +169,7 @@ function useFetchData() {
     expect(issues.length).toBe(0);
   });
 
-  it('should not flag non-hook functions', () => {
+  it("should not flag non-hook functions", () => {
     const source = `
 function calculateSum(a, b) {
   return a + b;
@@ -180,10 +180,10 @@ function calculateSum(a, b) {
   });
 });
 
-describe('composables-reactive', () => {
-  const rule = hooksRules.find(r => r.id === 'composables-reactive')!;
+describe("composables-reactive", () => {
+  const rule = hooksRules.find((r) => r.id === "composables-reactive")!;
 
-  it('should detect reactive destructuring', () => {
+  it("should detect reactive destructuring", () => {
     const source = `
 function setup() {
   const { count, name } = reactive({ count: 0, name: 'test' });
@@ -192,11 +192,11 @@ function setup() {
 `;
     const issues = rule.execute(createContext(source));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].ruleId).toBe('composables-reactive');
-    expect(issues[0].severity).toBe('critical');
+    expect(issues[0].ruleId).toBe("composables-reactive");
+    expect(issues[0].severity).toBe("critical");
   });
 
-  it('should not flag non-destructured reactive', () => {
+  it("should not flag non-destructured reactive", () => {
     const source = `
 function setup() {
   const state = reactive({ count: 0 });
@@ -207,20 +207,20 @@ function setup() {
     expect(issues.length).toBe(0);
   });
 
-  it('should provide fix suggestion', () => {
+  it("should provide fix suggestion", () => {
     const source = `
 const { count } = reactive({ count: 0 });
 `;
     const issues = rule.execute(createContext(source));
     expect(issues[0].fix).toBeDefined();
-    expect(issues[0].fix!.text).toContain('toRefs');
+    expect(issues[0].fix!.text).toContain("toRefs");
   });
 });
 
-describe('composables-computed', () => {
-  const rule = hooksRules.find(r => r.id === 'composables-computed')!;
+describe("composables-computed", () => {
+  const rule = hooksRules.find((r) => r.id === "composables-computed")!;
 
-  it('should detect side effects in computed', () => {
+  it("should detect side effects in computed", () => {
     const source = `
 function setup() {
   const fullName = computed(() => {
@@ -232,10 +232,10 @@ function setup() {
 `;
     const issues = rule.execute(createContext(source));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].ruleId).toBe('composables-computed');
+    expect(issues[0].ruleId).toBe("composables-computed");
   });
 
-  it('should allow pure computed function', () => {
+  it("should allow pure computed function", () => {
     const source = `
 function setup() {
   const fullName = computed(() => firstName.value + ' ' + lastName.value);
@@ -246,10 +246,10 @@ function setup() {
   });
 });
 
-describe('hooks-state-lifting', () => {
-  const rule = hooksRules.find(r => r.id === 'hooks-state-lifting')!;
+describe("hooks-state-lifting", () => {
+  const rule = hooksRules.find((r) => r.id === "hooks-state-lifting")!;
 
-  it('should suggest lifting when too many useState', () => {
+  it("should suggest lifting when too many useState", () => {
     const source = `
 function MyComp() {
   const [a, setA] = useState(0);
@@ -263,11 +263,11 @@ function MyComp() {
 `;
     const issues = rule.execute(createContext(source));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].ruleId).toBe('hooks-state-lifting');
-    expect(issues[0].title).toContain('useState');
+    expect(issues[0].ruleId).toBe("hooks-state-lifting");
+    expect(issues[0].title).toContain("useState");
   });
 
-  it('should suggest lifting when too many refs in Vue', () => {
+  it("should suggest lifting when too many refs in Vue", () => {
     const source = `
 function setup() {
   const a = ref(0);
@@ -284,10 +284,10 @@ function setup() {
 `;
     const issues = rule.execute(createContext(source));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].title).toContain('ref');
+    expect(issues[0].title).toContain("ref");
   });
 
-  it('should not flag normal state count', () => {
+  it("should not flag normal state count", () => {
     const source = `
 function MyComp() {
   const [a, setA] = useState(0);

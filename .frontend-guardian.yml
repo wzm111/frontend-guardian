@@ -36,7 +36,7 @@ i18n:
   format: json
 
   # key 命名正则（module.page.element 格式）
-  keyPattern: "^[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9]*)*$"
+  keyPattern: '^[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9]*)*$'
 
   # 扫描路径
   extractPaths:
@@ -48,9 +48,9 @@ i18n:
   ignorePaths:
     - src/utils/logger.ts
     - src/utils/debug.ts
-    - **/*.test.ts
-    - **/*.spec.ts
-    - **/*.d.ts
+    - "**/*.test.ts"
+    - "**/*.spec.ts"
+    - "**/*.d.ts"
 
   # 插值变量匹配模式
   interpolationPattern: "\\{([^}]+)\\}"
@@ -204,6 +204,32 @@ scan:
     - "*.test.*"
     - "*.spec.*"
     - "*.config.*"
+
+# ============================================================================
+# Phase 3: 规则配置驱动（通用化）
+# ============================================================================
+rules:
+  # 示例：完全禁用某规则
+  - id: hooks-state-lifting
+    enabled: false
+
+  # 示例：调整严重级别
+  - id: component-token
+    severity: warning
+
+  # 示例：参数化规则（覆盖默认值）
+  - id: hooks-effect-deps
+    severity: warning
+    params:
+      maxDeps: 7
+      ignorePatterns:
+        - "dispatch"
+        - "setState"
+
+# 自定义规则文件（相对项目根目录）
+customRules:
+  # - path: ./rules/my-company-rule.js
+  # - path: ./rules/team-naming-convention.js
 
 # ============================================================================
 # AI 智能体上下文配置

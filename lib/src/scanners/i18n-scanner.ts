@@ -9,30 +9,36 @@
  * 5. console.log / 注释 / 测试文件中的中文（可配置忽略）
  */
 
-import type { Node } from '@babel/types';
-import type { ParseResult } from '@babel/parser';
-import traverse from '@babel/traverse';
-import type { Rule, RuleContext, Issue } from '../types.js';
-import { parseAST } from '../utils/ast-parser.js';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { resolve, dirname, extname } from 'node:path';
+import type { Node } from "@babel/types";
+import type { ParseResult } from "@babel/parser";
+import traverse from "@babel/traverse";
+import type { Rule, RuleContext, Issue } from "../types.js";
+import { parseAST } from "../utils/ast-parser.js";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { resolve, dirname, extname } from "node:path";
 
 /** 中文字符正则（包含中文标点） */
 const CHINESE_REGEX = /[一-龥　-〿＀-￯]/;
 
 /** i18n 函数名列表 */
 const I18N_FUNCTION_NAMES = [
-  't', '$t', 'i18n.t', 'translate', 'formatMessage',
-  'intl.formatMessage', 'i18next.t', '$i18n.t',
+  "t",
+  "$t",
+  "i18n.t",
+  "translate",
+  "formatMessage",
+  "intl.formatMessage",
+  "i18next.t",
+  "$i18n.t",
 ];
 
 export const i18nRules: Rule[] = [
   {
-    id: 'i18n-hardcoded-string',
-    name: '硬编码中文字符串',
-    description: '代码中存在未国际化的中文字符串字面量',
-    severity: 'warning',
-    category: 'i18n',
+    id: "i18n-hardcoded-string",
+    name: "硬编码中文字符串",
+    description: "代码中存在未国际化的中文字符串字面量",
+    severity: "warning",
+    category: "i18n",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
@@ -54,10 +60,10 @@ export const i18nRules: Rule[] = [
           if (shouldIgnoreStringLiteral(path, value, context.source)) return;
 
           issues.push({
-            ruleId: 'i18n-hardcoded-string',
-            title: '发现硬编码中文字符串',
+            ruleId: "i18n-hardcoded-string",
+            title: "发现硬编码中文字符串",
             description: `文件中的字符串 "${truncate(value, 30)}" 未进行国际化处理`,
-            severity: 'warning',
+            severity: "warning",
             file: context.filePath,
             line,
             column,
@@ -83,10 +89,10 @@ export const i18nRules: Rule[] = [
             if (isInsideConsoleOrTest(path)) continue;
 
             issues.push({
-              ruleId: 'i18n-hardcoded-template',
-              title: '发现硬编码中文模板字符串',
+              ruleId: "i18n-hardcoded-template",
+              title: "发现硬编码中文模板字符串",
               description: `模板字符串中的 "${truncate(value, 30)}" 未进行国际化处理`,
-              severity: 'warning',
+              severity: "warning",
               file: context.filePath,
               line,
               column,
@@ -103,10 +109,10 @@ export const i18nRules: Rule[] = [
           const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
 
           issues.push({
-            ruleId: 'i18n-hardcoded-jsx-text',
-            title: '发现硬编码中文 JSX 文本',
+            ruleId: "i18n-hardcoded-jsx-text",
+            title: "发现硬编码中文 JSX 文本",
             description: `JSX 中的文本 "${truncate(value.trim(), 30)}" 未进行国际化处理`,
-            severity: 'critical',
+            severity: "critical",
             file: context.filePath,
             line,
             column,
@@ -124,15 +130,20 @@ export const i18nRules: Rule[] = [
           const attrName = path.node.name.name as string;
           const attrValue = path.node.value;
 
-          if (attrName === 'title' || attrName === 'placeholder' || attrName === 'alt' || attrName === 'label') {
-            if (attrValue?.type === 'StringLiteral' && containsChinese(attrValue.value)) {
+          if (
+            attrName === "title" ||
+            attrName === "placeholder" ||
+            attrName === "alt" ||
+            attrName === "label"
+          ) {
+            if (attrValue?.type === "StringLiteral" && containsChinese(attrValue.value)) {
               const { line, column } = attrValue.loc?.start || { line: 0, column: 0 };
 
               issues.push({
-                ruleId: 'i18n-hardcoded-attribute',
+                ruleId: "i18n-hardcoded-attribute",
                 title: `发现硬编码中文 ${attrName} 属性`,
                 description: `属性 ${attrName}="${truncate(attrValue.value, 30)}" 未进行国际化处理`,
-                severity: 'warning',
+                severity: "warning",
                 file: context.filePath,
                 line,
                 column,
@@ -148,21 +159,21 @@ export const i18nRules: Rule[] = [
   },
 
   {
-    id: 'i18n-missing-key',
-    name: '语言包缺失 Key',
-    description: '代码中引用了语言包中不存在的 key',
-    severity: 'critical',
-    category: 'i18n',
+    id: "i18n-missing-key",
+    name: "语言包缺失 Key",
+    description: "代码中引用了语言包中不存在的 key",
+    severity: "critical",
+    category: "i18n",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
 
       // 跳过非源码文件
       const ext = extname(context.filePath).toLowerCase();
-      if (!['.js', '.ts', '.jsx', '.tsx', '.vue'].includes(ext)) return issues;
+      if (![".js", ".ts", ".jsx", ".tsx", ".vue"].includes(ext)) return issues;
 
       // 收集语言包 key（模块级缓存）
-      const projectDir = context.filePath.split('/src/')[0] || dirname(context.filePath);
+      const projectDir = context.filePath.split("/src/")[0] || dirname(context.filePath);
       const localeKeys = collectLocaleKeys(projectDir, context.config);
 
       if (localeKeys.size === 0) return issues;
@@ -179,14 +190,14 @@ export const i18nRules: Rule[] = [
 
       for (const { key, line, column } of codeKeys) {
         // 跳过动态 key（含变量）
-        if (!key || key.includes('${') || key.includes('{{')) continue;
+        if (!key || key.includes("${") || key.includes("{{")) continue;
 
         if (!localeKeys.has(key)) {
           issues.push({
-            ruleId: 'i18n-missing-key',
+            ruleId: "i18n-missing-key",
             title: `语言包缺失 Key: ${key}`,
             description: `代码引用的国际化 key "${key}" 在语言包中未找到`,
-            severity: 'critical',
+            severity: "critical",
             file: context.filePath,
             line,
             column,
@@ -200,21 +211,21 @@ export const i18nRules: Rule[] = [
   },
 
   {
-    id: 'i18n-unused-key',
-    name: '语言包未使用 Key',
-    description: '语言包中存在但代码中未引用的 key',
-    severity: 'suggestion',
-    category: 'i18n',
+    id: "i18n-unused-key",
+    name: "语言包未使用 Key",
+    description: "语言包中存在但代码中未引用的 key",
+    severity: "suggestion",
+    category: "i18n",
     defaultEnabled: true,
     execute(context: RuleContext): Issue[] {
       const issues: Issue[] = [];
 
       // 跳过非源码文件
       const ext = extname(context.filePath).toLowerCase();
-      if (!['.js', '.ts', '.jsx', '.tsx', '.vue'].includes(ext)) return issues;
+      if (![".js", ".ts", ".jsx", ".tsx", ".vue"].includes(ext)) return issues;
 
       // 收集语言包 key（模块级缓存）
-      const projectDir = context.filePath.split('/src/')[0] || dirname(context.filePath);
+      const projectDir = context.filePath.split("/src/")[0] || dirname(context.filePath);
       const localeKeys = collectLocaleKeys(projectDir, context.config);
 
       if (localeKeys.size === 0) return issues;
@@ -229,10 +240,10 @@ export const i18nRules: Rule[] = [
         if (!codeKeys.has(key)) {
           // 只报告一次每个 key
           issues.push({
-            ruleId: 'i18n-unused-key',
+            ruleId: "i18n-unused-key",
             title: `语言包未使用 Key: ${key}`,
             description: `国际化 key "${key}" 在语言包中存在，但代码中未找到引用。如果已废弃，建议从语言包中删除`,
-            severity: 'suggestion',
+            severity: "suggestion",
             file: context.filePath,
             line: 1,
             column: 1,
@@ -254,13 +265,13 @@ function containsChinese(str: string): boolean {
 /** 截断字符串 */
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
-  return str.slice(0, maxLen) + '...';
+  return str.slice(0, maxLen) + "...";
 }
 
 /** 获取文件扩展名 */
 function getFileExt(filePath: string): string {
   const match = filePath.match(/\.[^.]+$/);
-  return match ? match[0] : '.js';
+  return match ? match[0] : ".js";
 }
 
 /** 生成 i18n 调用 */
@@ -275,9 +286,9 @@ function textToKey(text: string): string {
   return text
     .trim()
     .slice(0, 20)
-    .replace(/[^一-龥a-zA-Z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
+    .replace(/[^一-龥a-zA-Z0-9]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 /** 判断字符串字面量是否应被忽略 */
@@ -305,7 +316,7 @@ function isInsideI18nCall(path: any): boolean {
     if (current.isCallExpression()) {
       const callee = current.node.callee;
       const calleeName = getCalleeName(callee);
-      if (I18N_FUNCTION_NAMES.some(fn => calleeName?.endsWith(fn))) {
+      if (I18N_FUNCTION_NAMES.some((fn) => calleeName?.endsWith(fn))) {
         return true;
       }
     }
@@ -320,8 +331,8 @@ function isInsideConsoleOrTest(path: any): boolean {
   while (current) {
     if (current.isCallExpression()) {
       const calleeName = getCalleeName(current.node.callee);
-      if (calleeName?.startsWith('console.')) return true;
-      if (['describe', 'it', 'test', 'beforeEach', 'afterEach'].includes(calleeName || '')) {
+      if (calleeName?.startsWith("console.")) return true;
+      if (["describe", "it", "test", "beforeEach", "afterEach"].includes(calleeName || "")) {
         return true;
       }
     }
@@ -334,10 +345,10 @@ function isInsideConsoleOrTest(path: any): boolean {
 function isInComment(path: any, source: string): boolean {
   // 更精确的实现需要 source map，这里做简单判断
   const { line } = path.node.loc?.start || { line: 0 };
-  const lines = source.split('\n');
+  const lines = source.split("\n");
   if (line > 0 && line <= lines.length) {
     const lineStr = lines[line - 1].trim();
-    if (lineStr.startsWith('//') || lineStr.startsWith('*') || lineStr.startsWith('/*')) {
+    if (lineStr.startsWith("//") || lineStr.startsWith("*") || lineStr.startsWith("/*")) {
       return true;
     }
   }
@@ -364,29 +375,29 @@ function collectLocaleKeys(projectDir: string, config: any): Set<string> {
 
   // 常见语言包目录
   const localeDirs = [
-    resolve(projectDir, 'locales'),
-    resolve(projectDir, 'i18n'),
-    resolve(projectDir, 'lang'),
-    resolve(projectDir, 'messages'),
-    resolve(projectDir, 'src/locales'),
-    resolve(projectDir, 'src/i18n'),
-    resolve(projectDir, 'src/lang'),
+    resolve(projectDir, "locales"),
+    resolve(projectDir, "i18n"),
+    resolve(projectDir, "lang"),
+    resolve(projectDir, "messages"),
+    resolve(projectDir, "src/locales"),
+    resolve(projectDir, "src/i18n"),
+    resolve(projectDir, "src/lang"),
   ];
 
   for (const dir of localeDirs) {
     if (!existsSync(dir)) continue;
 
     try {
-      const files = readdirSync(dir, { recursive: true, encoding: 'utf-8' }) as string[];
+      const files = readdirSync(dir, { recursive: true, encoding: "utf-8" }) as string[];
       for (const file of files) {
         const fullPath = resolve(dir, file);
         const ext = extname(file).toLowerCase();
 
-        if (ext === '.json') {
+        if (ext === ".json") {
           extractKeysFromJSON(fullPath, keys);
-        } else if (ext === '.js' || ext === '.ts') {
+        } else if (ext === ".js" || ext === ".ts") {
           extractKeysFromJS(fullPath, keys);
-        } else if (ext === '.yaml' || ext === '.yml') {
+        } else if (ext === ".yaml" || ext === ".yml") {
           // TODO: YAML 解析
         }
       }
@@ -403,9 +414,9 @@ function collectLocaleKeys(projectDir: string, config: any): Set<string> {
 /** 从 JSON 文件提取 key（递归） */
 function extractKeysFromJSON(filePath: string, keys: Set<string>): void {
   try {
-    const content = readFileSync(filePath, 'utf-8');
+    const content = readFileSync(filePath, "utf-8");
     const data = JSON.parse(content);
-    extractKeysRecursive(data, '', keys);
+    extractKeysRecursive(data, "", keys);
   } catch {
     // 解析失败，跳过
   }
@@ -414,7 +425,7 @@ function extractKeysFromJSON(filePath: string, keys: Set<string>): void {
 /** 从 JS/TS 文件提取 key */
 function extractKeysFromJS(filePath: string, keys: Set<string>): void {
   try {
-    const content = readFileSync(filePath, 'utf-8');
+    const content = readFileSync(filePath, "utf-8");
     // 简单提取 export default { ... } 中的 key
     const match = content.match(/export\s+default\s*\{([\s\S]*?)\}/);
     if (match) {
@@ -432,13 +443,13 @@ function extractKeysFromJS(filePath: string, keys: Set<string>): void {
 
 /** 递归提取对象 key */
 function extractKeysRecursive(obj: any, prefix: string, keys: Set<string>): void {
-  if (typeof obj !== 'object' || obj === null) return;
+  if (typeof obj !== "object" || obj === null) return;
 
   for (const [key, value] of Object.entries(obj)) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       keys.add(fullKey);
-    } else if (typeof value === 'object' && value !== null) {
+    } else if (typeof value === "object" && value !== null) {
       extractKeysRecursive(value, fullKey, keys);
     }
   }
@@ -449,7 +460,9 @@ function extractKeysRecursive(obj: any, prefix: string, keys: Set<string>): void
 // ============================================================================
 
 /** 从 AST 中提取代码中引用的 i18n key */
-function extractCodeKeys(ast: ParseResult<any> | null): Array<{ key: string; line: number; column: number }> {
+function extractCodeKeys(
+  ast: ParseResult<any> | null,
+): Array<{ key: string; line: number; column: number }> {
   const keys: Array<{ key: string; line: number; column: number }> = [];
   if (!ast) return keys;
 
@@ -462,23 +475,25 @@ function extractCodeKeys(ast: ParseResult<any> | null): Array<{ key: string; lin
       if (!calleeName) return;
 
       // 匹配 t(), $t(), i18n.t(), translate()
-      if (I18N_FUNCTION_NAMES.some(fn => calleeName.endsWith(fn) || calleeName === fn)) {
+      if (I18N_FUNCTION_NAMES.some((fn) => calleeName.endsWith(fn) || calleeName === fn)) {
         const firstArg = path.node.arguments[0];
-        if (firstArg?.type === 'StringLiteral') {
+        if (firstArg?.type === "StringLiteral") {
           const { line, column } = firstArg.loc?.start || { line: 0, column: 0 };
           keys.push({ key: firstArg.value, line, column });
         }
       }
 
       // 匹配 formatMessage({ id: 'key' })
-      if (calleeName === 'formatMessage' || calleeName === 'intl.formatMessage') {
+      if (calleeName === "formatMessage" || calleeName === "intl.formatMessage") {
         const firstArg = path.node.arguments[0];
-        if (firstArg?.type === 'ObjectExpression') {
+        if (firstArg?.type === "ObjectExpression") {
           for (const prop of firstArg.properties) {
-            if (prop.type === 'ObjectProperty' &&
-                prop.key.type === 'Identifier' &&
-                prop.key.name === 'id' &&
-                prop.value.type === 'StringLiteral') {
+            if (
+              prop.type === "ObjectProperty" &&
+              prop.key.type === "Identifier" &&
+              prop.key.name === "id" &&
+              prop.value.type === "StringLiteral"
+            ) {
               const { line, column } = prop.value.loc?.start || { line: 0, column: 0 };
               keys.push({ key: prop.value.value, line, column });
             }
@@ -490,12 +505,14 @@ function extractCodeKeys(ast: ParseResult<any> | null): Array<{ key: string; lin
     // JSX: <FormattedMessage id="key" />
     JSXOpeningElement(path) {
       const name = path.node.name;
-      if (name.type === 'JSXIdentifier' && name.name === 'FormattedMessage') {
+      if (name.type === "JSXIdentifier" && name.name === "FormattedMessage") {
         for (const attr of path.node.attributes) {
-          if (attr.type === 'JSXAttribute' &&
-              attr.name.type === 'JSXIdentifier' &&
-              attr.name.name === 'id' &&
-              attr.value?.type === 'StringLiteral') {
+          if (
+            attr.type === "JSXAttribute" &&
+            attr.name.type === "JSXIdentifier" &&
+            attr.name.name === "id" &&
+            attr.value?.type === "StringLiteral"
+          ) {
             const { line, column } = attr.value.loc?.start || { line: 0, column: 0 };
             keys.push({ key: attr.value.value, line, column });
           }
@@ -520,28 +537,28 @@ function collectAllCodeKeys(projectDir: string, context: RuleContext): Set<strin
   const keys = new Set<string>();
 
   // 扫描 src 目录下的代码文件
-  const srcDir = resolve(projectDir, 'src');
+  const srcDir = resolve(projectDir, "src");
   const codeDirs = [srcDir, projectDir];
 
   for (const dir of codeDirs) {
     if (!existsSync(dir)) continue;
 
     try {
-      const files = readdirSync(dir, { recursive: true, encoding: 'utf-8' }) as string[];
+      const files = readdirSync(dir, { recursive: true, encoding: "utf-8" }) as string[];
       for (const file of files) {
         const fullPath = resolve(dir, file);
         const ext = extname(file).toLowerCase();
 
-        if (!['.js', '.ts', '.jsx', '.tsx', '.vue'].includes(ext)) continue;
+        if (![".js", ".ts", ".jsx", ".tsx", ".vue"].includes(ext)) continue;
 
         try {
-          const source = readFileSync(fullPath, 'utf-8');
+          const source = readFileSync(fullPath, "utf-8");
           const ast = parseAST(source, { ext }) as ParseResult<any> | null;
           if (!ast) continue;
 
           const fileKeys = extractCodeKeys(ast);
           for (const { key } of fileKeys) {
-            if (key && !key.includes('${') && !key.includes('{{')) {
+            if (key && !key.includes("${") && !key.includes("{{")) {
               keys.add(key);
             }
           }
@@ -561,12 +578,12 @@ function collectAllCodeKeys(projectDir: string, context: RuleContext): Set<strin
 
 /** 获取 callee 名称 */
 function getCalleeName(callee: Node): string | null {
-  if (callee.type === 'Identifier') {
+  if (callee.type === "Identifier") {
     return callee.name;
   }
-  if (callee.type === 'MemberExpression') {
+  if (callee.type === "MemberExpression") {
     const obj = getCalleeName(callee.object);
-    const prop = callee.property.type === 'Identifier' ? callee.property.name : '';
+    const prop = callee.property.type === "Identifier" ? callee.property.name : "";
     return obj ? `${obj}.${prop}` : prop;
   }
   return null;
