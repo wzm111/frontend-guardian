@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v2.5.0**
+> **当前版本：v2.5.1**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -887,10 +887,18 @@ platform:
 
 ## 版本演进
 
-### v2.5.0 — 生态集成与自动化（已交付，376 测试通过）
+### v2.5.1 — 生态集成 P1（已交付，444 测试通过）
+
+- **GitLab CI 模板完善**：`--init-ci` 生成含 `stages` / `rules` / `cache` / `artifacts` / `--post-comment` 的完整 GitLab 模板；新增 `--init-ci-provider` 参数支持 `github` / `gitlab` / `both`；新增 `detectCIProvider()` 自动检测平台
+- **扫描范围智能推断 `--auto-scope`**：自动检测未提交修改（unstaged + staged）→ 回退到最近 5 次提交 → 无修改时全量扫描，大项目秒级精准定位
+- **报告托管/上传 `--upload`**：支持 HTTP webhook 和文件复制两种上传方式，通过 `FG_UPLOAD_PROVIDER` / `FG_UPLOAD_URL` / `FG_UPLOAD_DIR` 环境变量配置
+- **报告输出 `--output`**：将扫描报告写入指定 Markdown 文件，修复 CI 模板中的隐式依赖
+
+### v2.5.0 — 生态集成与自动化（已交付，405 测试通过）
 
 - **规则 docsUrl & confidence 全量填充**：9 个 scanner 文件的 53 条规则全部添加 `docsUrl`（指向 GitHub 文档链接），15 条含 fix 的规则添加 `confidence`（high/medium/low）+ `description`，CLI 输出具备完整可追溯性
 - **npm 发布准备**：`package.json` 完善 repository / bugs / homepage / exports / files 字段，新增 `.npmignore` 和 `LICENSE`，`prepublishOnly` 自动构建 + 测试，包体积 146KB
+- **PR/MR 评论自动发布 `--post-comment`**：GitHub PR / GitLab MR 评论发布，支持去重更新，自动检测 CI 环境
 - **CLI 版本同步**：`fg-core.js` 版本号升级至 v2.5.0
 
 ### v2.4.0 — 开发者体验（已交付，376 测试通过）
