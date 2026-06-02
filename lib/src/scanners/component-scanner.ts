@@ -181,6 +181,7 @@ export const componentRules: Rule[] = [
           // 排除 theme/token/var 相关
           if (!line.includes('theme') && !line.includes('token') && !line.includes('var(') && !line.includes('--')) {
             if (line.match(/color|background|bg|border/i)) {
+              const colStart = (colorMatch.index || 0) + 1;
               issues.push({
                 ruleId: 'component-token',
                 title: '硬编码颜色值',
@@ -188,8 +189,13 @@ export const componentRules: Rule[] = [
                 severity: 'suggestion',
                 file: context.filePath,
                 line: lineNum,
-                column: (colorMatch.index || 0) + 1,
+                column: colStart,
                 source: line.trim(),
+                fix: {
+                  text: 'var(--primary-color)',
+                  start: { line: lineNum, column: colStart },
+                  end: { line: lineNum, column: colStart + colorMatch[0].length },
+                },
               });
             }
           }
@@ -199,15 +205,22 @@ export const componentRules: Rule[] = [
         const spacingMatch = line.match(/margin\s*:\s*(\d+)px|padding\s*:\s*(\d+)px|gap\s*:\s*(\d+)px/);
         if (spacingMatch) {
           if (!line.includes('theme') && !line.includes('token') && !line.includes('rpx') && !line.includes('pxTransform')) {
+            const spStart = (spacingMatch.index || 0) + 1;
+            const pxVal = spacingMatch[1] || spacingMatch[2] || spacingMatch[3] || '';
             issues.push({
               ruleId: 'component-token',
               title: '硬编码间距值',
-              description: `检测到硬编码间距 ${spacingMatch[1]}px，建议使用设计 token 统一管理`,
+              description: `检测到硬编码间距 ${pxVal}px，建议使用设计 token 统一管理`,
               severity: 'suggestion',
               file: context.filePath,
               line: lineNum,
-              column: (spacingMatch.index || 0) + 1,
+              column: spStart,
               source: line.trim(),
+              fix: {
+                text: `theme.spacing.md`,
+                start: { line: lineNum, column: spStart },
+                end: { line: lineNum, column: spStart + spacingMatch[0].length },
+              },
             });
           }
         }

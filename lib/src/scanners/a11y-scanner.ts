@@ -13,7 +13,6 @@
 import type { ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import type { Rule, RuleContext, Issue } from '../types.js';
-import { parseAST } from '../utils/ast-parser.js';
 
 /** 有效的 ARIA 属性列表 (WAI-ARIA 1.2) */
 const VALID_ARIA_ATTRIBUTES = new Set([
@@ -152,7 +151,7 @@ export const a11yRules: Rule[] = [
           if (!tagName || !FORM_ELEMENTS.has(tagName)) return;
 
           // 检查是否有 label 关联属性
-          const { hasLabel, line, column, labelAttrs } = checkFormLabel(path.node);
+          const { hasLabel, line, column } = checkFormLabel(path.node);
 
           if (!hasLabel) {
             // 检查是否有 placeholder（作为降级提示）
@@ -216,7 +215,7 @@ export const a11yRules: Rule[] = [
           if (!hasInteractiveEvent) return;
 
           // 检查是否已有合适的 role
-          const { hasRole, roleValue, hasTabIndex, line, column } = checkRole(path.node);
+          const { hasRole, roleValue, hasTabIndex } = checkRole(path.node);
 
           if (!hasRole) {
             const { line: l, column: c } = path.node.loc?.start || { line: 0, column: 0 };
@@ -488,7 +487,6 @@ function checkHasFocusableChild(node: any): boolean {
   // 简化实现：在当前节点属性中检查是否有可聚焦元素的标记
   // 更完整的实现需要遍历 JSX 子树
   const focusableRoles = new Set(['button', 'link', 'textbox', 'checkbox', 'radio', 'combobox', 'slider', 'spinbutton']);
-  const focusableTags = new Set(['input', 'select', 'textarea', 'button', 'a', 'iframe']);
 
   for (const attr of node.attributes) {
     if (attr.type !== 'JSXAttribute') continue;

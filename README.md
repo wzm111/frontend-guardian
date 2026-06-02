@@ -46,6 +46,14 @@ frontend-guardian --init-scaffold ./my-project --stack harmony
 frontend-guardian --init-scaffold ./my-project --stack nextjs --force
 ```
 
+> **路径说明**：`./my-project` 表示在**当前运行目录**下创建 `my-project` 子目录。支持相对路径（`../my-project`）和绝对路径（`/home/user/my-project`）。
+>
+> | 命令示例 | 创建位置 |
+> | -------- | -------- |
+> | `--init-scaffold ./my-project` | 当前目录下的 `my-project/` |
+> | `--init-scaffold ../my-project` | 父目录下的 `my-project/` |
+> | `--init-scaffold /home/user/my-project` | 绝对路径 `/home/user/my-project/` |
+
 脚手架会自动完成：
 - 创建技术栈对应的目录结构（src/components / hooks / services / locales 等）
 - 生成 `.frontend-guardian.yml` 完整治理配置
@@ -733,8 +741,8 @@ frontend-guardian/
 │   ├── scan-components.sh                # 组件规范扫描
 │   ├── scan-hooks.sh                     # Hooks 检查脚本
 │   ├── scan-platform.sh                  # 多端适配扫描
-│   ├── extract-i18n.sh                   # i18n 自动提取（待实现）
-│   └── translate.sh                      # 自动翻译脚本（待实现）
+│   ├── extract-i18n.sh                   # i18n 硬编码自动提取
+│   └── translate.sh                      # 自动翻译缺失 key
 ├── .github/
 │   └── workflows/
 │       └── frontend-guardian.yml         # GitHub Actions 流水线

@@ -161,7 +161,8 @@ extract_texts() {
 
       # 匹配中文文案（在引号中）
       local text=""
-      if [[ "$line" =~ ("|"|\`|\')([一-鿿][^"\`\']{1,80})("|"|\`|\') ]]; then
+      local _pattern="(\"|\`|')([一-鿿][^\"\`']{1,80})(\"|\`|')"
+      if [[ "$line" =~ $_pattern ]]; then
         text="${BASH_REMATCH[2]}"
         # 排除 console、URL、文件路径、正则等
         if echo "$line" | grep -qE 'console\.(log|warn|error|debug)|http[s]?:|import\s|from\s|require\(|\.css|\.scss|\.less|\.json|\.test\(|\.match\('; then

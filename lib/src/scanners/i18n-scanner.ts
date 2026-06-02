@@ -16,7 +16,6 @@ import type { Rule, RuleContext, Issue } from '../types.js';
 import { parseAST } from '../utils/ast-parser.js';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname, extname } from 'node:path';
-import { globby } from 'globby';
 
 /** 中文字符正则（包含中文标点） */
 const CHINESE_REGEX = /[一-龥　-〿＀-￯]/;
@@ -25,15 +24,6 @@ const CHINESE_REGEX = /[一-龥　-〿＀-￯]/;
 const I18N_FUNCTION_NAMES = [
   't', '$t', 'i18n.t', 'translate', 'formatMessage',
   'intl.formatMessage', 'i18next.t', '$i18n.t',
-];
-
-/** 可忽略的中文场景 */
-const IGNORE_PATTERNS = [
-  /^\s*\/\//,           // 单行注释
-  /^\s*\/\*/,           // 多行注释开头
-  /^\s*\*\s/,           // JSDoc 注释
-  /console\.(log|warn|error|info|debug)\s*\(/, // console 调用
-  /describe\s*\(|it\s*\(|test\s*\(/, // 测试代码
 ];
 
 export const i18nRules: Rule[] = [
@@ -368,8 +358,9 @@ function collectLocaleKeys(projectDir: string, config: any): Set<string> {
   }
 
   const keys = new Set<string>();
-  const sourceLocale = config?.i18n?.sourceLocale || 'zh-CN';
-  const format = config?.i18n?.format || 'json';
+  // 预留：sourceLocale / format 可用于未来按语言筛选
+  void config?.i18n?.sourceLocale;
+  void config?.i18n?.format;
 
   // 常见语言包目录
   const localeDirs = [

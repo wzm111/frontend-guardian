@@ -547,7 +547,6 @@ export const namingRules: Rule[] = [
       // 检查文件夹名
       const dirPath = dirname(context.filePath);
       const dirName = basename(dirPath);
-      const parentDir = basename(dirname(dirPath));
 
       // 跳过根目录和特殊目录
       if (

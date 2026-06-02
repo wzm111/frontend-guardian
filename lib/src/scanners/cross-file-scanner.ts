@@ -17,8 +17,7 @@
 import type { ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import { readFileSync } from 'node:fs';
-import { resolve, dirname, relative, basename } from 'node:path';
-import { globby } from 'globby';
+import { resolve, dirname } from 'node:path';
 import type { Rule, RuleContext, Issue, ImportInfo } from '../types.js';
 import { parseAST, getImports } from '../utils/ast-parser.js';
 
@@ -135,7 +134,6 @@ export const crossFileRules: Rule[] = [
 
 /** 构建项目文件图 */
 function buildFileGraph(context: RuleContext): FileGraph {
-  const projectDir = context.filePath.split('/src/')[0] || dirname(context.filePath);
   const graph: FileGraph = {
     components: new Map(),
     imports: new Map(),
@@ -498,8 +496,6 @@ function extractBodyInfo(body: any, info: ComponentInfo): void {
     FunctionDeclaration(innerPath) {
       const name = innerPath.node.id?.name;
       if (name) {
-        const bodyStart = innerPath.node.body?.loc?.start?.line || 0;
-        const bodyEnd = innerPath.node.body?.loc?.end?.line || bodyStart;
         info.functions.push({
           name,
           body: '', // 简化，不存储完整函数体

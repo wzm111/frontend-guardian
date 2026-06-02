@@ -6,7 +6,6 @@
 import type { ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import type { Rule, RuleContext, Issue } from '../types.js';
-import { parseAST } from '../utils/ast-parser.js';
 
 /** 密钥检测模式 */
 const SECRET_PATTERNS = [
@@ -41,7 +40,6 @@ export const securityRules: Rule[] = [
           const left = path.node.left;
           if (left.type !== 'MemberExpression') return;
 
-          const obj = left.object;
           const prop = left.property;
 
           if (prop.type === 'Identifier' && prop.name === 'innerHTML') {

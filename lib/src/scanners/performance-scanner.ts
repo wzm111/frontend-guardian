@@ -6,7 +6,6 @@
 import type { ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import type { Rule, RuleContext, Issue } from '../types.js';
-import { parseAST } from '../utils/ast-parser.js';
 
 /** 组件库入口包名 */
 const BARREL_PACKAGES = [
@@ -147,7 +146,6 @@ export const performanceRules: Rule[] = [
           for (const pkg of BARREL_PACKAGES) {
             if (source === pkg) {
               // 跳过只有 1 个导入的情况（但仍在 Warning 级别提示）
-              const specCount = path.node.specifiers.length;
               const { line, column } = path.node.loc?.start || { line: 0, column: 0 };
 
               issues.push({

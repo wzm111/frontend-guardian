@@ -11,8 +11,7 @@
  * 6. platform-responsive — 响应式断点配置
  */
 
-import type { ParseResult } from '@babel/parser';
-import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { existsSync, statSync, readdirSync } from 'node:fs';
 import { resolve, dirname, extname } from 'node:path';
 import type { Rule, RuleContext, Issue } from '../types.js';
 

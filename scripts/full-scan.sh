@@ -293,7 +293,11 @@ run_node_engine() {
     local module_output="/tmp/fg-ast-$module.json"
     echo "   🔬 $module ..."
 
-    if $engine_path "$PROJECT_DIR" --module "$module" --severity "${SEVERITY:-suggestion}" --json > "$module_output" 2>/dev/null; then
+    local fix_flag=""
+    if $FIX_MODE; then
+      fix_flag="--fix"
+    fi
+    if $engine_path "$PROJECT_DIR" --module "$module" --severity "${SEVERITY:-suggestion}" $fix_flag --json > "$module_output" 2>/dev/null; then
       if [[ -s "$module_output" ]]; then
         local ast_c ast_w ast_s
         ast_c=$(node -e "
