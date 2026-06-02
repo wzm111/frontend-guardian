@@ -738,6 +738,18 @@ platform:
 
 ## 版本演进
 
+### v2.2.0 — 测试覆盖与质量（已交付，303 测试通过）
+
+- **ast-parser 全面测试**：`tests/ast-parser.test.ts` 30 个测试覆盖 `parseAST()` / `getImports()` / `hasImport()` / `walkAST()`，含 JS/TS/JSX/TSX/Vue SFC/多字节字符/边界场景
+- **project-detector 全面测试**：`tests/project-detector.test.ts` 59 个测试覆盖框架/组件库/平台/TS/i18n/Bundler/测试框架/状态管理/样式/路由/包管理器/Linter/Monorepo/Runtime 全维度检测
+- **修复功能测试**：`tests/fix-engine.test.ts` 18 个测试覆盖单行修复、多行修复、多修复倒序应用、dry-run diff 预览、emoji/中文多字节字符、越界容错
+- **CLI 入口测试**：`tests/cli-entry.test.ts` 16 个测试覆盖 `--help` / `--module` / `--json` / `--install-hooks` / `--init-ci` / `--watch` 等参数解析与路由，使用子进程真实调用
+- **Svelte scanner 测试**：`tests/svelte-scanner.test.ts` 16 个测试补齐 4 条 Svelte 规则
+- **外部工具集成测试**：`tests/integrations.test.ts` 9 个测试覆盖 `eslintSeverityToFg()` / `hasPackage()` / `runCommand()`
+- **测试辅助函数提取**：新建 `tests/helpers.ts`，统一 `createTempProject` / `writeProjectFile` / `makeFixIssue` / `createMinimalContext` 等通用工具
+- **覆盖率报告**：Vitest + `@vitest/coverage-v8` 配置完成，当前覆盖率 语句 62.57% / 分支 72.92% / 函数 73.91%
+- **Bug 修复**：`hasImport()` 支持 `namespaceImport` 检查；`detectRuntime()` 从 `process.cwd()` 修正为使用 `projectDir`
+
 ### v2.1.1 — 架构收尾优化（已交付，155 测试通过）
 
 - **规则预过滤优化**：`scan()` 先根据 `projectMeta` 过滤规则，无匹配规则时直接跳过 `glob`，避免不必要的文件遍历

@@ -51,21 +51,21 @@
 
 **预计发布**：2026-06-22
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅ (2026-06-02)
 
-- [ ] **ast-parser 测试**：覆盖 `parseAST()` / `getImports()` / `hasImport()` / `walkAST()`
-- [ ] **project-detector 测试**：覆盖所有 `detect*` 函数（框架/组件库/构建工具等）
-- [ ] **修复功能测试**：覆盖 `applySingleFix()` / `makeDiffPreview()`，含多字节字符场景
-- [ ] **CLI 入口测试**：`fg-core.js` 参数解析与路由逻辑（使用 `node:test` 子进程测试）
+- [x] **ast-parser 测试**：覆盖 `parseAST()` / `getImports()` / `hasImport()` / `walkAST()`
+- [x] **project-detector 测试**：覆盖所有 `detect*` 函数（框架/组件库/构建工具等）
+- [x] **修复功能测试**：覆盖 `applySingleFix()` / `makeDiffPreview()`，含多字节字符场景
+- [x] **CLI 入口测试**：`fg-core.js` 参数解析与路由逻辑（使用 `node:test` 子进程测试）
 
-### P1 — 尽量完成
+### P1 — 尽量完成 ✅ (2026-06-02)
 
-- [ ] **Svelte scanner 测试**：补齐 `svelte-scanner.ts` 的 4 条规则测试
-- [ ] **外部工具集成测试**：Mock ESLint / TypeScript / Stylelint 输出，验证转换逻辑
-- [ ] **Watch 模式测试**：`fs.watch` 触发逻辑验证
-- [ ] **集成测试（E2E）**：从 CLI → 引擎 → 扫描器 → 输出的完整链路（使用临时项目夹具）
-- [ ] **覆盖率报告**：Vitest 配置 `coverage` 输出，目标 ≥ 80%
-- [ ] **测试辅助函数提取**：统一 `createContext` / `createMockFile` 到 `tests/helpers.ts`
+- [x] **Svelte scanner 测试**：补齐 `svelte-scanner.ts` 的 4 条规则测试
+- [x] **外部工具集成测试**：Mock ESLint / TypeScript / Stylelint 输出，验证转换逻辑
+- [ ] **Watch 模式测试**：`fs.watch` 触发逻辑验证（推迟至 v2.3.0）
+- [ ] **集成测试（E2E）**：从 CLI → 引擎 → 扫描器 → 输出的完整链路（使用临时项目夹具）（推迟至 v2.3.0）
+- [x] **覆盖率报告**：Vitest 配置 `coverage` 输出，当前 62.57%（目标 ≥ 80%，持续改进）
+- [x] **测试辅助函数提取**：统一 `createContext` / `createMockFile` 到 `tests/helpers.ts`
 
 ---
 

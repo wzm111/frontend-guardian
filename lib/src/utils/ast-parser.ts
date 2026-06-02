@@ -103,6 +103,7 @@ export function hasImport(ast: ParseResult<File> | null, moduleName: string, imp
         if (imp.source === moduleName) {
             if (!importName) return true;
             if (imp.defaultImport === importName) return true;
+            if (imp.namespaceImport === importName) return true;
             if (imp.specifiers.includes(importName)) return true;
         }
     }

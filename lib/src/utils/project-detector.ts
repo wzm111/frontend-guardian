@@ -71,7 +71,7 @@ export function detectProjectMeta(projectDir: string, config?: ProjectConfig): P
         packageManager: detectPackageManager(projectDir),
         linter: detectLinter(deps),
         monorepoTool: detectMonorepo(projectDir, deps),
-        runtime: detectRuntime(pkg),
+        runtime: detectRuntime(projectDir, pkg),
     };
 }
 
@@ -390,7 +390,7 @@ function detectMonorepo(projectDir: string, deps: Record<string, string>): Monor
 // ─────────────────────────────────────────────────────────────────────────────
 // Runtime 检测
 // ─────────────────────────────────────────────────────────────────────────────
-function detectRuntime(pkg: Record<string, unknown>): Runtime {
+function detectRuntime(projectDir: string, pkg: Record<string, unknown>): Runtime {
     const engines = (pkg.engines as Record<string, string>) || {};
 
     if (pkg.packageManager) {
@@ -400,7 +400,7 @@ function detectRuntime(pkg: Record<string, unknown>): Runtime {
 
     if (engines.bun) return "bun";
     // Deno projects often use deno.json
-    if (existsSync(resolve(process.cwd(), "deno.json")) || existsSync(resolve(process.cwd(), "deno.jsonc"))) {
+    if (existsSync(resolve(projectDir, "deno.json")) || existsSync(resolve(projectDir, "deno.jsonc"))) {
         return "deno";
     }
 
