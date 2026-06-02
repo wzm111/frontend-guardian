@@ -382,6 +382,77 @@ const integrations: ExternalToolIntegration[] = [
 
 ---
 
+## Phase 5: 极致智能化（智能缓存 + Watch 模式 + 修复预览）
+
+### 5.1 智能缓存引擎（SmartCache）
+
+基于文件内容 SHA-256 哈希的增量扫描缓存：
+
+- 文件未变更 → 直接返回缓存结果，跳过 AST 解析和规则执行
+- 缓存持久化到 `.frontend-guardian/cache.json`
+- 自动过期策略（默认 7 天，规则版本变更自动失效）
+- 垃圾回收 `gc()` 清理过期条目
+
+### 5.2 Watch 模式（--watch）
+
+开发时文件变更自动触发增量扫描：
+
+- `fs.watch` 递归监听 `src/` 目录
+- 300ms 防抖，批量处理多次变更
+- 终端清屏 + 实时结果展示
+- 按 Ctrl+C 退出
+
+### 5.3 修复预览模式（--dry-run）
+
+修复前预览 diff，安全确认后再应用：
+
+- `--fix --dry-run` 展示所有可修复问题的代码 diff
+- 红色 `-` 删除行，绿色 `+` 新增行
+- 上下文保留（前后各 2 行）
+
+---
+
+## Phase 6: 极致自动化（Git Hook + CI + 历史报告）
+
+### 6.1 Git Hook 自动安装（--install-hooks）
+
+一键配置 `pre-commit` hook：
+
+- 提交前自动运行 `fg-core . --scan --staged`
+- 发现问题阻止提交（`exit 1`）
+- 支持更新已有 hook（如果由 fg 生成）
+- 安全跳过：已有其他工具的 hook 不会覆盖
+
+### 6.2 CI 配置自动生成（--init-ci）
+
+一键生成 GitHub Actions / GitLab CI 配置：
+
+- `.github/workflows/frontend-guardian.yml`
+- `.gitlab-ci.yml`
+- 自动检测包管理器（npm/yarn/pnpm）
+- 支持门禁模式（`--gate`）
+- 报告自动上传为 artifact
+
+### 6.3 历史报告（HistoryReport）
+
+扫描历史记录与趋势分析：
+
+- 每次扫描自动记录到 `.frontend-guardian/history.json`
+- 对比上次扫描：高亮新问题 / 已修复问题
+- 趋势数据可用于生成图表
+- 保留最近 100 条记录
+
+### Sprint 5/6: 极致智能化 + 自动化 ✅（已交付）
+
+- [x] 智能缓存引擎：`SmartCache` 基于 SHA-256 哈希，文件未变更跳过扫描
+- [x] Watch 模式：`--watch` 文件变更自动增量扫描，300ms 防抖
+- [x] 修复预览：`--dry-run` 展示代码 diff 预览
+- [x] Git Hook 安装：`--install-hooks` 配置 pre-commit，增量扫描
+- [x] CI 配置生成：`--init-ci` 生成 GitHub Actions / GitLab CI
+- [x] 历史报告：`HistoryReport` 记录扫描趋势，对比新问题/已修复
+
+---
+
 ## 验收标准
 
 1. **简单化**：`/frontend-guardian --scan` 一条命令完成所有扫描，输出统一

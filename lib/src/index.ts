@@ -5,6 +5,8 @@
 
 export { RuleEngine, createEngine } from "./engine/rule-engine.js";
 export type { EngineOptions } from "./engine/rule-engine.js";
+export { SmartCache } from "./engine/cache.js";
+export type { CacheEntry, CacheManifest } from "./engine/cache.js";
 export { RuleRegistry, createRegistry } from "./rules/registry.js";
 export type {
     Rule,
@@ -30,6 +32,10 @@ export type {
 export { parseAST, getImports, hasImport, walkAST } from "./utils/ast-parser.js";
 export { detectProjectMeta } from "./utils/project-detector.js";
 export { loadConfig } from "./utils/config-loader.js";
+export { installGitHooks, uninstallGitHooks, hasGitHook } from "./utils/git-hooks.js";
+export { generateCIConfig } from "./utils/ci-generator.js";
+export { HistoryReport } from "./utils/history-report.js";
+export type { HistoryEntry, TrendAnalysis } from "./utils/history-report.js";
 
 // Phase 4: 外部工具集成
 export {

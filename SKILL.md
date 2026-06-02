@@ -53,6 +53,9 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --scan --output report.md    # 指定报告输出路径
 /frontend-guardian --scan --no-cluster          # 禁用 Issue 聚类
 /frontend-guardian --scan --external            # 同时运行 ESLint / TypeScript / Stylelint
+/frontend-guardian --scan --no-cache            # 禁用智能缓存
+/frontend-guardian --scan --watch               # Watch 模式：文件变更自动扫描
+/frontend-guardian --scan --fix --dry-run       # 修复预览（展示 diff 不写入）
 ```
 
 ### 单模块扫描
@@ -107,6 +110,22 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --scan --init-ai claude      # 扫描后自动更新 AI 上下文
 ```
 
+### 自动化集成
+
+```
+# 安装 Git pre-commit hook（提交前自动检查 staged 文件）
+/frontend-guardian --install-hooks
+
+# 生成 CI 配置（GitHub Actions）
+/frontend-guardian --init-ci
+
+# Watch 模式：开发时文件变更自动增量扫描
+/frontend-guardian --scan --watch
+
+# 修复预览（查看 diff 但不写入文件）
+/frontend-guardian --scan --fix --dry-run
+```
+
 ### 组合命令
 
 ```
@@ -122,6 +141,10 @@ Skill 会自动检测项目类型并加载对应规则：
 # 指定端类型扫描
 /frontend-guardian --module platform --mp-type wechat
 /frontend-guardian --module platform --mobile-type h5
+
+# 极致配置：智能缓存 + 增量扫描 + 修复预览
+/frontend-guardian --scan --staged --fix --dry-run
+/frontend-guardian --scan --watch --module hooks
 ```
 
 ## 严重级别定义

@@ -23,6 +23,7 @@ import type {
     RuleUtils,
     ParseOptions,
     Position,
+    FixPreview,
 } from "../types.js";
 import { parseAST, getImports } from "../utils/ast-parser.js";
 import { detectProjectMeta } from "../utils/project-detector.js";
@@ -32,6 +33,8 @@ import { globby } from "globby";
 import pc from "picocolors";
 import type { ExternalTool, ExternalToolResult } from "../integrations/index.js";
 import { runAllExternalTools } from "../integrations/index.js";
+import { SmartCache } from "./cache.js";
+import { HistoryReport } from "../utils/history-report.js";
 
 export interface EngineOptions {
     /** 项目根目录 */
@@ -52,6 +55,12 @@ export interface EngineOptions {
     diffRange?: string;
     /** 是否运行外部工具集成（ESLint / TypeScript / Stylelint） */
     external?: boolean;
+    /** 是否启用智能缓存 */
+    cache?: boolean;
+    /** 缓存 TTL（毫秒，默认 7 天） */
+    cacheTtl?: number;
+    /** 修复预览模式（只展示不写入） */
+    dryRun?: boolean;
 }
 
 export class RuleEngine {
@@ -59,6 +68,8 @@ export class RuleEngine {
     private config: ProjectConfig = {};
     private projectMeta: ProjectMeta;
     private options: EngineOptions;
+    private cache?: SmartCache;
+    private history: HistoryReport;
 
     constructor(options: EngineOptions) {
         this.options = options;
@@ -68,6 +79,14 @@ export class RuleEngine {
 
         // Phase 3: 从配置加载规则覆盖和自定义规则
         this.loadConfigRules();
+
+        // Phase 5: 初始化智能缓存
+        if (options.cache !== false) {
+            this.cache = new SmartCache(options.projectDir, options.cacheTtl);
+        }
+
+        // Phase 6: 初始化历史报告
+        this.history = new HistoryReport(options.projectDir);
     }
 
     /** ── Phase 3: 配置驱动规则加载 ── */
@@ -170,7 +189,16 @@ export class RuleEngine {
 
         const total = issues.critical.length + issues.warning.length + issues.suggestion.length;
 
-        return {
+        // Phase 5: 保存缓存并输出统计
+        if (this.cache) {
+            this.cache.save();
+            const stats = this.cache.getStats();
+            if (stats.total > 0) {
+                console.log(pc.gray(`   💾 缓存: ${stats.valid} 命中 / ${stats.expired} 过期 / ${stats.total} 总计`));
+            }
+        }
+
+        const result: ScanResult = {
             module,
             total,
             issues,
@@ -178,14 +206,38 @@ export class RuleEngine {
             filesScanned: files.length,
             filesWithIssues,
         };
+
+        // Phase 6: 记录扫描历史并输出趋势
+        const allIssues = [...issues.critical, ...issues.warning, ...issues.suggestion];
+        this.history.record(result, allIssues);
+
+        const trend = this.history.analyze(module, allIssues.map((i) => `${i.file}|${i.ruleId}|${i.line}`));
+        if (trend.totalScans > 1) {
+            if (trend.newIssues.length > 0) {
+                console.log(pc.yellow(`   📈 新增 ${trend.newIssues.length} 个问题（对比上次扫描）`));
+            }
+            if (trend.fixedIssues.length > 0) {
+                console.log(pc.green(`   ✅ 已修复 ${trend.fixedIssues.length} 个问题（对比上次扫描）`));
+            }
+        }
+
+        return result;
     }
 
-    /** 扫描单个文件 */
+    /** 扫描单个文件（带智能缓存） */
     private async scanFile(filePath: string, rules: Rule[]): Promise<Issue[]> {
-        const allIssues: Issue[] = [];
-
         try {
             const source = readFileSync(filePath, "utf-8");
+
+            // Phase 5: 智能缓存命中检查
+            if (this.cache?.isCached(filePath, source)) {
+                const cached = this.cache.get(filePath);
+                if (cached) {
+                    return cached;
+                }
+            }
+
+            const allIssues: Issue[] = [];
             const utils = this.createUtils(filePath, source);
             const context: RuleContext = {
                 filePath,
@@ -203,11 +255,15 @@ export class RuleEngine {
                     console.error(pc.red(`  Rule "${rule.id}" failed on ${filePath}:`), err);
                 }
             }
+
+            // Phase 5: 缓存结果
+            this.cache?.set(filePath, source, allIssues);
+
+            return allIssues;
         } catch (err) {
             // 文件读取失败，静默跳过
+            return [];
         }
-
-        return allIssues;
     }
 
     /** 获取扫描文件列表 */
@@ -321,12 +377,14 @@ export class RuleEngine {
     /**
      * 应用所有可修复的问题
      * @param issues 包含 fix 字段的 Issue 列表
-     * @returns 修复统计
+     * @returns 修复统计（dryRun 模式下 filesModified 为空，fixedCount 为预览数量）
      */
-    applyFixes(issues: Issue[]): { fixedCount: number; filesModified: string[]; errors: string[] } {
+    applyFixes(issues: Issue[]): { fixedCount: number; filesModified: string[]; errors: string[]; previews?: FixPreview[] } {
+        const dryRun = this.options.dryRun;
         let fixedCount = 0;
         const filesModified: string[] = [];
         const errors: string[] = [];
+        const previews: FixPreview[] = [];
 
         // 按文件分组
         const byFile = new Map<string, Issue[]>();
@@ -351,11 +409,27 @@ export class RuleEngine {
 
                 for (const issue of sorted) {
                     const fix = issue.fix!;
-                    source = this.applySingleFix(source, fix);
+                    const patched = this.applySingleFix(source, fix);
+
+                    if (dryRun) {
+                        // 生成 diff 预览
+                        const diff = this.makeDiffPreview(source, patched, fix);
+                        previews.push({
+                            file: filePath,
+                            ruleId: issue.ruleId,
+                            title: issue.title,
+                            diff,
+                        });
+                        fixedCount++;
+                    }
+
+                    source = patched;
                 }
 
                 if (source !== originalSource) {
-                    writeFileSync(filePath, source, "utf-8");
+                    if (!dryRun) {
+                        writeFileSync(filePath, source, "utf-8");
+                    }
                     filesModified.push(filePath);
                     fixedCount += fileIssues.length;
                 }
@@ -364,7 +438,12 @@ export class RuleEngine {
             }
         }
 
-        return { fixedCount, filesModified, errors };
+        const result: { fixedCount: number; filesModified: string[]; errors: string[]; previews?: FixPreview[] } =
+            { fixedCount, filesModified, errors };
+        if (dryRun) {
+            result.previews = previews;
+        }
+        return result;
     }
 
     /** 对单文件应用单个修复 */
@@ -400,6 +479,43 @@ export class RuleEngine {
         // 替换行范围
         lines.splice(startIdx, endIdx - startIdx + 1, ...newLines);
         return lines.join("\n");
+    }
+
+    /** 生成 diff 预览（dry-run 模式） */
+    private makeDiffPreview(original: string, patched: string, fix: NonNullable<Issue["fix"]>): string {
+        const origLines = original.split("\n");
+        const patchedLines = patched.split("\n");
+        const { line: startLine } = fix.start;
+        const { line: endLine } = fix.end;
+
+        // 展示变更前后的上下文（前后各2行）
+        const contextBefore = Math.max(0, startLine - 3);
+        const contextAfter = Math.min(origLines.length, endLine + 2);
+
+        const lines: string[] = [];
+        for (let i = contextBefore; i < contextAfter; i++) {
+            const orig = origLines[i] || "";
+            const patch = patchedLines[i] || "";
+            if (i >= startLine - 1 && i < endLine) {
+                lines.push(pc.red(`- ${orig}`));
+            }
+            if (i >= startLine - 1 && i < startLine - 1 + fix.text.split("\n").length) {
+                const patchLines = patch.split("\n");
+                const idx = i - (startLine - 1);
+                if (patchLines[idx]) {
+                    lines.push(pc.green(`+ ${patchLines[idx]}`));
+                }
+            }
+            if (i < startLine - 1 || i >= endLine) {
+                lines.push(pc.gray(`  ${orig}`));
+            }
+        }
+        return lines.join("\n");
+    }
+
+    /** 清理过期缓存 */
+    gcCache(): number {
+        return this.cache?.gc() ?? 0;
     }
 
     // ──────────────────────────────────────────────────────────────────────────

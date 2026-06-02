@@ -64,6 +64,18 @@ export interface Fix {
     end: Position;
 }
 
+/** Fix preview for dry-run mode */
+export interface FixPreview {
+    /** File path */
+    file: string;
+    /** Rule ID */
+    ruleId: string;
+    /** Issue title */
+    title: string;
+    /** Diff preview */
+    diff: string;
+}
+
 export interface Position {
     line: number;
     column: number;
