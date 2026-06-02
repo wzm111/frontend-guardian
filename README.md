@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v2.6.0**
+> **当前版本：v2.7.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -886,6 +886,11 @@ platform:
 ---
 
 ## 版本演进
+
+### v2.7.0 — 可扩展性与智能化（已交付）
+
+- **配置热重载（Watch 模式）**：`--watch` 启动时额外监听 `.frontend-guardian.yml` / `.frontend-guardian.yaml` / `.frontend-guardian.json` 配置文件变更，配置修改后自动清除缓存并重新全量扫描，无需重启进程
+- **规则插件系统 `extends: npm:package-name`**：配置文件支持 `extends: npm:frontend-guardian-plugin-*` 从 npm 包加载规则和配置。插件包导出 `{ config?: ProjectConfig, rules?: Rule[] }`，规则自动注册到引擎，配置与普通 `extends` 一样支持多级继承和合并
 
 ### v2.6.0 — 自动化工作流增强（已交付，446 测试通过）
 

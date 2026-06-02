@@ -231,6 +231,8 @@ export interface ProjectConfig {
     rules?: RuleConfig[];
     /** 自定义规则文件列表 */
     customRules?: CustomRuleConfig[];
+    /** v2.7.0: 从 npm 插件包加载的规则（内部使用，不写入配置文件） */
+    __pluginRules?: Rule[];
 }
 
 export interface I18nConfig {

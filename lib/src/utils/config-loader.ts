@@ -7,7 +7,8 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import YAML from "yaml";
-import type { ProjectConfig, RuleConfig } from "@/types.js";
+import type { ProjectConfig, RuleConfig, Rule } from "@/types.js";
+import pc from "picocolors";
 
 export function loadConfig(projectDir: string, configFile?: string): ProjectConfig {
     // 1. 尝试指定配置文件
@@ -25,11 +26,15 @@ export function loadConfig(projectDir: string, configFile?: string): ProjectConf
     // 2. 尝试默认配置文件
     if (!configPath) {
         const ymlPath = resolve(projectDir, ".frontend-guardian.yml");
+        const yamlPath = resolve(projectDir, ".frontend-guardian.yaml");
         const jsonPath = resolve(projectDir, ".frontend-guardian.json");
 
         if (existsSync(ymlPath)) {
             config = parseConfigFile(ymlPath);
             configPath = ymlPath;
+        } else if (existsSync(yamlPath)) {
+            config = parseConfigFile(yamlPath);
+            configPath = yamlPath;
         } else if (existsSync(jsonPath)) {
             config = parseConfigFile(jsonPath);
             configPath = jsonPath;
@@ -68,22 +73,83 @@ function parseConfigFile(filePath: string): ProjectConfig {
 function resolveExtends(config: ProjectConfig, baseDir: string): ProjectConfig {
     if (!config.extends) return config;
 
-    const extendsPath = resolve(baseDir, config.extends);
-    if (!existsSync(extendsPath)) {
-        console.warn(`[frontend-guardian] extends 配置未找到: ${extendsPath}`);
-        return config;
+    let baseConfig: ProjectConfig;
+    let pluginRules: Rule[] | undefined;
+
+    // v2.7.0: 支持 npm:package-name 格式从 npm 包加载配置
+    if (config.extends.startsWith("npm:")) {
+        const packageName = config.extends.slice(4);
+        const loaded = loadNpmPackage(packageName);
+        baseConfig = loaded.config;
+        pluginRules = loaded.rules;
+    } else {
+        const extendsPath = resolve(baseDir, config.extends);
+        if (!existsSync(extendsPath)) {
+            console.warn(pc.yellow(`⚠️  extends 配置未找到: ${extendsPath}`));
+            return config;
+        }
+        baseConfig = parseConfigFile(extendsPath);
     }
 
-    const baseConfig = parseConfigFile(extendsPath);
+    // v2.7.0: 将 npm 包规则暂存到内部字段
+    if (pluginRules && pluginRules.length > 0) {
+        baseConfig.__pluginRules = pluginRules;
+    }
 
     // 递归处理继承链
     if (baseConfig.extends) {
-        const parentDir = dirname(extendsPath);
+        const parentDir = baseDir;
         const resolvedBase = resolveExtends(baseConfig, parentDir);
+        // 合并 npm 包规则
+        if (pluginRules && pluginRules.length > 0) {
+            resolvedBase.__pluginRules = pluginRules;
+        }
         return mergeConfig(resolvedBase, config);
     }
 
     return mergeConfig(baseConfig, config);
+}
+
+/**
+ * v2.7.0: 从 npm 包加载配置和规则
+ * 规则包遵循 frontend-guardian-plugin-* 命名约定
+ * 包导出格式: { config?: ProjectConfig, rules?: Rule[] }
+ */
+function loadNpmPackage(packageName: string): { config: ProjectConfig; rules?: Rule[] } {
+    try {
+        // 尝试 require 加载（支持 CommonJS 和 ESM 的 default export）
+        const mod = require(packageName);
+        const pkg = mod.default || mod;
+
+        if (!pkg || typeof pkg !== "object") {
+            console.warn(pc.yellow(`⚠️  npm 包 "${packageName}" 导出格式不正确`));
+            return { config: {} };
+        }
+
+        const config: ProjectConfig = pkg.config || pkg;
+        const rules: Rule[] | undefined = pkg.rules;
+
+        if (rules && Array.isArray(rules) && rules.length > 0) {
+            // 验证规则格式
+            const validRules = rules.filter((r) => {
+                if (!r || !r.id || typeof r.execute !== "function") {
+                    console.warn(pc.yellow(`⚠️  插件 "${packageName}" 中的规则格式不正确，已跳过: ${r?.id || "unknown"}`));
+                    return false;
+                }
+                return true;
+            });
+            if (validRules.length > 0) {
+                console.log(pc.blue(`🔌 已从 npm 包加载 ${validRules.length} 个规则: ${packageName}`));
+            }
+            return { config, rules: validRules };
+        }
+
+        return { config };
+    } catch (err: any) {
+        console.warn(pc.yellow(`⚠️  无法加载 npm 包 "${packageName}": ${err.message || err}`));
+        console.log(pc.gray(`   请确保已安装: npm install ${packageName}`));
+        return { config: {} };
+    }
 }
 
 /**
@@ -123,6 +189,20 @@ function mergeConfig(base: ProjectConfig, override: ProjectConfig): ProjectConfi
             ...baseCustom,
             ...overrideCustom.filter((c) => !pathSet.has(c.path)),
         ];
+    }
+
+    // v2.7.0: 合并 npm 插件规则（base + override）
+    const basePluginRules = base.__pluginRules ?? [];
+    const overridePluginRules = override.__pluginRules ?? [];
+    if (basePluginRules.length > 0 || overridePluginRules.length > 0) {
+        const ruleMap = new Map<string, Rule>();
+        for (const r of basePluginRules) {
+            ruleMap.set(r.id, r);
+        }
+        for (const r of overridePluginRules) {
+            ruleMap.set(r.id, r);
+        }
+        merged.__pluginRules = Array.from(ruleMap.values());
     }
 
     // 合并嵌套配置对象（浅合并）

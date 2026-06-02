@@ -158,16 +158,16 @@
 
 ---
 
-## 🚧 v2.7.0 — 可扩展性与智能化（Extensibility & Intelligence）
+## ✅ v2.7.0 — 可扩展性与智能化（Extensibility & Intelligence）
 
 **目标**：让 frontend-guardian 从单一工具进化为可扩展的平台，支持第三方规则生态和智能化诊断。
 
-**预计发布**：2026-06-16
+**发布状态：已交付（2026-06-02）**
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅
 
-- [ ] **配置热重载**：Watch 模式监听 `.frontend-guardian.yml` 变更自动重载配置，无需重启进程
-- [ ] **规则插件系统**：支持 `extends: npm:package-name` 从 npm 包加载规则，规则包遵循 `frontend-guardian-plugin-*` 命名约定
+- [x] **配置热重载**：Watch 模式监听 `.frontend-guardian.yml` / `.frontend-guardian.yaml` / `.frontend-guardian.json` 变更自动重载配置，配置修改后清除缓存并重新全量扫描，无需重启进程
+- [x] **规则插件系统**：支持 `extends: npm:package-name` 从 npm 包加载规则和配置，规则包遵循 `frontend-guardian-plugin-*` 命名约定。插件包导出 `{ config?: ProjectConfig, rules?: Rule[] }`，规则自动注册到引擎
 
 ### P1 — 尽量完成
 

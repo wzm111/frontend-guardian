@@ -120,6 +120,12 @@ export class RuleEngine {
                 console.log(pc.yellow(`⚠️  ${result.failed.length} 个自定义规则加载失败`));
             }
         }
+
+        // v2.7.0: 3. 加载 npm 插件包规则
+        if (this.config.__pluginRules && this.config.__pluginRules.length > 0) {
+            this.registry.registerAll(this.config.__pluginRules);
+            console.log(pc.blue(`🔌 已注册 ${this.config.__pluginRules.length} 个插件规则`));
+        }
     }
 
     /** 注册规则 */
