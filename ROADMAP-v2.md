@@ -353,17 +353,17 @@ const integrations: ExternalToolIntegration[] = [
 
 ## 实施计划
 
-### Sprint 1: 简单化（1-2 周）
-- [ ] 统一命令体系：重构 `full-scan.sh` 为单一入口
-- [ ] 合并双引擎：删除独立 Bash scanner，全部走 AST 引擎
-- [ ] 统一输出格式：`UnifiedOutput` 接口 + Markdown/JSON/终端适配器
-- [ ] 简化 SKILL.md：只保留已实现的核心命令
+### Sprint 1: 简单化 ✅（已交付）
+- [x] 统一命令体系：重构 `full-scan.sh` 为单一入口
+- [x] 合并双引擎：AST 引擎为主，`fg-core --module all` 一次扫描全部 9 模块
+- [x] 统一输出格式：`UnifiedOutput` 接口 + Markdown/JSON/终端适配器
+- [x] 简化 SKILL.md：从 40+ 命令精简为 7 个核心命令
 
-### Sprint 2: 智能化（1-2 周）
-- [ ] 问题聚类引擎：`IssueGrouper`
-- [ ] 技术栈增强检测：解析 package.json 完整依赖树
-- [ ] 智能修复建议：`SmartFix` 带 diff 和置信度
-- [ ] 增量扫描：git diff 集成
+### Sprint 2: 智能化 ✅（已交付）
+- [x] 问题聚类引擎：`RuleEngine.clusterIssues()` 按 (file, ruleId) 聚合
+- [x] 技术栈增强检测：从 package.json 解析 10+ 维度（bundler / test / state / styling / router / pm / linter / monorepo）
+- [x] 增量扫描：`--staged` / `--diff main...feature` 仅扫描 git 变更文件
+- [ ] ~~智能修复建议：`SmartFix` 带 diff 和置信度~~（推迟到 Phase 3）
 
 ### Sprint 3: 通用化（1-2 周）
 - [ ] 规则注册中心：`RuleRegistry`

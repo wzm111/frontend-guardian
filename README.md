@@ -9,21 +9,19 @@
 
 | 维度 | 能力 | 命令 | 多端支持 | 优先级 |
 | ---- | ---- | ---- | -------- | ------ |
-| 🧠 **智能化** | 深度技术栈检测 + Issue 聚类 + 增量扫描 | 自动触发 | ✅ 全端 | ⭐⭐⭐⭐⭐ |
-| ---- | ---- | ---- | -------- | ------ |
+| 🧠 **智能化** | 深度技术栈检测 + Issue 聚类 + 增量扫描 | `--scan --staged/--diff` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
 | 🚀 **脚手架** | 一键初始化项目 + 治理配置 | `--init-scaffold` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
 | 🔍 **full-scan** | 全量治理扫描（9 大模块） | `--scan` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
 | | CI 门禁模式（阻断流水线） | `--scan --gate` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
-| 🧠 **smart-scan** | 深度栈检测 / Issue 聚类 / 增量扫描 | `--scan --staged/--diff` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
-| 🌍 **i18n-governance** | 硬编码文案 / 缺失 key / 死 key | `--i18n` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| 🏥 **component-doctor** | 反模式 / token / 性能 / 可访问性 | `--component` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| ⚡ **hook-checker** | useEffect / 闭包 / 自定义 Hook | `--hooks` | React / Vue | ⭐⭐⭐⭐⭐ |
-| 📱 **platform-guard** | 小程序 / 移动端 / 鸿蒙 / 响应式 | `--platform` | 多端专项 | ⭐⭐⭐⭐☆ |
-| 🔧 **性能优化** | 请求瀑布 / 懒加载 / 整库导入 / memo | `--performance` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| 🛡️ **安全扫描** | XSS / eval / 密钥泄露 / CORS | `--security` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| ♿ **可访问性** | alt / label / 对比度 / ARIA | `--a11y` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| 🏷️ **命名规范** | 类 / 接口 / 函数 / 变量 / 文件名 | `--naming` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| 🔗 **跨文件分析** | props 检查 / 重复代码 / Context | `--cross-file` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| 🌍 **i18n-governance** | 硬编码文案 / 缺失 key / 死 key | `--module i18n` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| 🏥 **component-doctor** | 反模式 / token / 性能 / 可访问性 | `--module component` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| ⚡ **hook-checker** | useEffect / 闭包 / 自定义 Hook | `--module hooks` | React / Vue | ⭐⭐⭐⭐⭐ |
+| 📱 **platform-guard** | 小程序 / 移动端 / 鸿蒙 / 响应式 | `--module platform` | 多端专项 | ⭐⭐⭐⭐☆ |
+| 🔧 **性能优化** | 请求瀑布 / 懒加载 / 整库导入 / memo | `--module performance` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| 🛡️ **安全扫描** | XSS / eval / 密钥泄露 / CORS | `--module security` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| ♿ **可访问性** | alt / label / 对比度 / ARIA | `--module a11y` | ✅ 全端 | ⭐⭐⭐⭐☆ |
+| 🏷️ **命名规范** | 类 / 接口 / 函数 / 变量 / 文件名 | `--module naming` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| 🔗 **跨文件分析** | props 检查 / 重复代码 / Context | `--module cross-file` | ✅ 全端 | ⭐⭐⭐☆☆ |
 | 🧹 **代码库瘦身** | 未使用依赖/导出/文件（Knip） | `--knip` | ✅ 全端 | ⭐⭐⭐☆☆ |
 
 ## 安装
@@ -622,7 +620,7 @@ bash scripts/full-scan.sh --since HEAD~3
 ### 终端输出（默认）
 
 ```text
-🛡️ frontend-guardian v1.0.0 — 全端扫描报告
+🛡️ frontend-guardian v2.0.0 — 全端扫描报告
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📱 检测到项目类型: UniApp + Vue3 + TypeScript（微信小程序目标）
 
@@ -735,6 +733,36 @@ platform:
   harmony:
     strictTypeCheck: true
 ```
+
+---
+
+## 版本演进
+
+### v2.0 — 简单化 · 智能化 · 通用化 · 覆盖全面化
+
+#### Phase 1: 简单化（已交付）
+
+- **统一命令体系**：从 40+ 碎片化命令精简为 7 个核心命令
+- **合并双引擎**：AST 引擎（`fg-core --module all`）成为主要引擎，Bash 引擎降级为补充
+- **统一输出格式**：所有扫描结果合并为统一 JSON → Markdown/终端/JSON 三种输出适配器
+- **修复 category mapping bug**：`a11y`/`naming`/`cross-file` 模块名正确映射到规则 category
+
+#### Phase 2: 智能化（已交付）
+
+- **深度技术栈检测**：从 package.json 解析 10+ 维度（构建工具、测试框架、状态管理、样式方案、路由、包管理器、Linter、Monorepo）
+- **Issue 聚类**：同一文件同一规则的多个问题自动聚合为 `(×N)` 聚合 Issue，减少重复输出
+- **增量扫描**：`--staged` / `--diff main...feature` 仅扫描 git 变更文件，大型项目扫描速度大幅提升
+
+#### Phase 3: 通用化（规划中）
+
+- 插件化规则体系：规则注册中心 + 配置驱动 + 自定义规则支持
+- 框架抽象层：useEffect / watchEffect 等抽象为通用 EffectHook 模式
+
+#### Phase 4: 覆盖全面化（规划中）
+
+- 规则扩增到 100+（当前 48 条）
+- 集成 ESLint / TypeScript / Stylelint 作为外部工具
+- 支持 Svelte / SolidJS / Astro 等现代框架
 
 ---
 
