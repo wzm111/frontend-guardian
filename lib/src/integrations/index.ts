@@ -16,3 +16,7 @@ export { _stylelintIntegration as stylelintIntegration };
 
 /** 所有可用的外部工具列表 */
 export const allExternalTools = [_eslintIntegration, _typescriptIntegration, _stylelintIntegration];
+
+// Phase 5+6: 格式化器集成
+export { detectFormatter, runFormat } from "./formatter.js";
+export type { FormatResult, FormatterTool } from "./formatter.js";

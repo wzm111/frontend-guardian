@@ -35,6 +35,7 @@ import type { ExternalTool, ExternalToolResult } from "../integrations/index.js"
 import { runAllExternalTools } from "../integrations/index.js";
 import { SmartCache } from "./cache.js";
 import { HistoryReport } from "../utils/history-report.js";
+import { runFormat } from "../integrations/formatter.js";
 
 export interface EngineOptions {
     /** 项目根目录 */
@@ -516,6 +517,19 @@ export class RuleEngine {
     /** 清理过期缓存 */
     gcCache(): number {
         return this.cache?.gc() ?? 0;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Phase 5/6: 代码格式化（对被扫描项目）
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * 格式化被扫描项目的代码
+     * 自动检测 Biome / Prettier，使用项目已有配置或生成默认配置
+     * @param files 指定文件列表（undefined 则格式化全部）
+     */
+    format(files?: string[]): import("../integrations/formatter.js").FormatResult {
+        return runFormat(this.options.projectDir, files);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
