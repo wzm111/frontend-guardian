@@ -21,6 +21,7 @@ export const componentRules: Rule[] = [
         severity: "warning",
         category: "component",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/component-anti-pattern.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const ast = context.utils.parseAST(context.source, {
@@ -170,6 +171,7 @@ export const componentRules: Rule[] = [
         severity: "suggestion",
         category: "component",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/component-token.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const lines = context.source.split("\n");
@@ -207,6 +209,8 @@ export const componentRules: Rule[] = [
                                     text: "var(--primary-color)",
                                     start: { line: lineNum, column: colStart },
                                     end: { line: lineNum, column: colStart + colorMatch[0].length },
+                                    confidence: "medium",
+                                    description: "替换为主题 token，请确认项目中的 token 名称",
                                 },
                             });
                         }
@@ -237,6 +241,8 @@ export const componentRules: Rule[] = [
                                 text: `theme.spacing.md`,
                                 start: { line: lineNum, column: spStart },
                                 end: { line: lineNum, column: spStart + spacingMatch[0].length },
+                                confidence: "medium",
+                                description: "替换为主题 spacing token，请确认项目中的 token 名称",
                             },
                         });
                     }
@@ -254,6 +260,7 @@ export const componentRules: Rule[] = [
         severity: "warning",
         category: "component",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/component-perf.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const source = context.source;

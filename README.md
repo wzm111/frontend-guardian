@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v2.4.0**
+> **当前版本：v2.5.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -730,6 +730,12 @@ platform:
 ---
 
 ## 版本演进
+
+### v2.5.0 — 生态集成与自动化（已交付，376 测试通过）
+
+- **规则 docsUrl & confidence 全量填充**：9 个 scanner 文件的 53 条规则全部添加 `docsUrl`（指向 GitHub 文档链接），15 条含 fix 的规则添加 `confidence`（high/medium/low）+ `description`，CLI 输出具备完整可追溯性
+- **npm 发布准备**：`package.json` 完善 repository / bugs / homepage / exports / files 字段，新增 `.npmignore` 和 `LICENSE`，`prepublishOnly` 自动构建 + 测试，包体积 146KB
+- **CLI 版本同步**：`fg-core.js` 版本号升级至 v2.5.0
 
 ### v2.4.0 — 开发者体验（已交付，376 测试通过）
 

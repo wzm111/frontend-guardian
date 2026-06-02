@@ -23,6 +23,7 @@ export const platformRules: Rule[] = [
         severity: "critical",
         category: "platform",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/platform-mp-size.md",
         platforms: ["wechat-mp", "alipay-mp", "douyin-mp"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -96,6 +97,7 @@ export const platformRules: Rule[] = [
         severity: "warning",
         category: "platform",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/platform-mp-base64.md",
         platforms: ["wechat-mp", "alipay-mp", "douyin-mp"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -129,6 +131,7 @@ export const platformRules: Rule[] = [
         severity: "critical",
         category: "platform",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/platform-mp-http.md",
         platforms: ["wechat-mp", "alipay-mp", "douyin-mp", "app"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -167,6 +170,7 @@ export const platformRules: Rule[] = [
         severity: "warning",
         category: "platform",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/platform-mobile-safearea.md",
         platforms: ["h5", "app", "react-native", "flutter"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -225,6 +229,7 @@ export const platformRules: Rule[] = [
         severity: "warning",
         category: "platform",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/platform-harmony.md",
         platforms: ["harmony"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -286,6 +291,7 @@ export const platformRules: Rule[] = [
         severity: "suggestion",
         category: "platform",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/platform-responsive.md",
         platforms: ["pc", "h5"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];

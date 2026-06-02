@@ -47,6 +47,8 @@ export const namingRules: Rule[] = [
         severity: "warning",
         category: "style",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/naming-class.md",
+        confidence: "high",
         execute(context: RuleContext): Issue[] {
             return checkIdentifierCase(context, "ClassDeclaration", "class", "PascalCase");
         },
@@ -58,6 +60,8 @@ export const namingRules: Rule[] = [
         severity: "warning",
         category: "style",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/naming-interface.md",
+        confidence: "high",
         execute(context: RuleContext): Issue[] {
             return checkIdentifierCase(context, "TSInterfaceDeclaration", "interface", "PascalCase");
         },
@@ -69,6 +73,8 @@ export const namingRules: Rule[] = [
         severity: "warning",
         category: "style",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/naming-type-alias.md",
+        confidence: "high",
         execute(context: RuleContext): Issue[] {
             return checkIdentifierCase(context, "TSTypeAliasDeclaration", "type alias", "PascalCase");
         },
@@ -80,6 +86,8 @@ export const namingRules: Rule[] = [
         severity: "warning",
         category: "style",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/naming-enum.md",
+        confidence: "high",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const config = getNamingConfig(context);
@@ -153,6 +161,8 @@ export const namingRules: Rule[] = [
         severity: "warning",
         category: "style",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/naming-function.md",
+        confidence: "high",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const config = getNamingConfig(context);
@@ -321,6 +331,7 @@ export const namingRules: Rule[] = [
         severity: "suggestion",
         category: "style",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/naming-variable.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const config = getNamingConfig(context);
@@ -420,6 +431,7 @@ export const namingRules: Rule[] = [
         severity: "suggestion",
         category: "style",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/naming-private-member.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const config = getNamingConfig(context);
@@ -517,6 +529,7 @@ export const namingRules: Rule[] = [
         severity: "suggestion",
         category: "style",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/naming-file-folder.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const config = getNamingConfig(context);

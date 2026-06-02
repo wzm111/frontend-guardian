@@ -36,6 +36,7 @@ export const performanceRules: Rule[] = [
         severity: "warning",
         category: "performance",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/perf-avoid-waterfall.md",
         frameworks: ["react", "nextjs", "vue", "nuxt"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -71,6 +72,7 @@ export const performanceRules: Rule[] = [
         severity: "suggestion",
         category: "performance",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/perf-dynamic-import.md",
         frameworks: ["react", "nextjs", "vue"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -116,6 +118,8 @@ export const performanceRules: Rule[] = [
                     text: suggestLazyImport(context.filePath),
                     start: { line: 1, column: 1 },
                     end: { line: 1, column: 1 },
+                    confidence: "low",
+                    description: "请确认懒加载路径和变量名正确",
                 },
             });
 
@@ -130,6 +134,7 @@ export const performanceRules: Rule[] = [
         severity: "warning",
         category: "performance",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/perf-avoid-barrel-import.md",
         frameworks: ["react", "vue", "nextjs", "nuxt"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -162,6 +167,8 @@ export const performanceRules: Rule[] = [
                                     text: suggestSubmoduleImport(pkg, path.node.specifiers),
                                     start: { line, column },
                                     end: { line, column: column + path.node.source.value.length + 2 },
+                                    confidence: "medium",
+                                    description: "请确认子模块路径与项目使用的构建工具兼容",
                                 },
                             });
                             break;
@@ -181,6 +188,7 @@ export const performanceRules: Rule[] = [
         severity: "suggestion",
         category: "performance",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/perf-memo-expensive.md",
         frameworks: ["react", "nextjs", "vue"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];

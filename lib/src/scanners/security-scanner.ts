@@ -35,6 +35,7 @@ export const securityRules: Rule[] = [
         severity: "critical",
         category: "security",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/sec-xss-innerhtml.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const ast = context.utils.parseAST(context.source, {
@@ -66,6 +67,8 @@ export const securityRules: Rule[] = [
                                 text: "textContent",
                                 start: { line, column },
                                 end: { line, column: column + "innerHTML".length },
+                                confidence: "high",
+                                description: "将 innerHTML 替换为 textContent，彻底消除 XSS 风险",
                             },
                         });
                     }
@@ -113,6 +116,7 @@ export const securityRules: Rule[] = [
         severity: "critical",
         category: "security",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/sec-eval-dangerous.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const ast = context.utils.parseAST(context.source, {
@@ -208,6 +212,7 @@ export const securityRules: Rule[] = [
         severity: "warning",
         category: "security",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/sec-url-validation.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const ast = context.utils.parseAST(context.source, {
@@ -291,6 +296,7 @@ export const securityRules: Rule[] = [
         severity: "critical",
         category: "security",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/sec-no-secrets.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const lines = context.source.split("\n");
@@ -343,6 +349,7 @@ export const securityRules: Rule[] = [
         severity: "warning",
         category: "security",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/sec-cors-misconfig.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const lines = context.source.split("\n");

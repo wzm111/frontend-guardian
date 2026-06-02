@@ -115,6 +115,32 @@
 
 ---
 
+## 🚧 v2.5.0 — 生态集成与自动化（Ecosystem & Automation）
+
+**目标**：让 frontend-guardian 从个人工具进化为团队协作基础设施，无缝融入开发生态。
+
+**预计发布**：2026-07-20
+
+### P0 — 必须完成
+
+- [ ] **PR/MR 评论自动发布**：扫描结果通过 GitHub API / GitLab API 发布为 PR/MR 评论，支持评论更新（同一 PR 多次扫描不重复发评论）
+- [x] **规则 docsUrl & confidence 全量填充**：9 个 scanner 文件的 53 条规则全部添加 `docsUrl`，15 条含 fix 的规则添加 `confidence` + `description`
+- [x] **npm 发布准备**：`package.json` 完善 repository / bugs / homepage / exports / files 字段，新增 `.npmignore`、`LICENSE`、`prepublishOnly` 脚本，包体积 146KB
+
+### P1 — 尽量完成
+
+- [ ] **扫描范围智能推断**：大项目支持"仅扫描最近修改的 N 个目录"模式，基于 `git diff --name-only` 自动推断最小扫描范围
+- [ ] **报告托管/上传**：历史报告支持上传至 S3 / 内部服务器，生成团队共享的趋势看板 URL
+- [ ] **GitLab CI 模板完善**：`--init-ci` 生成含 `rules` / `artifacts` / `merge_requests` 的完整 GitLab 模板（当前仅有 GitHub Actions）
+
+### P2 — 排期实现
+
+- [ ] **自动修复 Bot**：类似 Dependabot，扫描后自动提交修复 PR（需配合 GitHub App / GitLab Bot Token）
+- [ ] **commit-msg hook**：检查 commit message 规范（Conventional Commits 等）
+- [ ] **缓存预热**：Watch 模式启动时自动预热缓存，秒开体验
+
+---
+
 ## 📋 版本迭代原则
 
 1. **每次迭代前**：先读取本 Roadmap 当前版本任务清单

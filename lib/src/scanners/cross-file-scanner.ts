@@ -74,6 +74,7 @@ export const crossFileRules: Rule[] = [
         severity: "warning",
         category: "architecture",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/cross-unused-props.md",
         execute(context: RuleContext): Issue[] {
             const graph = buildFileGraph(context);
             return analyzeUnusedProps(graph, context);
@@ -86,6 +87,7 @@ export const crossFileRules: Rule[] = [
         severity: "warning",
         category: "architecture",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/cross-missing-props.md",
         execute(context: RuleContext): Issue[] {
             const graph = buildFileGraph(context);
             return analyzeMissingProps(graph, context);
@@ -98,6 +100,7 @@ export const crossFileRules: Rule[] = [
         severity: "suggestion",
         category: "architecture",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/cross-context-overuse.md",
         execute(context: RuleContext): Issue[] {
             const graph = buildFileGraph(context);
             return analyzeContextOveruse(graph, context);
@@ -110,6 +113,7 @@ export const crossFileRules: Rule[] = [
         severity: "suggestion",
         category: "architecture",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/cross-duplicate-code.md",
         execute(context: RuleContext): Issue[] {
             const graph = buildFileGraph(context);
             return analyzeDuplicateCode(graph, context);
@@ -122,6 +126,7 @@ export const crossFileRules: Rule[] = [
         severity: "suggestion",
         category: "architecture",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/cross-extract-common.md",
         execute(context: RuleContext): Issue[] {
             const graph = buildFileGraph(context);
             return analyzeExtractCommon(graph, context);

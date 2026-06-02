@@ -1,12 +1,34 @@
 {
     "name": "frontend-guardian-core",
-    "version": "2.4.0",
+    "version": "2.5.0",
     "description": "Core analysis engine for frontend-guardian — AST-based scanning and auto-fixing",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
     "bin": {
         "fg-core": "./bin/fg-core.js"
     },
+    "files": [
+        "dist",
+        "bin",
+        "README.md",
+        "LICENSE"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/wzm111/frontend-guardian.git",
+        "directory": "lib"
+    },
+    "bugs": {
+        "url": "https://github.com/wzm111/frontend-guardian/issues"
+    },
+    "homepage": "https://github.com/wzm111/frontend-guardian#readme",
     "scripts": {
         "build": "tsc && tsc-alias",
         "dev": "tsc --watch",
@@ -16,7 +38,8 @@
         "typecheck": "tsc --noEmit",
         "format": "biome format --write .",
         "format:check": "biome format .",
-        "check": "biome check --write ."
+        "check": "biome check --write .",
+        "prepublishOnly": "npm run build && npm test"
     },
     "keywords": [
         "frontend",

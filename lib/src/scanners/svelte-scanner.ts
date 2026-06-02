@@ -20,6 +20,7 @@ export const svelteRules: Rule[] = [
         severity: "critical",
         category: "component",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/svelte-reactive-statement.md",
         frameworks: ["svelte"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -72,6 +73,7 @@ export const svelteRules: Rule[] = [
         severity: "warning",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/svelte-store-unsubscribe.md",
         frameworks: ["svelte"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -126,6 +128,7 @@ export const svelteRules: Rule[] = [
         severity: "critical",
         category: "component",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/svelte-props-mutate.md",
         frameworks: ["svelte"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -177,6 +180,7 @@ export const svelteRules: Rule[] = [
         severity: "warning",
         category: "component",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/svelte-event-modifier.md",
         frameworks: ["svelte"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];

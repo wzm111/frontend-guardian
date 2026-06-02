@@ -41,6 +41,8 @@ export const i18nRules: Rule[] = [
         severity: "warning",
         category: "i18n",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/i18n-hardcoded-string.md",
+        confidence: "medium",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const ast = context.utils.parseAST(context.source, {
@@ -166,6 +168,7 @@ export const i18nRules: Rule[] = [
         severity: "critical",
         category: "i18n",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/i18n-missing-key.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
 
@@ -218,6 +221,7 @@ export const i18nRules: Rule[] = [
         severity: "suggestion",
         category: "i18n",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/i18n-unused-key.md",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
 

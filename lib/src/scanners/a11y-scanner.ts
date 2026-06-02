@@ -245,6 +245,7 @@ export const a11yRules: Rule[] = [
         severity: "critical",
         category: "accessibility",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/a11y-img-alt.md",
         frameworks: ["react", "vue", "nextjs", "nuxt", "uniapp", "taro"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -277,6 +278,8 @@ export const a11yRules: Rule[] = [
                             source: `<${tagName} ... />`,
                             fix: {
                                 text: `alt=""`,
+                                description: "为图片添加 alt 属性，装饰性图片可设为空字符串",
+                                confidence: "high",
                                 start: { line, column },
                                 end: { line, column },
                             },
@@ -296,6 +299,7 @@ export const a11yRules: Rule[] = [
         severity: "warning",
         category: "accessibility",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/a11y-form-label.md",
         frameworks: ["react", "vue", "nextjs", "nuxt", "uniapp", "taro"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -351,6 +355,7 @@ export const a11yRules: Rule[] = [
         severity: "warning",
         category: "accessibility",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/a11y-button-role.md",
         frameworks: ["react", "vue", "nextjs", "nuxt", "uniapp", "taro"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -390,6 +395,8 @@ export const a11yRules: Rule[] = [
                             source: `<${tagName} onClick={...} />`,
                             fix: {
                                 text: `<button>`,
+                                description: "改为 button 标签可能需调整样式",
+                                confidence: "medium",
                                 start: { line: l, column: c },
                                 end: { line: l, column: c + tagName.length + 1 },
                             },
@@ -421,6 +428,7 @@ export const a11yRules: Rule[] = [
         severity: "suggestion",
         category: "accessibility",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/a11y-contrast.md",
         frameworks: ["react", "vue", "nextjs", "nuxt"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -471,6 +479,7 @@ export const a11yRules: Rule[] = [
         severity: "warning",
         category: "accessibility",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/a11y-aria-valid.md",
         frameworks: ["react", "vue", "nextjs", "nuxt", "uniapp", "taro"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];

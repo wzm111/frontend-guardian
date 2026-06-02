@@ -48,6 +48,7 @@ export const hooksRules: Rule[] = [
         severity: "warning",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/hooks-effect-deps.md",
         frameworks: ["react", "nextjs"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -168,6 +169,7 @@ export const hooksRules: Rule[] = [
         severity: "critical",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/hooks-closure.md",
         frameworks: ["react", "nextjs", "vue"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -263,6 +265,7 @@ export const hooksRules: Rule[] = [
         severity: "warning",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/hooks-custom-naming.md",
         frameworks: ["react", "nextjs"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -316,6 +319,7 @@ export const hooksRules: Rule[] = [
         severity: "critical",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/composables-reactive.md",
         frameworks: ["vue", "nuxt"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -349,6 +353,7 @@ export const hooksRules: Rule[] = [
                                 text: "const { ... } = toRefs(reactive(...))",
                                 start: { line, column },
                                 end: { line, column: column + 5 },
+                                confidence: "medium",
                             },
                         });
                     }
@@ -366,6 +371,7 @@ export const hooksRules: Rule[] = [
         severity: "warning",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/composables-computed.md",
         frameworks: ["vue", "nuxt"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -422,6 +428,7 @@ export const hooksRules: Rule[] = [
         severity: "warning",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/hooks-memo-deps.md",
         frameworks: ["react", "nextjs"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -480,6 +487,7 @@ export const hooksRules: Rule[] = [
         severity: "suggestion",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/hooks-callback-misuse.md",
         frameworks: ["react", "nextjs"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -547,6 +555,7 @@ export const hooksRules: Rule[] = [
         severity: "critical",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/hooks-missing-key.md",
         frameworks: ["react", "nextjs"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -608,6 +617,7 @@ export const hooksRules: Rule[] = [
                                 text: ".map((item) => <Component key={item.id} ... />)",
                                 start: { line, column },
                                 end: { line, column: column + 4 },
+                                confidence: "high",
                             },
                         });
                     }
@@ -625,6 +635,7 @@ export const hooksRules: Rule[] = [
         severity: "critical",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/hooks-conditional.md",
         frameworks: ["react", "nextjs"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
@@ -679,6 +690,7 @@ export const hooksRules: Rule[] = [
         severity: "suggestion",
         category: "hooks",
         defaultEnabled: true,
+        docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/hooks-state-lifting.md",
         frameworks: ["react", "nextjs", "vue", "nuxt"],
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];

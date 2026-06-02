@@ -1,0 +1,30 @@
+# Source
+src/
+tsconfig.json
+tsconfig.*.json
+tsc-alias.json
+
+# Tests
+tests/
+*.test.ts
+vitest.config.ts
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Dev tools
+biome.json
+eslint.config.js
+.prettierrc
+
+# CI
+.github/
+.gitlab-ci.yml
+
+# Misc
+node_modules/
+*.log
+.DS_Store
+.env*
+*.tgz
