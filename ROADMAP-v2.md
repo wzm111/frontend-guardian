@@ -123,7 +123,7 @@
 
 ### P0 — 必须完成
 
-- [ ] **PR/MR 评论自动发布**：扫描结果通过 GitHub API / GitLab API 发布为 PR/MR 评论，支持评论更新（同一 PR 多次扫描不重复发评论）
+- [x] **PR/MR 评论自动发布**：扫描结果通过 GitHub API / GitLab API 发布为 PR/MR 评论，支持评论更新（同一 PR 多次扫描不重复发评论）
 - [x] **规则 docsUrl & confidence 全量填充**：9 个 scanner 文件的 53 条规则全部添加 `docsUrl`，15 条含 fix 的规则添加 `confidence` + `description`
 - [x] **npm 发布准备**：`package.json` 完善 repository / bugs / homepage / exports / files 字段，新增 `.npmignore`、`LICENSE`、`prepublishOnly` 脚本，包体积 146KB
 
