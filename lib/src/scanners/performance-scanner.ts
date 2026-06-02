@@ -6,6 +6,7 @@
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
 import type { Rule, RuleContext, Issue } from "../types.js";
+import { getFileExt } from "../utils/common.js";
 
 /** 组件库入口包名 */
 const BARREL_PACKAGES = [
@@ -304,11 +305,6 @@ function reportWaterfall(
     });
 }
 
-/** 获取文件扩展名 */
-function getFileExt(filePath: string): string {
-    const match = filePath.match(/\.[^.]+$/);
-    return match ? match[0] : ".js";
-}
 
 /** 建议懒加载导入代码 */
 function suggestLazyImport(filePath: string): string {

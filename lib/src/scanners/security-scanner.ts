@@ -6,6 +6,7 @@
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
 import type { Rule, RuleContext, Issue } from "../types.js";
+import { getFileExt } from "../utils/common.js";
 
 /** 密钥检测模式 */
 const SECRET_PATTERNS = [
@@ -376,8 +377,3 @@ export const securityRules: Rule[] = [
     },
 ];
 
-/** 获取文件扩展名 */
-function getFileExt(filePath: string): string {
-    const match = filePath.match(/\.[^.]+$/);
-    return match ? match[0] : ".js";
-}

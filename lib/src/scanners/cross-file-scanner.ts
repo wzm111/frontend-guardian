@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import type { Rule, RuleContext, Issue, ImportInfo } from "../types.js";
 import { parseAST, getImports } from "../utils/ast-parser.js";
+import { getFileExt, getJSXTagName } from "../utils/common.js";
 
 // ============================================================================
 // 类型定义
@@ -524,25 +525,6 @@ function extractBodyInfo(body: any, info: ComponentInfo): void {
     );
 }
 
-/** 获取 JSX 标签名 */
-function getJSXTagName(name: any): string | null {
-    if (name.type === "JSXIdentifier") return name.name;
-    if (name.type === "JSXMemberExpression") {
-        const parts: string[] = [];
-        let current = name;
-        while (current) {
-            if (current.type === "JSXIdentifier") {
-                parts.unshift(current.name);
-                break;
-            } else if (current.type === "JSXMemberExpression") {
-                parts.unshift(current.property.name);
-                current = current.object;
-            } else break;
-        }
-        return parts.join(".");
-    }
-    return null;
-}
 
 // ============================================================================
 // 分析规则
@@ -795,8 +777,3 @@ function analyzeExtractCommon(graph: FileGraph, context: RuleContext): Issue[] {
     return issues;
 }
 
-/** 获取文件扩展名 */
-function getFileExt(filePath: string): string {
-    const match = filePath.match(/\.[^.]+$/);
-    return match ? match[0] : ".js";
-}

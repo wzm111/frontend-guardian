@@ -18,6 +18,7 @@ import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
 import { dirname, basename, extname } from "node:path";
 import type { Rule, RuleContext, Issue, NamingConfig } from "../types.js";
+import { getFileExt } from "../utils/common.js";
 
 /** 默认命名规范配置 */
 const DEFAULT_NAMING: NamingConfig = {
@@ -791,8 +792,3 @@ function shouldIgnoreName(name: string, config: NamingConfig): boolean {
     return false;
 }
 
-/** 获取文件扩展名 */
-function getFileExt(filePath: string): string {
-    const match = filePath.match(/\.[^.]+$/);
-    return match ? match[0] : ".js";
-}

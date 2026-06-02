@@ -14,6 +14,7 @@ import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
 import type { Rule, RuleContext, Issue } from "../types.js";
 import { parseAST } from "../utils/ast-parser.js";
+import { getFileExt } from "../utils/common.js";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname, extname } from "node:path";
 
@@ -268,11 +269,6 @@ function truncate(str: string, maxLen: number): string {
     return str.slice(0, maxLen) + "...";
 }
 
-/** 获取文件扩展名 */
-function getFileExt(filePath: string): string {
-    const match = filePath.match(/\.[^.]+$/);
-    return match ? match[0] : ".js";
-}
 
 /** 生成 i18n 调用 */
 function generateI18nCall(text: string): string {
@@ -356,16 +352,16 @@ function isInComment(path: any, source: string): boolean {
 }
 
 // ============================================================================
-// 语言包 Key 索引（模块级缓存）
+// 语言包 Key 索引（v2.1.0: 使用 Map 替代模块级变量，支持多项目并发）
 // ============================================================================
 
-let localeKeyCache: Set<string> | null = null;
-let localeKeyCacheProject: string | null = null;
+const localeKeyCacheMap = new Map<string, Set<string>>();
 
 /** 扫描语言包目录，收集所有 key */
 function collectLocaleKeys(projectDir: string, config: any): Set<string> {
-    if (localeKeyCache && localeKeyCacheProject === projectDir) {
-        return localeKeyCache;
+    const cached = localeKeyCacheMap.get(projectDir);
+    if (cached) {
+        return cached;
     }
 
     const keys = new Set<string>();
@@ -406,8 +402,7 @@ function collectLocaleKeys(projectDir: string, config: any): Set<string> {
         }
     }
 
-    localeKeyCache = keys;
-    localeKeyCacheProject = projectDir;
+    localeKeyCacheMap.set(projectDir, keys);
     return keys;
 }
 
@@ -522,14 +517,14 @@ function extractCodeKeys(ast: ParseResult<any> | null): Array<{ key: string; lin
     return keys;
 }
 
-/** 项目中所有代码引用的 key（项目级缓存） */
-let allCodeKeysCache: Set<string> | null = null;
-let allCodeKeysProject: string | null = null;
+/** 项目中所有代码引用的 key（v2.1.0: 使用 Map 替代模块级变量） */
+const allCodeKeysCacheMap = new Map<string, Set<string>>();
 
 /** 扫描项目中所有代码文件，收集引用的 i18n key */
 function collectAllCodeKeys(projectDir: string, context: RuleContext): Set<string> {
-    if (allCodeKeysCache && allCodeKeysProject === projectDir) {
-        return allCodeKeysCache;
+    const cached = allCodeKeysCacheMap.get(projectDir);
+    if (cached) {
+        return cached;
     }
 
     const keys = new Set<string>();
@@ -569,8 +564,7 @@ function collectAllCodeKeys(projectDir: string, context: RuleContext): Set<strin
         }
     }
 
-    allCodeKeysCache = keys;
-    allCodeKeysProject = projectDir;
+    allCodeKeysCacheMap.set(projectDir, keys);
     return keys;
 }
 

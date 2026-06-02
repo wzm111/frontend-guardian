@@ -11,6 +11,7 @@
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
 import type { Rule, RuleContext, Issue } from "../types.js";
+import { getFileExt, getJSXTagName } from "../utils/common.js";
 
 export const componentRules: Rule[] = [
     {
@@ -333,28 +334,3 @@ export const componentRules: Rule[] = [
 // 辅助函数
 // ============================================================================
 
-/** 获取 JSX 标签名 */
-function getJSXTagName(name: any): string | null {
-    if (name.type === "JSXIdentifier") return name.name;
-    if (name.type === "JSXMemberExpression") {
-        const parts: string[] = [];
-        let current = name;
-        while (current) {
-            if (current.type === "JSXIdentifier") {
-                parts.unshift(current.name);
-                break;
-            } else if (current.type === "JSXMemberExpression") {
-                parts.unshift(current.property.name);
-                current = current.object;
-            } else break;
-        }
-        return parts.join(".");
-    }
-    return null;
-}
-
-/** 获取文件扩展名 */
-function getFileExt(filePath: string): string {
-    const match = filePath.match(/\.[^.]+$/);
-    return match ? match[0] : ".js";
-}

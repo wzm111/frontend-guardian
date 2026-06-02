@@ -738,6 +738,14 @@ platform:
 
 ## 版本演进
 
+### v2.1 — 性能与架构优化（已交付，155 测试通过）
+
+- **真正并行扫描**：`RuleEngine.scan()` 文件级 `Promise.all` 并行（`concurrentMap`），默认并发数 = CPU 核心数，大项目扫描速度提升与核心数成正比
+- **AST 解析结果缓存**：`SmartCache` 扩展内存级 AST 缓存层，同一文件在单次扫描中只 `parseAST()` 一次，规则间复用 AST
+- **消除代码重复**：提取 `getFileExt()` / `getJSXTagName()` 到 `utils/common.ts`，8 个 scanner 文件删除重复定义
+- **RuleEngine 核心测试**：新增 `tests/rule-engine.test.ts`，14 个测试覆盖 `scan()` / `applyFixes()` / `clusterIssues()` / `register` / `filter` / 缓存命中
+- **清除全局缓存污染**：`i18n-scanner.ts` 模块级 `localeKeyCache` / `allCodeKeysCache` 改为 `Map<string, Set>`，支持多项目并发扫描
+
 ### v2.0 — 简单化 · 智能化 · 通用化 · 覆盖全面化
 
 #### Phase 1: 简单化（已交付）

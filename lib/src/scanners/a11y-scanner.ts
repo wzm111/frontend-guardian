@@ -13,6 +13,7 @@
 import type { ParseResult } from "@babel/parser";
 import traverse from "@babel/traverse";
 import type { Rule, RuleContext, Issue } from "../types.js";
+import { getFileExt, getJSXTagName } from "../utils/common.js";
 
 /** 有效的 ARIA 属性列表 (WAI-ARIA 1.2) */
 const VALID_ARIA_ATTRIBUTES = new Set([
@@ -557,30 +558,6 @@ export const a11yRules: Rule[] = [
 // 辅助函数
 // ============================================================================
 
-/** 获取 JSX 标签名 */
-function getJSXTagName(name: any): string | null {
-    if (name.type === "JSXIdentifier") {
-        return name.name;
-    }
-    if (name.type === "JSXMemberExpression") {
-        // e.g. <Form.Item> → "Form.Item"
-        const parts: string[] = [];
-        let current = name;
-        while (current) {
-            if (current.type === "JSXIdentifier") {
-                parts.unshift(current.name);
-                break;
-            } else if (current.type === "JSXMemberExpression") {
-                parts.unshift(current.property.name);
-                current = current.object;
-            } else {
-                break;
-            }
-        }
-        return parts.join(".");
-    }
-    return null;
-}
 
 /** 检查 img 是否有 alt 属性 */
 function checkImgAlt(node: any): { altFound: boolean; line: number; column: number } {
@@ -864,8 +841,3 @@ function parseColor(colorStr: string): [number, number, number] | null {
     return null;
 }
 
-/** 获取文件扩展名 */
-function getFileExt(filePath: string): string {
-    const match = filePath.match(/\.[^.]+$/);
-    return match ? match[0] : ".js";
-}

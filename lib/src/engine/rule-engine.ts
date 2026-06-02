@@ -26,6 +26,8 @@ import type {
     FixPreview,
 } from "../types.js";
 import { parseAST, getImports } from "../utils/ast-parser.js";
+import type { ParseResult } from "@babel/parser";
+import type { File } from "@babel/types";
 import { detectProjectMeta } from "../utils/project-detector.js";
 import { loadConfig } from "../utils/config-loader.js";
 import { RuleRegistry, createRegistry } from "../rules/registry.js";
@@ -36,6 +38,7 @@ import { runAllExternalTools } from "../integrations/index.js";
 import { SmartCache } from "./cache.js";
 import { HistoryReport } from "../utils/history-report.js";
 import { runFormat } from "../integrations/formatter.js";
+import { concurrentMap, getDefaultConcurrency } from "../utils/concurrent.js";
 
 export interface EngineOptions {
     /** 项目根目录 */
@@ -172,9 +175,13 @@ export class RuleEngine {
 
         console.log(pc.blue(`🔍 [${module}] 扫描 ${files.length} 个文件，${activeRules.length} 条规则...`));
 
-        // 并行扫描文件
-        for (const file of files) {
-            const fileIssues = await this.scanFile(file, activeRules);
+        // v2.1.0: 受控并发并行扫描
+        const concurrency = this.options.concurrency ?? getDefaultConcurrency();
+        const fileResults = await concurrentMap(files, concurrency, (file) =>
+            this.scanFile(file, activeRules)
+        );
+
+        for (const fileIssues of fileResults) {
             if (fileIssues.length > 0) {
                 filesWithIssues++;
                 for (const issue of fileIssues) {
@@ -334,9 +341,21 @@ export class RuleEngine {
     /** 创建 RuleUtils */
     private createUtils(filePath: string, source: string): RuleUtils {
         const lineOffsets = this.computeLineOffsets(source);
+        const cache = this.cache;
 
         return {
-            parseAST: (src: string, options?: ParseOptions) => parseAST(src, options),
+            // v2.1.0: parseAST 注入 AST 缓存，同一文件未变更时跳过重新解析
+            parseAST: (src: string, options?: ParseOptions) => {
+                if (cache && src === source) {
+                    const cached = cache.getAst(filePath, source);
+                    if (cached) return cached as ParseResult<File>;
+                }
+                const ast = parseAST(src, options);
+                if (cache && ast && src === source) {
+                    cache.setAst(filePath, source, ast);
+                }
+                return ast;
+            },
             getImports: (ast: unknown) => getImports(ast as any),
             reportPosition: (offset: number): Position => {
                 let line = 1;

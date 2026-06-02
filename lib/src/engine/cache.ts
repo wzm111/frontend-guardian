@@ -45,6 +45,8 @@ export class SmartCache {
     private cacheDir: string;
     private cacheFile: string;
     private ttl: number;
+    /** v2.1.0: 内存级 AST 缓存（无需持久化，进程内复用） */
+    private astCache = new Map<string, { hash: string; ast: unknown }>();
 
     constructor(projectDir: string, ttl: number = DEFAULT_TTL) {
         this.cacheDir = resolve(projectDir, ".frontend-guardian");
@@ -135,6 +137,28 @@ export class SmartCache {
         }
 
         return { total: Object.keys(this.manifest.entries).length, valid, expired };
+    }
+
+    // ── v2.1.0: AST 内存缓存 ──────────────────────────────────────────────
+
+    /** 获取缓存的 AST（内存级，不持久化） */
+    getAst(filePath: string, content: string): unknown | undefined {
+        const cached = this.astCache.get(filePath);
+        if (!cached) return undefined;
+        const hash = SmartCache.computeHash(content);
+        if (cached.hash !== hash) {
+            this.astCache.delete(filePath);
+            return undefined;
+        }
+        return cached.ast;
+    }
+
+    /** 缓存 AST 解析结果 */
+    setAst(filePath: string, content: string, ast: unknown): void {
+        this.astCache.set(filePath, {
+            hash: SmartCache.computeHash(content),
+            ast,
+        });
     }
 
     /** 清理过期缓存 */
