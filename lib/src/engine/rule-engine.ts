@@ -72,6 +72,8 @@ export interface EngineOptions {
     interactive?: boolean;
     /** 大文件跳过阈值（字节，默认 500KB = 512000） */
     skipLargeFilesThreshold?: number;
+    /** v2.6.0: 外部传入的 SmartCache 实例（用于 Watch 模式复用缓存） */
+    cacheInstance?: SmartCache;
 }
 
 export class RuleEngine {
@@ -93,7 +95,7 @@ export class RuleEngine {
 
         // Phase 5: 初始化智能缓存
         if (options.cache !== false) {
-            this.cache = new SmartCache(options.projectDir, options.cacheTtl);
+            this.cache = options.cacheInstance ?? new SmartCache(options.projectDir, options.cacheTtl);
         }
 
         // Phase 6: 初始化历史报告

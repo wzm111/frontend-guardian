@@ -43,6 +43,10 @@ export type { HistoryEntry, TrendAnalysis } from "./utils/history-report.js";
 export { uploadReport, detectUploadConfig } from "./utils/report-uploader.js";
 export type { UploadConfig, UploadResult } from "./utils/report-uploader.js";
 
+// v2.6.0: 自动修复 Bot
+export { runFixBot, detectFixBotConfig } from "./utils/fix-bot.js";
+export type { FixBotConfig, FixBotResult } from "./utils/fix-bot.js";
+
 // Phase v2.3.0: Baseline 管理
 export { BaselineManager, compareWithBaseline, generateBaseline, loadBaseline, saveBaseline, toBaselineIssue } from "./utils/baseline.js";
 export type { BaselineFile, BaselineIssue, BaselineResult } from "./utils/baseline.js";
