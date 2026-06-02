@@ -7,11 +7,14 @@
 
 按重要程度排序：
 
-| 模块 | 能力 | 命令 | 多端支持 | 优先级 |
+| 维度 | 能力 | 命令 | 多端支持 | 优先级 |
+| ---- | ---- | ---- | -------- | ------ |
+| 🧠 **智能化** | 深度技术栈检测 + Issue 聚类 + 增量扫描 | 自动触发 | ✅ 全端 | ⭐⭐⭐⭐⭐ |
 | ---- | ---- | ---- | -------- | ------ |
 | 🚀 **脚手架** | 一键初始化项目 + 治理配置 | `--init-scaffold` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
 | 🔍 **full-scan** | 全量治理扫描（9 大模块） | `--scan` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
 | | CI 门禁模式（阻断流水线） | `--scan --gate` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
+| 🧠 **smart-scan** | 深度栈检测 / Issue 聚类 / 增量扫描 | `--scan --staged/--diff` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
 | 🌍 **i18n-governance** | 硬编码文案 / 缺失 key / 死 key | `--i18n` | ✅ 全端 | ⭐⭐⭐⭐☆ |
 | 🏥 **component-doctor** | 反模式 / token / 性能 / 可访问性 | `--component` | ✅ 全端 | ⭐⭐⭐⭐☆ |
 | ⚡ **hook-checker** | useEffect / 闭包 / 自定义 Hook | `--hooks` | React / Vue | ⭐⭐⭐⭐⭐ |
@@ -75,8 +78,10 @@ frontend-guardian --init-scaffold ./my-project --stack nextjs --force
 /frontend-guardian --scan --gate            # CI 门禁模式（发现问题退出码非0）
 /frontend-guardian --scan --staged          # 仅检查 git staged 文件
 /frontend-guardian --scan --since HEAD~3    # 检查最近 3 个 commit
+/frontend-guardian --scan --diff main...feature  # 检查 PR diff 范围
 /frontend-guardian --scan --fix             # 扫描并自动修复
 /frontend-guardian --scan --json            # JSON 格式输出
+/frontend-guardian --scan --no-cluster      # 禁用 Issue 聚类（默认开启）
 
 # 单模块扫描
 /frontend-guardian --module i18n            # i18n 治理（硬编码、缺失 key、死 key）
@@ -130,8 +135,10 @@ frontend-guardian --init-scaffold ./my-project --stack nextjs --force
 | `--gate` | 门禁模式，发现问题时退出码 1 | false |
 | `--staged` | 仅检查 git staged 文件 | false |
 | `--since <ref>` | 检查指定 commit 以来的变更 | `HEAD~1` |
+| `--diff <range>` | git diff 范围，如 `main...feature` | - |
 | `--fix` | 自动修复可修复的问题 | false |
 | `--json` | 以 JSON 格式输出原始扫描结果 | false |
+| `--no-cluster` | 禁用 Issue 聚类 | false |
 | `--severity <level>` | 最低输出严重级别 | `warning` |
 | `--module <name>` | 扫描模块：`i18n` / `performance` / `a11y` / `security` / `naming` / `cross-file` / `component` / `hooks` / `platform` / `all` | `all` |
 | `--init-ai <agent>` | 初始化 AI 上下文：`claude` / `cursor` / `copilot` / `all` | 不初始化 |
@@ -276,6 +283,69 @@ npx fg-core ./my-project --module component --fix
 - **外部工具（Knip）**：检测未使用依赖/导出/文件
 
 `full-scan.sh` 统一调用 AST 引擎获取主要结果，再调用 Bash 引擎补充，最后合并生成统一报告。
+
+---
+
+## 🧠 智能化特性（Phase 2）
+
+### 深度技术栈检测
+
+自动解析 `package.json` 依赖树，精确识别项目技术栈：
+
+```text
+📱 正在检测技术栈...
+   检测到: React
+   构建: vite@5.0 | 测试: vitest | 状态: zustand
+   样式: tailwindcss | 路由: react-router | Lint: eslint
+   包管: pnpm
+```
+
+检测维度：
+
+| 维度 | 检测内容 | 示例 |
+| ---- | -------- | ---- |
+| 构建工具 | webpack / vite / rsbuild / turbopack / farm / rspack | `vite@5.2.0` |
+| 测试框架 | jest / vitest / cypress / playwright / mocha | `vitest` |
+| 状态管理 | redux / mobx / zustand / recoil / jotai / pinia / vuex | `zustand@4.5` |
+| 样式方案 | tailwindcss / styled-components / emotion / sass / less | `tailwindcss@3.4` |
+| 路由 | react-router / vue-router / tanstack-router / wouter | `react-router@6.23` |
+| 包管理器 | npm / yarn / pnpm / bun（通过 lockfile 推断） | `pnpm` |
+| Linter | eslint / biome / oxlint / prettier / stylelint | `eslint` |
+| Monorepo | nx / turborepo / lerna / pnpm-workspace | `turborepo` |
+
+### Issue 聚类
+
+同一文件、同一规则的多个相似 Issue 自动聚类为聚合 Issue，减少重复输出：
+
+```text
+🔴 [CRITICAL] useEffect 缺失依赖 (×5)
+   📄 src/pages/OrderList.tsx:23:10
+   useEffect 的依赖数组缺少响应式变量
+
+   聚类详情：在 5 处发现同类问题（行: 23, 45, 67, 89, 112）
+```
+
+聚类规则：
+- 按 `(file, ruleId)` 分组
+- 保留第一个 Issue 的位置和详细信息
+- 在 `meta.clusterCount` 中记录聚类数量
+- 可通过 `--no-cluster` 禁用
+
+### 增量扫描
+
+仅扫描变更文件，大幅提升大型项目扫描速度：
+
+```bash
+# 仅扫描 git staged 文件
+npx fg-core ./my-project --module all --staged
+
+# 扫描 PR diff 范围
+npx fg-core ./my-project --module all --diff main...feature
+
+# Bash 入口同样支持
+bash scripts/full-scan.sh --staged
+bash scripts/full-scan.sh --since HEAD~3
+```
 
 ---
 

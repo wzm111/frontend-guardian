@@ -116,11 +116,12 @@ load_config() {
 }
 
 # ---------------------------------------------------------------------------
-# 技术栈检测
+# 技术栈深度检测 (Phase 2: 智能化)
 # ---------------------------------------------------------------------------
 detect_stack() {
   local stack="Unknown"
   local platforms=()
+  local extra_info=""
 
   if [[ -f "manifest.json" && -f "pages.json" ]] && grep -q '"name".*"uni-app"' package.json 2>/dev/null; then
     stack="UniApp"
@@ -157,8 +158,29 @@ detect_stack() {
     platforms+=("支付宝小程序")
   fi
 
+  # 尝试用 Node.js 调用 project-detector 获取深度信息
+  if command -v node &>/dev/null && [[ -f "$SCRIPT_DIR/../lib/dist/utils/project-detector.js" ]]; then
+    extra_info=$(node -e "
+      const { detectProjectMeta } = require('$SCRIPT_DIR/../lib/dist/utils/project-detector.js');
+      const meta = detectProjectMeta('$PROJECT_DIR');
+      const parts = [];
+      if (meta.bundler) parts.push('构建: ' + meta.bundler + (meta.bundlerVersion ? '@' + meta.bundlerVersion : ''));
+      if (meta.testFramework) parts.push('测试: ' + meta.testFramework);
+      if (meta.stateManager) parts.push('状态: ' + meta.stateManager);
+      if (meta.styling) parts.push('样式: ' + meta.styling);
+      if (meta.router) parts.push('路由: ' + meta.router);
+      if (meta.linter) parts.push('Lint: ' + meta.linter);
+      if (meta.packageManager) parts.push('包管: ' + meta.packageManager);
+      if (meta.monorepoTool) parts.push('Monorepo: ' + meta.monorepoTool);
+      console.log(parts.join(' | '));
+    " 2>/dev/null || true)
+  fi
+
   echo "$stack"
   echo "检测到的平台: ${platforms[*]+"${platforms[*]}"}"
+  if [[ -n "$extra_info" ]]; then
+    echo "深度信息: $extra_info"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -267,11 +289,19 @@ run_ast_engine() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   local fix_flag=""
+  local staged_flag=""
+  local diff_flag=""
   if $FIX_MODE; then
     fix_flag="--fix"
   fi
+  if $STAGED_ONLY; then
+    staged_flag="--staged"
+  fi
+  if [[ -n "$SINCE_REF" ]]; then
+    diff_flag="--diff $SINCE_REF...HEAD"
+  fi
 
-  if $engine_path "$PROJECT_DIR" --module all --severity "${SEVERITY:-suggestion}" $fix_flag --json > "$AST_OUTPUT" 2>/dev/null; then
+  if $engine_path "$PROJECT_DIR" --module all --severity "${SEVERITY:-suggestion}" $fix_flag $staged_flag $diff_flag --json > "$AST_OUTPUT" 2>/dev/null; then
     if [[ -s "$AST_OUTPUT" ]]; then
       # 解析 JSON 统计各模块问题数
       local json_total json_c json_w json_s
@@ -520,7 +550,11 @@ main() {
   echo ""
   echo "📱 正在检测技术栈..."
   STACK=$(detect_stack | head -1)
+  STACK_EXTRA=$(detect_stack | grep "深度信息:" | sed 's/深度信息: //')
   echo "   检测到: $STACK"
+  if [[ -n "$STACK_EXTRA" ]]; then
+    echo "   $STACK_EXTRA"
+  fi
 
   # 获取文件列表
   echo ""

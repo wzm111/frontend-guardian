@@ -287,4 +287,40 @@ export interface ProjectMeta {
   i18nLib?: string;
   /** Package.json scripts */
   scripts: Record<string, string>;
+
+  // ── Phase 2: 智能化深度检测 ──
+  /** Detected bundler / build tool */
+  bundler?: Bundler;
+  bundlerVersion?: string;
+  /** Detected test framework */
+  testFramework?: TestFramework;
+  testFrameworkVersion?: string;
+  /** Detected state manager */
+  stateManager?: StateManager;
+  stateManagerVersion?: string;
+  /** Detected styling solution */
+  styling?: StylingSolution;
+  stylingVersion?: string;
+  /** Detected router */
+  router?: RouterLib;
+  routerVersion?: string;
+  /** Detected package manager */
+  packageManager: PackageManager;
+  /** Detected linter / formatter */
+  linter?: LinterTool;
+  /** Detected monorepo tool */
+  monorepoTool?: MonorepoTool;
+  /** Runtime (node / deno / bun) */
+  runtime: Runtime;
+  runtimeVersion?: string;
 }
+
+export type Bundler = 'webpack' | 'vite' | 'rsbuild' | 'parcel' | 'esbuild' | 'rollup' | 'turbopack' | 'farm' | 'rspack' | 'wmr';
+export type TestFramework = 'jest' | 'vitest' | 'cypress' | 'playwright' | 'mocha' | 'karma' | 'ava' | 'node:test';
+export type StateManager = 'redux' | 'mobx' | 'zustand' | 'recoil' | 'jotai' | 'pinia' | 'vuex' | 'valtio';
+export type StylingSolution = 'tailwindcss' | 'styled-components' | 'emotion' | 'sass' | 'less' | 'css-modules' | 'vanilla-extract' | 'unocss' | 'windicss';
+export type RouterLib = 'react-router' | 'vue-router' | 'tanstack-router' | 'wouter' | 'nextjs-router' | 'nuxt-router';
+export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun';
+export type LinterTool = 'eslint' | 'biome' | 'oxlint' | 'prettier' | 'stylelint';
+export type MonorepoTool = 'nx' | 'turborepo' | 'lerna' | 'rush' | 'pnpm-workspace';
+export type Runtime = 'node' | 'deno' | 'bun';

@@ -10,6 +10,8 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import type {
   Rule,
   RuleContext,
@@ -41,6 +43,10 @@ export interface EngineOptions {
   concurrency?: number;
   /** 配置文件路径 */
   configFile?: string;
+  /** 仅扫描 git staged 文件 */
+  staged?: boolean;
+  /** git diff 范围，如 main...feature */
+  diffRange?: string;
 }
 
 export class RuleEngine {
@@ -190,6 +196,17 @@ export class RuleEngine {
 
   /** 获取扫描文件列表 */
   private async getScanFiles(): Promise<string[]> {
+    // 增量扫描：git staged / diff 范围
+    if (this.options.staged || this.options.diffRange) {
+      const diffFiles = this.getDiffFiles();
+      if (diffFiles.length === 0) {
+        return [];
+      }
+      // 过滤出符合扩展名的文件
+      const include = this.config.scan?.includeExtensions || ['.js', '.ts', '.jsx', '.tsx', '.vue'];
+      return diffFiles.filter(f => include.some(ext => f.endsWith(ext)));
+    }
+
     if (this.options.files && this.options.files.length > 0) {
       return this.options.files;
     }
@@ -211,6 +228,34 @@ export class RuleEngine {
       ignore: exclude,
       absolute: true,
     });
+  }
+
+  /** 通过 git 获取变更文件列表 */
+  private getDiffFiles(): string[] {
+    try {
+      let cmd: string;
+      if (this.options.staged) {
+        cmd = 'git diff --cached --name-only --diff-filter=ACM';
+      } else if (this.options.diffRange) {
+        cmd = `git diff --name-only --diff-filter=ACM ${this.options.diffRange}`;
+      } else {
+        return [];
+      }
+
+      const output = execSync(cmd, {
+        cwd: this.options.projectDir,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'ignore'],
+      });
+
+      return output
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map(f => resolve(this.options.projectDir, f));
+    } catch {
+      return [];
+    }
   }
 
   /** 创建 RuleUtils */
@@ -339,6 +384,52 @@ export class RuleEngine {
     // 替换行范围
     lines.splice(startIdx, endIdx - startIdx + 1, ...newLines);
     return lines.join('\n');
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Issue 聚类 (Phase 2: 智能化)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 将相似 Issue 聚类为聚合 Issue
+   * 按 (file, ruleId) 分组，同一文件同一规则的多个 Issue 合并为一个
+   */
+  clusterIssues(issues: Issue[]): Issue[] {
+    const groups = new Map<string, Issue[]>();
+
+    for (const issue of issues) {
+      const key = `${issue.file}|${issue.ruleId}`;
+      const list = groups.get(key) || [];
+      list.push(issue);
+      groups.set(key, list);
+    }
+
+    const clustered: Issue[] = [];
+    for (const [, groupIssues] of groups) {
+      if (groupIssues.length === 1) {
+        clustered.push(groupIssues[0]);
+        continue;
+      }
+
+      // 按行号排序，取第一个作为代表
+      const sorted = [...groupIssues].sort((a, b) => a.line - b.line || a.column - b.column);
+      const representative = sorted[0];
+      const allLines = sorted.map(i => i.line);
+
+      clustered.push({
+        ...representative,
+        title: `${representative.title} (×${groupIssues.length})`,
+        description: `${representative.description}\n\n聚类详情：在 ${groupIssues.length} 处发现同类问题（行: ${allLines.join(', ')}）`,
+        meta: {
+          ...representative.meta,
+          clusterCount: groupIssues.length,
+          clusteredLines: allLines,
+          clusteredRuleId: representative.ruleId,
+        },
+      });
+    }
+
+    return clustered;
   }
 }
 

@@ -39,14 +39,16 @@ Skill 会自动检测项目类型并加载对应规则：
 ### 全量扫描（推荐）
 
 ```
-/frontend-guardian                          # 自动检测技术栈，执行全端扫描
-/frontend-guardian --scan                   # 全量治理扫描（9 大模块）
-/frontend-guardian --scan --gate            # CI 门禁模式（发现问题退出码非0）
-/frontend-guardian --scan --staged          # 仅检查 git staged 文件
-/frontend-guardian --scan --since HEAD~3    # 检查最近 3 个 commit
-/frontend-guardian --scan --fix             # 扫描并自动修复可修复的问题
-/frontend-guardian --scan --json            # JSON 格式输出
-/frontend-guardian --scan --output report.md # 指定报告输出路径
+/frontend-guardian                              # 自动检测技术栈，执行全端扫描
+/frontend-guardian --scan                       # 全量治理扫描（9 大模块）
+/frontend-guardian --scan --gate                # CI 门禁模式（发现问题退出码非0）
+/frontend-guardian --scan --staged              # 仅检查 git staged 文件
+/frontend-guardian --scan --since HEAD~3        # 检查最近 3 个 commit
+/frontend-guardian --scan --diff main...feature # 检查 PR diff 范围
+/frontend-guardian --scan --fix                 # 扫描并自动修复可修复的问题
+/frontend-guardian --scan --json                # JSON 格式输出
+/frontend-guardian --scan --output report.md    # 指定报告输出路径
+/frontend-guardian --scan --no-cluster          # 禁用 Issue 聚类
 ```
 
 ### 单模块扫描
@@ -63,10 +65,12 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --module cross-file      # 跨文件分析
 ```
 
-单模块支持 `--fix`、`--json`、`--severity` 参数：
+单模块支持 `--fix`、`--json`、`--severity`、`--staged`、`--diff` 参数：
 ```
 /frontend-guardian --module naming --fix
 /frontend-guardian --module i18n --severity warning --json
+/frontend-guardian --module hooks --staged
+/frontend-guardian --module security --diff main...feature
 ```
 
 ### 一键初始化脚手架
@@ -101,8 +105,11 @@ Skill 会自动检测项目类型并加载对应规则：
 ### 组合命令
 
 ```
-# 提交前检查：i18n + 组件 + hooks
+# 提交前检查（仅 staged 文件）
 /frontend-guardian --scan --staged
+
+# PR diff 检查
+/frontend-guardian --scan --diff main...feature
 
 # 上线前全量扫描 + 门禁 + 更新 AI 上下文
 /frontend-guardian --scan --gate --output report.md --init-ai claude
