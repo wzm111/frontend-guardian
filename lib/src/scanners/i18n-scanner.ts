@@ -42,7 +42,6 @@ export const i18nRules: Rule[] = [
         category: "i18n",
         defaultEnabled: true,
         docsUrl: "https://github.com/wzm111/frontend-guardian/blob/main/docs/rules/i18n-hardcoded-string.md",
-        confidence: "medium",
         execute(context: RuleContext): Issue[] {
             const issues: Issue[] = [];
             const ast = context.utils.parseAST(context.source, {

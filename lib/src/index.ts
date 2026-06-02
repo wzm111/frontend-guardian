@@ -55,6 +55,24 @@ export {
     writeJobSummary,
 } from "./formatters/github-annotation.js";
 
+// v2.5.0: PR/MR 评论发布
+export {
+    generatePRComment,
+    generatePRCommentSummary,
+    COMMENT_MARKER,
+    isGuardianComment,
+} from "./formatters/pr-comment.js";
+export type { CommentMeta } from "./formatters/pr-comment.js";
+
+export {
+    GitHubPRPublisher,
+    GitLabMRPublisher,
+    detectPublisherConfig,
+    createPublisher,
+    autoPublishComment,
+} from "./utils/pr-publisher.js";
+export type { PublishResult, PublisherConfig, PRPublisher } from "./utils/pr-publisher.js";
+
 // Phase 4: 外部工具集成
 export {
     allExternalTools,
