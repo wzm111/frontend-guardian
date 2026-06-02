@@ -133,11 +133,28 @@
 - [x] **报告托管/上传**：`--upload` + `--output` 支持 HTTP webhook 和文件复制上传，自动检测 FG_UPLOAD_PROVIDER 环境变量配置
 - [x] **GitLab CI 模板完善**：`--init-ci` 生成含 `rules` / `artifacts` / `cache` / `--post-comment` 的完整 GitLab 模板，支持 `--init-ci-provider gitlab|both`，自动检测平台
 
-### P2 — 排期实现
+### P2 — 排期实现 ✅（已交付于 v2.6.0）
 
-- [ ] **自动修复 Bot**：类似 Dependabot，扫描后自动提交修复 PR（需配合 GitHub App / GitLab Bot Token）
-- [ ] **commit-msg hook**：检查 commit message 规范（Conventional Commits 等）
-- [ ] **缓存预热**：Watch 模式启动时自动预热缓存，秒开体验
+- [x] **自动修复 Bot**：类似 Dependabot，扫描后自动提交修复 PR（需配合 GitHub App / GitLab Bot Token）
+- [x] **commit-msg hook**：检查 commit message 规范（Conventional Commits 等）
+- [x] **缓存预热**：Watch 模式启动时自动预热缓存，秒开体验
+
+---
+
+## ✅ v2.6.0 — 自动化工作流增强（Automation & Efficiency）
+
+**目标**：让日常开发中的每一次 commit 和 watch 都更快、更规范。
+
+**发布状态：已交付（2026-06-02）**
+
+### P0 — 必须完成 ✅
+
+- [x] **commit-msg hook**：`--install-hooks --install-hooks-type commit-msg` 安装 Conventional Commits 检查 hook，支持 11 种标准 type；`--install-hooks-type all` 同时安装 pre-commit / pre-push / commit-msg
+- [x] **缓存预热**：`--watch` 启动时创建并复用 SmartCache 实例，首次扫描即填充 AST 缓存，文件变更后增量扫描秒级响应
+
+### P1 — 尽量完成 ✅
+
+- [x] **自动修复 Bot `--fix --fix-bot`**：扫描后自动创建修复分支、提交修复、创建 PR/MR；支持 GitHub / GitLab，环境变量配置
 
 ---
 

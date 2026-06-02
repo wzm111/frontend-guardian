@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v2.5.1**
+> **当前版本：v2.6.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -886,6 +886,12 @@ platform:
 ---
 
 ## 版本演进
+
+### v2.6.0 — 自动化工作流增强（已交付，446 测试通过）
+
+- **commit-msg hook**：`--install-hooks --install-hooks-type commit-msg` 安装 Conventional Commits 检查 hook，支持 `feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert` 等类型；`--install-hooks-type all` 同时安装 pre-commit / pre-push / commit-msg 三个 hook
+- **缓存预热（Watch 模式）**：`--watch` 启动时创建并复用 SmartCache 实例，首次扫描即填充 AST 缓存，文件变更后的增量扫描实现秒级响应
+- **自动修复 Bot `--fix --fix-bot`**：扫描后自动创建修复分支、提交修复、创建 PR/MR；支持 GitHub / GitLab，通过 `FG_FIX_BOT_PROVIDER` / `FG_FIX_BOT_TOKEN` / `FG_FIX_BOT_BASE_BRANCH` 环境变量配置
 
 ### v2.5.1 — 生态集成 P1（已交付，444 测试通过）
 
