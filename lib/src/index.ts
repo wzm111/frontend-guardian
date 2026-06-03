@@ -43,6 +43,12 @@ export type { HistoryEntry, TrendAnalysis, FullReport } from "./utils/history-re
 export { generateDashboard } from "./utils/dashboard.js";
 export type { DashboardOptions } from "./utils/dashboard.js";
 
+// v2.9.0: Monorepo 工作区支持
+export { detectMonorepo, analyzeCrossPackageDeps } from "./utils/monorepo.js";
+export type { MonorepoInfo, WorkspacePackage, CrossPackageIssue, MonorepoTool } from "./utils/monorepo.js";
+export { scanWorkspace, formatWorkspaceReport, formatWorkspaceJson } from "./utils/workspace-scanner.js";
+export type { WorkspaceScanResult, PackageScanResult, WorkspaceSummary, WorkspaceScanOptions } from "./utils/workspace-scanner.js";
+
 // v2.5.0: 报告上传
 export { uploadReport, detectUploadConfig } from "./utils/report-uploader.js";
 export type { UploadConfig, UploadResult } from "./utils/report-uploader.js";

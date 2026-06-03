@@ -197,9 +197,34 @@
 
 - [x] **Dashboard 自托管优化**：单文件 HTML（内联 CSS/JS），纯 Canvas 绘制图表，零外部 CDN 依赖，可直接在浏览器打开或部署到 GitHub Pages / GitLab Pages
 
+### P2 — 排期实现 ✅（已交付于 v2.9.0）
+
+- [x] **monorepo 工作区支持**：自动检测 `pnpm-workspace.yaml` / `lerna.json` / `nx.json` / `rush.json` / `package.json workspaces`，分别扫描各子包并汇总报告
+- [ ] **AI 修复建议**：集成 LLM API（OpenAI / Claude）生成 Issue 修复建议，低置信度修复优先展示 AI 建议
+- [ ] **历史报告对比 `--history-compare`**：对比两次扫描结果，输出新增/已修复/持续存在的问题明细
+
+---
+
+## ✅ v2.9.0 — Monorepo 工作区支持（Monorepo Workspace Support）
+
+**目标**：让 frontend-guardian 从单项目工具进化为 monorepo 友好型治理平台，支持现代前端常见的多包工作区架构。
+
+**发布状态：已交付（2026-06-03）**
+
+### P0 — 必须完成 ✅
+
+- [x] **Monorepo 自动检测 `detectMonorepo()`**：支持 `pnpm-workspace.yaml` / `lerna.json` / `nx.json` / `rush.json` / `package.json workspaces` 五种工具自动检测，返回工具类型、配置文件路径、所有子包信息
+- [x] **Workspace 多包扫描 `--monorepo`**：CLI 新增 `--monorepo` 参数，自动遍历 workspace 所有子包分别扫描。支持 `--workspace <name>` 仅扫描指定包、`--skip-package <name>` 跳过指定包
+- [x] **跨包依赖分析 `analyzeCrossPackageDeps()`**：检测 workspace 包间循环依赖和缺失内部依赖，输出 `CrossPackageIssue[]`（critical / warning 级别）
+- [x] **统一汇总报告**：`formatWorkspaceReport()` 生成终端友好的多包扫描报告，`formatWorkspaceJson()` 生成结构化 JSON 输出。各包文件路径自动调整为相对于 monorepo 根目录
+
+### P1 — 尽量完成 ✅
+
+- [x] **子包路径自动调整**：扫描结果中的文件路径自动从子包目录转换为相对于 monorepo 根目录的路径，便于统一查看和定位
+- [x] **扫描失败容错**：单个包扫描失败不影响其他包继续扫描，失败信息记录在结果中
+
 ### P2 — 排期实现
 
-- [ ] **monorepo 工作区支持**：自动检测 `pnpm-workspace.yaml` / `lerna.json` / `nx.json`，分别扫描各子包并汇总报告
 - [ ] **AI 修复建议**：集成 LLM API（OpenAI / Claude）生成 Issue 修复建议，低置信度修复优先展示 AI 建议
 - [ ] **历史报告对比 `--history-compare`**：对比两次扫描结果，输出新增/已修复/持续存在的问题明细
 

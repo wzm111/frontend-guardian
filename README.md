@@ -887,6 +887,14 @@ platform:
 
 ## 版本演进
 
+### v2.9.0 — Monorepo 工作区支持（已交付，466 测试通过）
+
+- **Monorepo 自动检测**：`detectMonorepo()` 支持 `pnpm-workspace.yaml` / `lerna.json` / `nx.json` / `rush.json` / `package.json workspaces` 五种工具自动检测
+- **Workspace 多包扫描 `--monorepo`**：自动遍历 workspace 所有子包分别扫描，汇总跨包报告。支持 `--workspace <name>` 仅扫描指定包、`--skip-package <name>` 跳过指定包
+- **跨包依赖分析**：`analyzeCrossPackageDeps()` 检测 workspace 包间循环依赖和缺失依赖，输出 `CrossPackageIssue[]`
+- **统一汇总报告**：`formatWorkspaceReport()` 生成终端友好的多包扫描报告，`formatWorkspaceJson()` 生成结构化 JSON 输出
+- **路径自动调整**：子包扫描结果的文件路径自动调整为相对于 monorepo 根目录，便于统一查看
+
 ### v2.8.0 — 数据洞察与可视化（已交付，458 测试通过）
 
 - **扫描结果完整持久化 `--save-report`**：每次扫描保存完整的 issues 到 `.frontend-guardian/history/YYYYMMDD-HHmmss.json`，含问题详情、git 信息、扫描统计
