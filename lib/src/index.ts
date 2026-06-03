@@ -53,6 +53,10 @@ export type { WorkspaceScanResult, PackageScanResult, WorkspaceSummary, Workspac
 export { AIFixSuggester, detectAIConfig, generateAIFixSuggestions } from "./utils/ai-fix-suggester.js";
 export type { AIConfig, AIProvider, AIFixSuggestion } from "./utils/ai-fix-suggester.js";
 
+// v3.1.0: 历史报告对比
+export { compareHistoryReports, formatHistoryCompare, formatHistoryCompareJson } from "./utils/history-compare.js";
+export type { HistoryCompareResult, HistoryCompareOptions, ComparedIssue, IssueStatus, ReportRef } from "./utils/history-compare.js";
+
 // v2.5.0: 报告上传
 export { uploadReport, detectUploadConfig } from "./utils/report-uploader.js";
 export type { UploadConfig, UploadResult } from "./utils/report-uploader.js";
