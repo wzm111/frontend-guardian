@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v2.8.0**
+> **当前版本：v3.0.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -886,6 +886,14 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.0.0 — AI 修复建议（已交付，475 测试通过）
+
+- **LLM 驱动的修复建议 `--ai-fix`**：为无自动修复的 Issue 调用 OpenAI / Claude API 生成修复建议。扫描后自动展示 AI 推荐的修复方案，含置信度和解释
+- **AI 配置自动检测**：通过 `FG_AI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` 环境变量自动检测配置。支持 `--ai-model <model>` 指定模型（如 `gpt-4o-mini` / `claude-3-5-sonnet`）
+- **建议缓存**：AI 修复建议按 issue 指纹缓存到 `.frontend-guardian/ai-cache/`，避免重复调用 API，节省成本
+- **批量建议**：支持为多个 issue 批量生成 AI 修复建议，默认每次扫描最多处理 5 个无修复方案的问题
+- **解析与置信度**：AI 响应按 `FIX:` / `EXPLANATION:` / `CONFIDENCE:` 格式解析，置信度分为 high / medium / low，与现有 SmartFix 置信度系统兼容
 
 ### v2.9.0 — Monorepo 工作区支持（已交付，466 测试通过）
 

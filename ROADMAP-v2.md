@@ -223,9 +223,33 @@
 - [x] **子包路径自动调整**：扫描结果中的文件路径自动从子包目录转换为相对于 monorepo 根目录的路径，便于统一查看和定位
 - [x] **扫描失败容错**：单个包扫描失败不影响其他包继续扫描，失败信息记录在结果中
 
+### P2 — 排期实现 ✅（已交付于 v3.0.0）
+
+- [x] **AI 修复建议**：集成 LLM API（OpenAI / Claude）生成 Issue 修复建议，低置信度修复优先展示 AI 建议
+- [ ] **历史报告对比 `--history-compare`**：对比两次扫描结果，输出新增/已修复/持续存在的问题明细
+
+---
+
+## ✅ v3.0.0 — AI 修复建议（AI Fix Suggestions）
+
+**目标**：让 frontend-guardian 具备智能化诊断能力，为无法自动修复的问题提供 AI 驱动的修复建议。
+
+**发布状态：已交付（2026-06-03）**
+
+### P0 — 必须完成 ✅
+
+- [x] **LLM 驱动的修复建议 `--ai-fix`**：`AIFixSuggester` 为无自动修复的 Issue 调用 OpenAI / Claude API 生成修复建议。扫描后自动展示 AI 推荐的修复方案，含置信度和解释
+- [x] **AI 配置自动检测**：`detectAIConfig()` 通过 `FG_AI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` 环境变量自动检测配置。支持 `--ai-model <model>` 指定模型（如 `gpt-4o-mini` / `claude-3-5-sonnet`）
+- [x] **建议缓存**：AI 修复建议按 issue 指纹缓存到 `.frontend-guardian/ai-cache/`，避免重复调用 API，节省成本
+- [x] **解析与置信度**：AI 响应按 `FIX:` / `EXPLANATION:` / `CONFIDENCE:` 格式解析，置信度分为 high / medium / low，与现有 SmartFix 置信度系统兼容
+
+### P1 — 尽量完成 ✅
+
+- [x] **批量建议**：支持为多个 issue 批量生成 AI 修复建议，默认每次扫描最多处理 5 个无修复方案的问题
+- [x] **双提供商支持**：支持 OpenAI API 和 Claude API，自动根据环境变量推断提供商
+
 ### P2 — 排期实现
 
-- [ ] **AI 修复建议**：集成 LLM API（OpenAI / Claude）生成 Issue 修复建议，低置信度修复优先展示 AI 建议
 - [ ] **历史报告对比 `--history-compare`**：对比两次扫描结果，输出新增/已修复/持续存在的问题明细
 
 ---

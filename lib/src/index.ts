@@ -49,6 +49,10 @@ export type { MonorepoInfo, WorkspacePackage, CrossPackageIssue, MonorepoTool } 
 export { scanWorkspace, formatWorkspaceReport, formatWorkspaceJson } from "./utils/workspace-scanner.js";
 export type { WorkspaceScanResult, PackageScanResult, WorkspaceSummary, WorkspaceScanOptions } from "./utils/workspace-scanner.js";
 
+// v3.0.0: AI 修复建议
+export { AIFixSuggester, detectAIConfig, generateAIFixSuggestions } from "./utils/ai-fix-suggester.js";
+export type { AIConfig, AIProvider, AIFixSuggestion } from "./utils/ai-fix-suggester.js";
+
 // v2.5.0: 报告上传
 export { uploadReport, detectUploadConfig } from "./utils/report-uploader.js";
 export type { UploadConfig, UploadResult } from "./utils/report-uploader.js";
