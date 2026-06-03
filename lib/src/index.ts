@@ -122,4 +122,10 @@ export { componentRules } from "./scanners/component-scanner.js";
 export { hooksRules } from "./scanners/hooks-scanner.js";
 export { platformRules } from "./scanners/platform-scanner.js";
 export { svelteRules } from "./scanners/svelte-scanner.js";
+// v3.3.0: IDE 集成
+export { IncrementalDiagnostic, createIncrementalDiagnostic } from "./ide/incremental-diagnostic.js";
+export type { DiagnosticResult, IncrementalDiagnosticOptions } from "./ide/incremental-diagnostic.js";
+export { runLSPServer } from "./ide/lsp-server.js";
+export type { LSPServerOptions } from "./ide/lsp-server.js";
+
 export { getFileExt, getJSXTagName } from "./utils/common.js";

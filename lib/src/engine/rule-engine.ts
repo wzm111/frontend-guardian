@@ -266,6 +266,30 @@ export class RuleEngine {
         return result;
     }
 
+    /**
+     * v3.3.0: 公共单文件扫描方法（用于 IDE 增量诊断）
+     * 快速扫描单个文件，返回所有匹配的 issues
+     * @param filePath 文件绝对路径
+     * @param module 模块名（可选，用于规则过滤）
+     * @returns 扫描发现的 issues
+     */
+    async scanSingleFile(filePath: string, module?: string): Promise<Issue[]> {
+        const category = module ? this.moduleToCategory(module) : undefined;
+        const activeRules = category
+            ? this.filterRules({
+                  category,
+                  framework: this.projectMeta.framework,
+                  platform: this.projectMeta.platforms[0],
+                  componentLib: this.projectMeta.componentLib,
+              })
+            : this.getRules();
+
+        if (activeRules.length === 0) return [];
+
+        const result = await this.scanFile(filePath, activeRules);
+        return result.issues;
+    }
+
     /** 扫描单个文件（带智能缓存 + 大文件跳过） */
     private async scanFile(filePath: string, rules: Rule[]): Promise<{ issues: Issue[]; skipped?: boolean }> {
         try {

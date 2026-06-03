@@ -1,0 +1,109 @@
+{
+    "name": "frontend-guardian-vscode",
+    "displayName": "Frontend Guardian",
+    "description": "前端代码治理助手 — 实时诊断、快速修复、代码质量可视化",
+    "version": "3.3.0",
+    "publisher": "frontend-guardian",
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.74.0"
+    },
+    "categories": [
+        "Linters",
+        "Programming Languages",
+        "Visualization"
+    ],
+    "keywords": [
+        "frontend",
+        "lint",
+        "guardian",
+        "code quality",
+        "react",
+        "vue"
+    ],
+    "activationEvents": [
+        "onLanguage:javascript",
+        "onLanguage:typescript",
+        "onLanguage:javascriptreact",
+        "onLanguage:typescriptreact",
+        "onLanguage:vue"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "configuration": {
+            "type": "object",
+            "title": "Frontend Guardian",
+            "properties": {
+                "frontendGuardian.enable": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "启用 Frontend Guardian 诊断"
+                },
+                "frontendGuardian.projectDir": {
+                    "type": "string",
+                    "default": "",
+                    "description": "项目根目录（留空则自动检测）"
+                },
+                "frontendGuardian.configFile": {
+                    "type": "string",
+                    "default": "",
+                    "description": "配置文件路径（如 .frontend-guardian.yml）"
+                },
+                "frontendGuardian.minSeverity": {
+                    "type": "string",
+                    "enum": ["critical", "warning", "suggestion"],
+                    "default": "suggestion",
+                    "description": "最低严重级别"
+                },
+                "frontendGuardian.debounceMs": {
+                    "type": "number",
+                    "default": 300,
+                    "description": "诊断防抖间隔（毫秒）"
+                }
+            }
+        },
+        "commands": [
+            {
+                "command": "frontendGuardian.scanFile",
+                "title": "Frontend Guardian: 扫描当前文件",
+                "category": "Frontend Guardian"
+            },
+            {
+                "command": "frontendGuardian.scanWorkspace",
+                "title": "Frontend Guardian: 扫描整个工作区",
+                "category": "Frontend Guardian"
+            },
+            {
+                "command": "frontendGuardian.showDashboard",
+                "title": "Frontend Guardian: 打开治理看板",
+                "category": "Frontend Guardian"
+            },
+            {
+                "command": "frontendGuardian.clearCache",
+                "title": "Frontend Guardian: 清除诊断缓存",
+                "category": "Frontend Guardian"
+            }
+        ],
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "frontendGuardian.scanFile",
+                    "group": "2_guardian@1",
+                    "when": "editorLangId =~ /^(javascript|typescript|javascriptreact|typescriptreact|vue)$/"
+                }
+            ]
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^9.0.1"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.74.0",
+        "typescript": "^5.7.0"
+    }
+}

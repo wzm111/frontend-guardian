@@ -35,11 +35,11 @@
 
 **预计发布**：2026-06-17
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅
 
-- [ ] **LSP 协议支持**：实现 Language Server Protocol，提供 diagnostics（问题诊断）、code actions（快速修复）
-- [ ] **VS Code 插件**：发布 VS Code 扩展 `frontend-guardian.vscode`，支持实时问题下划线、hover 提示规则说明、一键修复
-- [ ] **增量诊断**：文件保存时增量扫描当前文件，100ms 内返回结果
+- [x] **LSP 协议支持**：实现 Language Server Protocol，提供 diagnostics（问题诊断）、code actions（快速修复）
+- [x] **VS Code 插件**：发布 VS Code 扩展 `frontend-guardian.vscode`，支持实时问题下划线、hover 提示规则说明、一键修复
+- [x] **增量诊断**：文件保存时增量扫描当前文件，100ms 内返回结果
 
 ### P1 — 尽量完成
 

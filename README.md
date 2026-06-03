@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v3.2.0**
+> **当前版本：v3.3.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -886,6 +886,12 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.3.0 — IDE 集成（已交付，516 测试通过）
+
+- **增量诊断引擎**：`IncrementalDiagnostic` 单文件毫秒级扫描，内容缓存命中时直接返回，避免重复解析
+- **LSP 协议支持**：`fg-lsp` 语言服务器，提供 `textDocument/diagnostic`（实时诊断）和 `textDocument/codeAction`（快速修复）
+- **VS Code 插件**：`frontend-guardian-vscode` 扩展，支持实时问题下划线、Hover 规则说明、一键修复、治理看板
 
 ### v3.2.0 — 性能与体验优化（已交付，503 测试通过）
 
