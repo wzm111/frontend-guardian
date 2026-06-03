@@ -37,7 +37,11 @@ export { installGitHooks, uninstallGitHooks, hasGitHook, detectHusky } from "./u
 export { generateCIConfig, detectCIProvider } from "./utils/ci-generator.js";
 export type { CIProvider, CIGeneratorOptions } from "./utils/ci-generator.js";
 export { HistoryReport } from "./utils/history-report.js";
-export type { HistoryEntry, TrendAnalysis } from "./utils/history-report.js";
+export type { HistoryEntry, TrendAnalysis, FullReport } from "./utils/history-report.js";
+
+// v2.8.0: 趋势看板
+export { generateDashboard } from "./utils/dashboard.js";
+export type { DashboardOptions } from "./utils/dashboard.js";
 
 // v2.5.0: 报告上传
 export { uploadReport, detectUploadConfig } from "./utils/report-uploader.js";

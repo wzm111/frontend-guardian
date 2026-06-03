@@ -181,6 +181,30 @@
 
 ---
 
+## ✅ v2.8.0 — 数据洞察与可视化（Data Insights & Visualization）
+
+**目标**：让扫描结果从一次性报告变为可追踪、可分析、可可视化的数据资产，为团队治理决策提供数据支撑。
+
+**发布状态：已交付（2026-06-02）**
+
+### P0 — 必须完成 ✅
+
+- [x] **扫描结果完整持久化 `--save-report`**：每次扫描保存完整的 issues 到 `.frontend-guardian/history/YYYYMMDD-HHmmss.json`，含问题详情、git 信息、扫描统计
+- [x] **历史报告查询 CLI `--history`**：查看历史扫描记录列表，支持 `--history-module <name>` 按模块过滤，`--history-limit <n>` 限制条数（默认 20）
+- [x] **团队趋势看板 `--generate-dashboard`**：基于历史报告数据生成单文件 HTML 趋势页面，含问题趋势折线图、模块分布饼图、修复率统计、严重级别柱状图、扫描历史表格
+
+### P1 — 尽量完成 ✅
+
+- [x] **Dashboard 自托管优化**：单文件 HTML（内联 CSS/JS），纯 Canvas 绘制图表，零外部 CDN 依赖，可直接在浏览器打开或部署到 GitHub Pages / GitLab Pages
+
+### P2 — 排期实现
+
+- [ ] **monorepo 工作区支持**：自动检测 `pnpm-workspace.yaml` / `lerna.json` / `nx.json`，分别扫描各子包并汇总报告
+- [ ] **AI 修复建议**：集成 LLM API（OpenAI / Claude）生成 Issue 修复建议，低置信度修复优先展示 AI 建议
+- [ ] **历史报告对比 `--history-compare`**：对比两次扫描结果，输出新增/已修复/持续存在的问题明细
+
+---
+
 ## 📋 版本迭代原则
 
 1. **每次迭代前**：先读取本 Roadmap 当前版本任务清单

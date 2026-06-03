@@ -8,9 +8,25 @@
  * 4. 团队治理追踪
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Issue, ScanResult } from "@/types.js";
+
+/** v2.8.0: 完整扫描报告（持久化到 history 目录） */
+export interface FullReport {
+    /** 报告时间戳 */
+    timestamp: number;
+    /** ISO 格式时间 */
+    timestampIso: string;
+    /** 扫描模块 */
+    module: string;
+    /** 完整 issues */
+    issues: Issue[];
+    /** 扫描结果统计 */
+    result: ScanResult;
+    /** git 信息 */
+    git?: { commit?: string; branch?: string };
+}
 
 export interface HistoryEntry {
     /** 扫描时间戳 */
@@ -60,10 +76,13 @@ export class HistoryReport {
     private historyDir: string;
     private historyFile: string;
     private entries: HistoryEntry[];
+    /** v2.8.0: 完整报告存储目录 */
+    private reportsDir: string;
 
     constructor(projectDir: string) {
         this.historyDir = resolve(projectDir, ".frontend-guardian");
         this.historyFile = resolve(this.historyDir, "history.json");
+        this.reportsDir = resolve(this.historyDir, "history");
         this.entries = this.loadEntries();
     }
 
@@ -168,6 +187,106 @@ export class HistoryReport {
     clear(): void {
         this.entries = [];
         this.save();
+    }
+
+    // ── v2.8.0: 完整报告持久化 ────────────────────────────────────────────
+
+    /**
+     * 保存完整扫描报告到 history/ 目录
+     * @param result 扫描结果
+     * @param allIssues 所有 issues
+     * @returns 保存的文件名
+     */
+    saveFullReport(result: ScanResult, allIssues: Issue[]): string {
+        const now = new Date();
+        const timestamp = now.getTime();
+        const timestampIso = now.toISOString();
+        const filename = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}.json`;
+
+        let git: FullReport["git"] = undefined;
+        try {
+            const { execSync } = require("node:child_process");
+            git = {
+                commit: execSync("git rev-parse --short HEAD", {
+                    cwd: this.historyDir.replace("/.frontend-guardian", ""),
+                    encoding: "utf-8",
+                    stdio: ["pipe", "pipe", "ignore"],
+                }).trim(),
+                branch: execSync("git branch --show-current", {
+                    cwd: this.historyDir.replace("/.frontend-guardian", ""),
+                    encoding: "utf-8",
+                    stdio: ["pipe", "pipe", "ignore"],
+                }).trim(),
+            };
+        } catch {
+            // 非 git 项目
+        }
+
+        const report: FullReport = {
+            timestamp,
+            timestampIso,
+            module: result.module,
+            issues: allIssues,
+            result,
+            git,
+        };
+
+        try {
+            if (!existsSync(this.reportsDir)) {
+                mkdirSync(this.reportsDir, { recursive: true });
+            }
+            writeFileSync(resolve(this.reportsDir, filename), JSON.stringify(report, null, 2), "utf-8");
+        } catch {
+            // 静默失败
+        }
+
+        return filename;
+    }
+
+    /**
+     * 列出所有完整报告
+     */
+    listReports(): Array<{ filename: string; timestamp: number; module: string; counts: { critical: number; warning: number; suggestion: number } }> {
+        try {
+            if (!existsSync(this.reportsDir)) return [];
+            const files = readdirSync(this.reportsDir)
+                .filter((f) => f.endsWith(".json"))
+                .sort()
+                .reverse();
+
+            return files.map((filename) => {
+                try {
+                    const raw = readFileSync(resolve(this.reportsDir, filename), "utf-8");
+                    const report = JSON.parse(raw) as FullReport;
+                    return {
+                        filename,
+                        timestamp: report.timestamp,
+                        module: report.module,
+                        counts: {
+                            critical: report.result.issues.critical.length,
+                            warning: report.result.issues.warning.length,
+                            suggestion: report.result.issues.suggestion.length,
+                        },
+                    };
+                } catch {
+                    return { filename, timestamp: 0, module: "unknown", counts: { critical: 0, warning: 0, suggestion: 0 } };
+                }
+            });
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * 加载指定完整报告
+     */
+    loadReport(filename: string): FullReport | null {
+        try {
+            const raw = readFileSync(resolve(this.reportsDir, filename), "utf-8");
+            return JSON.parse(raw) as FullReport;
+        } catch {
+            return null;
+        }
     }
 
     private loadEntries(): HistoryEntry[] {

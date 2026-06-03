@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v2.7.0**
+> **当前版本：v2.8.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -887,7 +887,13 @@ platform:
 
 ## 版本演进
 
-### v2.7.0 — 可扩展性与智能化（已交付）
+### v2.8.0 — 数据洞察与可视化（已交付，458 测试通过）
+
+- **扫描结果完整持久化 `--save-report`**：每次扫描保存完整的 issues 到 `.frontend-guardian/history/YYYYMMDD-HHmmss.json`，含问题详情、git 信息、扫描统计
+- **历史报告查询 `--history`**：查看历史扫描记录列表，支持 `--history-module <name>` 按模块过滤，`--history-limit <n>` 限制条数
+- **团队趋势看板 `--generate-dashboard`**：基于历史报告数据生成单文件 HTML 趋势页面（零外部依赖），含问题趋势折线图、模块分布饼图、严重级别柱状图、修复率统计、扫描历史表格。可直接浏览器打开或部署到静态托管
+
+### v2.7.0 — 可扩展性与智能化（已交付，453 测试通过）
 
 - **配置热重载（Watch 模式）**：`--watch` 启动时额外监听 `.frontend-guardian.yml` / `.frontend-guardian.yaml` / `.frontend-guardian.json` 配置文件变更，配置修改后自动清除缓存并重新全量扫描，无需重启进程
 - **规则插件系统 `extends: npm:package-name`**：配置文件支持 `extends: npm:frontend-guardian-plugin-*` 从 npm 包加载规则和配置。插件包导出 `{ config?: ProjectConfig, rules?: Rule[] }`，规则自动注册到引擎，配置与普通 `extends` 一样支持多级继承和合并
