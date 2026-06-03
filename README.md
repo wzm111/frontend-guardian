@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v3.3.0**
+> **当前版本：v3.4.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -886,6 +886,15 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.4.0 — 简单化重构（已交付）
+
+- **统一输出格式 UnifiedOutput**：AST 引擎 + Bash 补充引擎 + Knip 外部工具的结果合并为统一 JSON 结构，包含 `summary`、`modules`、`external` 三个顶层节点
+- **`full-scan.sh` 统一入口重构**：AST 引擎成为主要引擎（`fg-core --module all`），Bash scanner 降级为补充引擎但结果结构化解析后合并
+- **Bash scanner 结构化解析**：`parse_bash_to_json()` 将 Bash scanner 的文本输出（`❌ [file:line] message`）解析为结构化 Issue JSON，统一进入报告
+- **`--scan` CLI 参数**：`fg-core.js` 新增 `--scan` 作为 `--module all` 的别名，命令体系更直观
+- **SKILL.md 精简对齐**：7 个核心命令与实际 CLI 参数完全一致，删除过时描述
+- **Markdown 报告统一生成**：`generate_report()` 从 UnifiedOutput JSON 生成，同时包含 AST 和 Bash 引擎的问题
 
 ### v3.3.0 — IDE 集成（已交付，516 测试通过）
 

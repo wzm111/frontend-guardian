@@ -17,7 +17,6 @@
 - 检测到鸿蒙项目：`entry/src/main/ets/`、`hvigorfile.ts`
 - 检测到多端框架：`uni-app`、`taro`、`remax`、`flutter`、`react-native`
 - 用户询问 i18n、组件规范、hooks 最佳实践、多端适配相关问题
-- 用户需要在项目中初始化 AI 上下文文件（`--init-ai`）
 
 ## 技术栈检测
 
@@ -43,8 +42,11 @@ Skill 会自动检测项目类型并加载对应规则：
 
 ## 指令路由（7 个核心命令）
 
+所有命令通过 `full-scan.sh` 统一入口执行，结果自动合并 AST + Bash + Knip：
+
 ```
-# 1️⃣ 智能全量扫描
+# 1️⃣ 智能全量扫描（默认）
+/frontend-guardian
 /frontend-guardian --scan
 
 # 2️⃣ 提交前检查（仅 staged 文件）
@@ -56,8 +58,8 @@ Skill 会自动检测项目类型并加载对应规则：
 # 4️⃣ CI 门禁模式
 /frontend-guardian --scan --gate
 
-# 5️⃣ PR diff 检查
-/frontend-guardian --scan --diff main...feature
+# 5️⃣ JSON 统一输出（含 AST + Bash + Knip）
+/frontend-guardian --scan --json
 
 # 6️⃣ 初始化项目配置
 /frontend-guardian --init-config
@@ -65,15 +67,16 @@ Skill 会自动检测项目类型并加载对应规则：
 # 7️⃣ 安装 Git hook
 /frontend-guardian --install-hooks
 /frontend-guardian --install-hooks --install-hooks-type pre-push
-/frontend-guardian --install-hooks --install-hooks-type both
 ```
 
-### 单模块扫描
+### 单模块精细扫描
+
+如需只扫描特定模块（直接调用 AST 引擎，速度更快）：
 
 ```
-/frontend-guardian --module i18n            # i18n 治理（硬编码、缺失 key、死 key）
-/frontend-guardian --module component       # 组件医生（反模式、token、性能）
-/frontend-guardian --module hooks           # Hooks / Composables 检查
+/frontend-guardian --module i18n            # i18n 治理
+/frontend-guardian --module component       # 组件医生
+/frontend-guardian --module hooks           # Hooks / Composables
 /frontend-guardian --module platform        # 多端平台适配
 /frontend-guardian --module performance     # 性能优化
 /frontend-guardian --module security        # 安全扫描
@@ -129,16 +132,36 @@ Skill 会自动检测项目类型并加载对应规则：
 
 ## 输出格式
 
-终端输出包含：
+**终端输出**：
 1. 检测到的项目类型
 2. 各模块检查结果统计
 3. 按严重级别分组的问题列表
 4. 修复建议（含代码 diff）
-5. 报告文件路径
 
-Markdown 报告包含：
+**统一 JSON 输出**（`--json`）：
+```json
+{
+  "summary": {
+    "timestamp": "2026-06-03T10:00:00Z",
+    "project": "/path/to/project",
+    "stack": "React + Ant Design",
+    "totalFiles": 120,
+    "issuesBySeverity": { "critical": 3, "warning": 12, "suggestion": 5 },
+    "duration": 2340
+  },
+  "modules": {
+    "i18n": { "engine": "ast", "total": 8, "issues": { "critical": [...], ... } },
+    "i18n-治理": { "engine": "bash", "total": 3, "issues": { "critical": [...], ... } }
+  },
+  "external": {
+    "knip": { "unusedDeps": 3, "unusedExports": 5 }
+  }
+}
+```
+
+**Markdown 报告**：
 - 执行摘要与统计图表
-- 按文件分组的问题详情
+- 按引擎分组的问题详情（AST + Bash）
 - 自动修复代码片段
 - 修复优先级排序
 
