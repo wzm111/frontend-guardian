@@ -6,6 +6,7 @@
  * 2. 缓存持久化到 .frontend-guardian/cache.json
  * 3. 自动过期策略（默认 7 天）
  * 4. 兼容 --staged / --diff 增量模式
+ * 5. v3.2.0: AST 内存缓存 LRU 淘汰策略，防止大项目 OOM
  */
 
 import { createHash } from "node:crypto";
@@ -38,7 +39,9 @@ export interface CacheManifest {
 /** 缓存默认存活时间（7 天） */
 const DEFAULT_TTL = 7 * 24 * 60 * 60 * 1000;
 /** 引擎版本，规则变更时递增使缓存失效 */
-const ENGINE_VERSION = "2.0.0";
+const ENGINE_VERSION = "3.2.0";
+/** v3.2.0: AST 内存缓存默认最大条目数 */
+const DEFAULT_AST_CACHE_SIZE = 200;
 
 export class SmartCache {
     private manifest: CacheManifest;
@@ -47,11 +50,14 @@ export class SmartCache {
     private ttl: number;
     /** v2.1.0: 内存级 AST 缓存（无需持久化，进程内复用） */
     private astCache = new Map<string, { hash: string; ast: unknown }>();
+    /** v3.2.0: AST 缓存最大条目数 */
+    private maxAstCacheSize: number;
 
-    constructor(projectDir: string, ttl: number = DEFAULT_TTL) {
+    constructor(projectDir: string, ttl: number = DEFAULT_TTL, maxAstCacheSize?: number) {
         this.cacheDir = resolve(projectDir, ".frontend-guardian");
         this.cacheFile = resolve(this.cacheDir, "cache.json");
         this.ttl = ttl;
+        this.maxAstCacheSize = maxAstCacheSize ?? DEFAULT_AST_CACHE_SIZE;
         this.manifest = this.loadManifest();
     }
 
@@ -141,24 +147,50 @@ export class SmartCache {
 
     // ── v2.1.0: AST 内存缓存 ──────────────────────────────────────────────
 
-    /** 获取缓存的 AST（内存级，不持久化） */
+    /** 获取缓存的 AST（内存级，不持久化）— v3.2.0 增加 LRU 淘汰 */
     getAst(filePath: string, content: string): unknown | undefined {
         const cached = this.astCache.get(filePath);
         if (!cached) return undefined;
+
         const hash = SmartCache.computeHash(content);
         if (cached.hash !== hash) {
             this.astCache.delete(filePath);
             return undefined;
         }
+
+        // v3.2.0: LRU — 访问后移到末尾（最新）
+        this.astCache.delete(filePath);
+        this.astCache.set(filePath, cached);
+
         return cached.ast;
     }
 
-    /** 缓存 AST 解析结果 */
+    /** 缓存 AST 解析结果 — v3.2.0 增加 LRU 淘汰 */
     setAst(filePath: string, content: string, ast: unknown): void {
+        // v3.2.0: 超出上限时淘汰最久未访问的条目（Map 头部）
+        if (this.astCache.size >= this.maxAstCacheSize && !this.astCache.has(filePath)) {
+            const firstKey = this.astCache.keys().next().value as string | undefined;
+            if (firstKey) {
+                this.astCache.delete(firstKey);
+            }
+        }
+
+        // 删除旧条目（如果存在），然后重新插入到末尾（最新）
+        this.astCache.delete(filePath);
         this.astCache.set(filePath, {
             hash: SmartCache.computeHash(content),
             ast,
         });
+    }
+
+    /** v3.2.0: 获取 AST 缓存当前大小 */
+    getAstCacheSize(): number {
+        return this.astCache.size;
+    }
+
+    /** v3.2.0: 获取 AST 缓存上限 */
+    getAstCacheLimit(): number {
+        return this.maxAstCacheSize;
     }
 
     /** 清理过期缓存 */

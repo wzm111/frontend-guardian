@@ -30,6 +30,7 @@ export type {
 } from "./types.js";
 
 export { parseAST, getImports, hasImport, walkAST } from "./utils/ast-parser.js";
+export { getAdaptiveConcurrency } from "./utils/concurrent.js";
 export { detectProjectMeta } from "./utils/project-detector.js";
 export { loadConfig } from "./utils/config-loader.js";
 export { initConfig, generateDefaultConfig } from "./utils/init-config.js";

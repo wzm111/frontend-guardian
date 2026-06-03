@@ -39,7 +39,7 @@ import { runAllExternalTools } from "@/integrations/index.js";
 import { SmartCache } from "./cache.js";
 import { HistoryReport } from "@/utils/history-report.js";
 import { runFormat } from "@/integrations/formatter.js";
-import { concurrentMap, getDefaultConcurrency } from "@/utils/concurrent.js";
+import { concurrentMap, getDefaultConcurrency, getAdaptiveConcurrency } from "@/utils/concurrent.js";
 
 export interface EngineOptions {
     /** 项目根目录 */
@@ -74,6 +74,8 @@ export interface EngineOptions {
     skipLargeFilesThreshold?: number;
     /** v2.6.0: 外部传入的 SmartCache 实例（用于 Watch 模式复用缓存） */
     cacheInstance?: SmartCache;
+    /** v3.2.0: 增量扫描时通过 import 图分析扩展扫描范围（变更文件及其依赖方） */
+    incrementalImportGraph?: boolean;
 }
 
 export class RuleEngine {
@@ -201,8 +203,8 @@ export class RuleEngine {
 
         console.log(pc.blue(`🔍 [${module}] 扫描 ${files.length} 个文件，${activeRules.length} 条规则...`));
 
-        // v2.1.0: 受控并发并行扫描
-        const concurrency = this.options.concurrency ?? getDefaultConcurrency();
+        // v3.2.0: 自适应并发 — 根据文件数、规则数和 CPU 动态调整
+        const concurrency = this.options.concurrency ?? getAdaptiveConcurrency(files.length, activeRules.length);
         const fileResults = await concurrentMap(files, concurrency, (file) =>
             this.scanFile(file, activeRules)
         );
@@ -347,7 +349,17 @@ export class RuleEngine {
             }
             // 过滤出符合扩展名的文件
             const include = this.config.scan?.includeExtensions || [".js", ".ts", ".jsx", ".tsx", ".vue"];
-            const filtered = diffFiles.filter((f) => include.some((ext) => f.endsWith(ext)));
+            let filtered = diffFiles.filter((f) => include.some((ext) => f.endsWith(ext)));
+
+            // v3.2.0: 通过 import 图分析扩展扫描范围
+            if (this.options.incrementalImportGraph !== false && filtered.length > 0 && filtered.length < 500) {
+                const expanded = this.expandIncrementalFiles(filtered, include);
+                if (expanded.length > filtered.length) {
+                    console.log(pc.cyan(`   📎 import 图扩展: ${filtered.length} → ${expanded.length} 个文件`));
+                    filtered = expanded;
+                }
+            }
+
             if (this.options.autoScope && filtered.length > 0) {
                 console.log(pc.cyan(`🔍 智能扫描范围: ${filtered.length} 个文件`));
             }
@@ -450,6 +462,145 @@ export class RuleEngine {
             }
 
             return Array.from(files);
+        } catch {
+            return [];
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // v3.2.0: 增量扫描 import 图分析
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * 构建项目的 import 图（简化版）
+     * 对于每个文件，解析其 import 语句，建立双向映射：
+     * - importMap: file → 它导入的文件集合
+     * - reverseMap: file → 导入它的文件集合
+     *
+     * 简化策略：只解析相对路径 import（./ 或 ../），不解析 node_modules。
+     * 因为增量扫描的核心场景是：修改一个内部模块后，哪些文件会受影响。
+     */
+    private buildImportGraph(files: string[]): {
+        importMap: Map<string, Set<string>>;
+        reverseMap: Map<string, Set<string>>;
+    } {
+        const importMap = new Map<string, Set<string>>();
+        const reverseMap = new Map<string, Set<string>>();
+
+        for (const file of files) {
+            importMap.set(file, new Set());
+        }
+
+        for (const file of files) {
+            try {
+                const source = readFileSync(file, "utf-8");
+                // 简单正则提取相对路径 import（不依赖 AST，速度更快）
+                const importRegex = /import\s+.*?\s+from\s+['"](\.\.?\/[^'"]+)['"]|import\s*\(\s*['"](\.\.?\/[^'"]+)['"]\s*\)/g;
+                let match: RegExpExecArray | null;
+                while ((match = importRegex.exec(source)) !== null) {
+                    const importPath = match[1] || match[2];
+                    if (!importPath) continue;
+
+                    // 解析相对路径为绝对路径
+                    const { resolve: pathResolve, dirname } = require("node:path");
+                    let resolved = pathResolve(dirname(file), importPath);
+
+                    // 尝试补充扩展名
+                    const exts = [".ts", ".tsx", ".js", ".jsx", ".vue"];
+                    let found = false;
+                    for (const ext of exts) {
+                        if (files.includes(resolved + ext)) {
+                            resolved = resolved + ext;
+                            found = true;
+                            break;
+                        }
+                        // 支持目录下的 index 文件
+                        if (files.includes(pathResolve(resolved, "index" + ext))) {
+                            resolved = pathResolve(resolved, "index" + ext);
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (found) {
+                        importMap.get(file)?.add(resolved);
+                        if (!reverseMap.has(resolved)) {
+                            reverseMap.set(resolved, new Set());
+                        }
+                        reverseMap.get(resolved)!.add(file);
+                    }
+                }
+            } catch {
+                // 读取失败则跳过
+            }
+        }
+
+        return { importMap, reverseMap };
+    }
+
+    /**
+     * 基于 import 图扩展增量扫描文件列表
+     * 除变更文件本身外，还扫描所有导入这些文件的文件（上游依赖方）。
+     *
+     * 原理：如果 A 被 B import，A 修改后 B 的语义可能变化（如 A 导出的类型、常量变更）。
+     * 因此 B 也需要重新扫描。
+     */
+    private expandIncrementalFiles(changedFiles: string[], includeExts: string[]): string[] {
+        try {
+            // 1. 获取项目内所有候选文件（用于构建 import 图）
+            const allFiles = this.getAllSourceFilesSync(includeExts);
+            if (allFiles.length > 5000) {
+                // 超大项目：import 图构建成本高，跳过扩展
+                return changedFiles;
+            }
+
+            // 2. 构建 import 图
+            const { reverseMap } = this.buildImportGraph(allFiles);
+
+            // 3. 收集变更文件及其所有导入方
+            const expanded = new Set(changedFiles);
+            const queue = [...changedFiles];
+            const visited = new Set(changedFiles);
+
+            while (queue.length > 0) {
+                const current = queue.shift()!;
+                const importers = reverseMap.get(current);
+                if (!importers) continue;
+
+                for (const importer of importers) {
+                    if (!visited.has(importer)) {
+                        visited.add(importer);
+                        expanded.add(importer);
+                        queue.push(importer);
+                    }
+                }
+            }
+
+            return Array.from(expanded);
+        } catch {
+            return changedFiles;
+        }
+    }
+
+    /** 同步获取项目内所有源文件（用于 import 图构建） */
+    private getAllSourceFilesSync(includeExts: string[]): string[] {
+        try {
+            const { globbySync } = require("globby");
+            const patterns = includeExts.map((ext) => `**/*${ext}`);
+            const exclude = [
+                "**/node_modules/**",
+                "**/dist/**",
+                "**/build/**",
+                "**/.git/**",
+                "**/coverage/**",
+                ...(this.options.exclude || []),
+                ...(this.config.scan?.excludeDirs?.map((d) => `**/${d}/**`) || []),
+            ];
+            return globbySync(patterns, {
+                cwd: this.options.projectDir,
+                ignore: exclude,
+                absolute: true,
+            });
         } catch {
             return [];
         }
