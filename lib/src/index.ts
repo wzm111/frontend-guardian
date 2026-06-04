@@ -128,4 +128,15 @@ export type { DiagnosticResult, IncrementalDiagnosticOptions } from "./ide/incre
 export { runLSPServer } from "./ide/lsp-server.js";
 export type { LSPServerOptions } from "./ide/lsp-server.js";
 
+// v3.5.0: Enterprise team collaboration
+export { CodeownersParser, findCodeowners, parseCodeowners, loadCodeowners, matchOwner } from "./utils/codeowners.js";
+export type { CodeownersEntry, CodeownersResult } from "./utils/codeowners.js";
+export {
+    sendNotifications,
+    detectNotificationConfig,
+    buildNotificationPayload,
+} from "./utils/notification.js";
+export type { NotificationConfig, NotificationPayload, NotificationResult } from "./utils/notification.js";
+export { downloadBaseline, loadBaselineAsync } from "./utils/baseline.js";
+
 export { getFileExt, getJSXTagName } from "./utils/common.js";

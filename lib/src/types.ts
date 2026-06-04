@@ -53,6 +53,8 @@ export interface Issue {
     fix?: Fix;
     /** 规则文档链接（终端可点击跳转） */
     docsUrl?: string;
+    /** 责任人（从 CODEOWNERS 推断） */
+    assignee?: string;
     /** Additional metadata */
     meta?: Record<string, unknown>;
 }

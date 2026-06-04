@@ -12,8 +12,10 @@
  * 3. 定期刷新：删除 baseline 重新生成（清理已修复的遗留问题）
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { resolve, basename } from "node:path";
+import { createHash } from "node:crypto";
+import pc from "picocolors";
 import type { Issue } from "@/types.js";
 
 /** Baseline 文件格式 */
@@ -62,6 +64,78 @@ function issueKey(issue: { file: string; ruleId: string; line: number; column?: 
     return `${issue.file}|${issue.ruleId}|${issue.line}|${col}`;
 }
 
+/** 判断路径是否为远程 URL */
+function isRemoteUrl(path: string): boolean {
+    return path.startsWith("http://") || path.startsWith("https://");
+}
+
+/** 获取远程 baseline 的本地缓存路径 */
+function getCachedBaselinePath(url: string, cacheDir: string): string {
+    const hash = createHash("sha256").update(url).digest("hex").slice(0, 16);
+    const name = basename(url) || "baseline";
+    return resolve(cacheDir, `${name}.${hash}.json`);
+}
+
+/** 下载远程 baseline */
+export async function downloadBaseline(
+    url: string,
+    cacheDir?: string
+): Promise<{ data: BaselineFile; cached: boolean; error?: string }> {
+    const dir = cacheDir || resolve(process.cwd(), ".fg-cache");
+    const cachePath = getCachedBaselinePath(url, dir);
+
+    // 检查本地缓存（1 小时 TTL）
+    if (existsSync(cachePath)) {
+        const stat = readFileSync(cachePath, "utf-8");
+        try {
+            const cached = JSON.parse(stat) as { _downloadedAt: number; data: BaselineFile };
+            const age = Date.now() - (cached._downloadedAt || 0);
+            if (age < 3600_000) {
+                return { data: cached.data, cached: true };
+            }
+        } catch {
+            // 缓存格式错误，继续下载
+        }
+    }
+
+    try {
+        const response = await fetch(url, { redirect: "follow" });
+        if (!response.ok) {
+            return {
+                data: { version: "1.0", generatedAt: Date.now(), issues: [] },
+                cached: false,
+                error: `HTTP ${response.status}: ${response.statusText}`,
+            };
+        }
+        const data = (await response.json()) as BaselineFile;
+        if (!data.version || !Array.isArray(data.issues)) {
+            return {
+                data: { version: "1.0", generatedAt: Date.now(), issues: [] },
+                cached: false,
+                error: "Invalid baseline format",
+            };
+        }
+
+        // 写入缓存
+        if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+        }
+        writeFileSync(
+            cachePath,
+            JSON.stringify({ _downloadedAt: Date.now(), data }, null, 2),
+            "utf-8"
+        );
+
+        return { data, cached: false };
+    } catch (err) {
+        return {
+            data: { version: "1.0", generatedAt: Date.now(), issues: [] },
+            cached: false,
+            error: String(err),
+        };
+    }
+}
+
 /** 将 Issue 精简为 BaselineIssue */
 export function toBaselineIssue(issue: Issue): BaselineIssue {
     return {
@@ -74,7 +148,7 @@ export function toBaselineIssue(issue: Issue): BaselineIssue {
     };
 }
 
-/** 加载 baseline 文件 */
+/** 加载本地 baseline 文件（同步） */
 export function loadBaseline(filePath: string): BaselineFile | null {
     try {
         if (!existsSync(filePath)) {
@@ -82,7 +156,6 @@ export function loadBaseline(filePath: string): BaselineFile | null {
         }
         const raw = readFileSync(filePath, "utf-8");
         const data = JSON.parse(raw) as BaselineFile;
-        // 版本校验
         if (!data.version || !Array.isArray(data.issues)) {
             return null;
         }
@@ -92,16 +165,37 @@ export function loadBaseline(filePath: string): BaselineFile | null {
     }
 }
 
+/**
+ * 加载 baseline（支持本地路径或远程 URL）
+ * @param filePath 本地文件路径或远程 URL
+ * @param cacheDir 远程 baseline 缓存目录（可选，默认 .fg-cache）
+ */
+export async function loadBaselineAsync(
+    filePath: string,
+    cacheDir?: string
+): Promise<BaselineFile | null> {
+    if (isRemoteUrl(filePath)) {
+        const result = await downloadBaseline(filePath, cacheDir);
+        if (result.error) {
+            console.warn(`⚠️  远程 baseline 加载失败: ${result.error}`);
+        }
+        return result.data;
+    }
+    return loadBaseline(filePath);
+}
+
 /** 保存 baseline 文件 */
 export function saveBaseline(
     filePath: string,
-    issues: Issue[],
+    issues: Issue[] | BaselineIssue[],
     meta?: BaselineFile["meta"]
 ): void {
     const baseline: BaselineFile = {
         version: "1.0",
         generatedAt: Date.now(),
-        issues: issues.map(toBaselineIssue),
+        issues: issues.map((i) =>
+            "description" in i ? toBaselineIssue(i as Issue) : (i as BaselineIssue)
+        ),
         meta: {
             toolVersion: "2.3.0",
             ...meta,
@@ -177,16 +271,59 @@ export function generateBaseline(
 
 /**
  * BaselineManager — 面向对象的封装
+ *
+ * 支持本地 baseline 文件或远程团队共享 baseline URL。
+ * 远程 baseline 会自动下载并缓存到本地（1 小时 TTL）。
  */
 export class BaselineManager {
     private baselinePath: string;
     private projectDir: string;
     private baseline: BaselineFile | null = null;
+    private teamBaselineUrl?: string;
+    private cacheDir: string;
 
-    constructor(baselinePath: string, projectDir: string) {
-        this.baselinePath = resolve(projectDir, baselinePath);
+    constructor(
+        baselinePath: string,
+        projectDir: string,
+        options?: { teamBaselineUrl?: string; cacheDir?: string }
+    ) {
+        this.teamBaselineUrl = options?.teamBaselineUrl;
+        this.cacheDir = options?.cacheDir || resolve(projectDir, ".fg-cache");
         this.projectDir = projectDir;
+
+        if (this.teamBaselineUrl) {
+            // 远程 baseline：缓存路径作为本地存储
+            this.baselinePath = getCachedBaselinePath(this.teamBaselineUrl, this.cacheDir);
+        } else {
+            this.baselinePath = resolve(projectDir, baselinePath);
+        }
+
         this.baseline = loadBaseline(this.baselinePath);
+    }
+
+    /**
+     * 异步初始化（用于加载远程 baseline）
+     * 若配置了 teamBaselineUrl，会下载并缓存远程 baseline。
+     * 下载失败时回退到本地 baseline（如果存在）。
+     */
+    async init(): Promise<void> {
+        if (!this.teamBaselineUrl) {
+            return;
+        }
+        const result = await downloadBaseline(this.teamBaselineUrl, this.cacheDir);
+        if (result.error) {
+            console.warn(
+                pc.yellow(`⚠️  团队 baseline 下载失败: ${result.error}，回退到本地 baseline`)
+            );
+            // 回退：尝试加载已缓存的本地 baseline（即使过期）
+            this.baseline = loadBaseline(this.baselinePath);
+            return;
+        }
+        // 将下载的 baseline 写入缓存路径
+        saveBaseline(this.baselinePath, result.data.issues, result.data.meta);
+        this.baseline = result.data;
+        const source = result.cached ? "缓存" : "远程";
+        console.log(pc.blue(`📥 团队 baseline 已加载（${source}）：${this.teamBaselineUrl}`));
     }
 
     /** 是否已加载有效的 baseline */
@@ -213,5 +350,10 @@ export class BaselineManager {
     /** 获取 baseline 文件路径 */
     getPath(): string {
         return this.baselinePath;
+    }
+
+    /** 获取团队 baseline URL（如配置） */
+    getTeamBaselineUrl(): string | undefined {
+        return this.teamBaselineUrl;
     }
 }

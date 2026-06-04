@@ -118,6 +118,15 @@ Skill 会自动检测项目类型并加载对应规则：
 # Baseline 模式（仅报告新增问题）
 /frontend-guardian --scan --baseline baseline.json
 
+# 团队共享 baseline（远程 URL）
+/frontend-guardian --scan --team-baseline https://team.example.com/baseline.json
+
+# 扫描后发送通知（飞书/钉钉/企业微信/Slack）
+/frontend-guardian --scan --notify
+
+# 为 issue 推断责任人（CODEOWNERS）
+/frontend-guardian --scan --assign
+
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
 ```

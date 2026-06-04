@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v3.4.0**
+> **当前版本：v3.5.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -886,6 +886,12 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.5.0 — 企业级团队协作（已交付，532 测试通过）
+
+- **团队共享 baseline `--team-baseline`**：支持从远程 URL 加载团队 baseline（如 `https://team.example.com/baseline.json`），自动缓存到本地（1 小时 TTL），下载失败时回退到本地 baseline 或全量报告
+- **扫描结果通知 `--notify`**：扫描完成后通过 webhook 发送通知到飞书、钉钉、企业微信、Slack。支持环境变量自动检测（`FG_NOTIFY_*`），发送内容包含问题分布、关键问题 top 5、门禁状态
+- **问题责任人指派 `--assign`**：自动解析目标项目根目录的 `CODEOWNERS` 文件（支持 `.github/CODEOWNERS`、`CODEOWNERS`、`docs/CODEOWNERS`），按 GitHub glob 匹配规则为每个 issue 推断 `assignee`，后续规则覆盖前面规则
 
 ### v3.4.0 — 简单化重构（已交付）
 
