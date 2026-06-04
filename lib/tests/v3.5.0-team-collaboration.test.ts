@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { createServer } from "node:http";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -233,10 +234,21 @@ describe("v3.5.0 — Enterprise Team Collaboration", () => {
         });
 
         it("should return fallback baseline on HTTP error", async () => {
-            // Using a URL that returns 404
-            const result = await downloadBaseline("https://httpbin.org/status/404");
-            expect(result.error).toContain("HTTP 404");
-            expect(result.data.issues).toEqual([]);
+            // Use a local mock server that returns 404
+            const mockServer = createServer((req, res) => {
+                res.writeHead(404, { "Content-Type": "text/plain" });
+                res.end("Not Found");
+            });
+            const port = 15000 + Math.floor(Math.random() * 1000);
+            await new Promise<void>((resolve) => mockServer.listen(port, resolve));
+
+            try {
+                const result = await downloadBaseline(`http://localhost:${port}/baseline.json`);
+                expect(result.error).toContain("HTTP 404");
+                expect(result.data.issues).toEqual([]);
+            } finally {
+                mockServer.close();
+            }
         });
 
         it("loadBaselineAsync should support local file", async () => {

@@ -134,6 +134,14 @@ Skill 会自动检测项目类型并加载对应规则：
 # 生成合规报告（SOC2 / ISO27001 风格）
 /frontend-guardian --scan --compliance compliance-report.md
 
+# 扫描后上报到治理看板服务器
+/frontend-guardian --scan --server http://localhost:3456
+
+# 启动治理看板服务端
+/frontend-guardian --serve
+# 或独立启动
+fg-server --port 3456 --cors "*"
+
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
 ```

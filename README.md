@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v3.5.1**
+> **当前版本：v3.5.2**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -330,6 +330,8 @@ fg-core . --scan --post-comment
 | `--baseline <file>` | Baseline 模式：仅报告新增问题 | - |
 | `--generate-baseline` | 生成 baseline 文件 | - |
 | `--output <file>` | 将扫描报告写入指定 Markdown 文件 | - |
+| `--server <url>` | 扫描后上报到治理看板服务器 | - |
+| `--serve` | 扫描前启动本地看板服务（扫描完成后停止） | - |
 | `--upload` | 上传报告（需配置 FG_UPLOAD_PROVIDER 环境变量） | - |
 | `--interactive` | 交互式修复（逐条确认，类似 `git add -p`） | false |
 | `--skip-large-files-threshold <bytes>` | 大文件跳过阈值（默认 512000 = 500KB，0 表示不跳过） | 512000 |
@@ -886,6 +888,13 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.5.2 — 治理看板服务端（已交付，559 测试通过）
+
+- **治理看板服务端 `fg-server`**: 零外部依赖的 HTTP 服务器（基于 `node:http`），用于集中收集多项目扫描数据。支持 `--port` / `--data-dir` / `--cors` / `--auth-token` 参数。提供 REST API: `POST /api/reports`（接收扫描结果）、`GET /api/projects`（项目列表）、`GET /api/projects/:id/trends`（趋势数据）、`GET /api/projects/:id/latest`（最新报告），以及 Web 看板首页 `/`
+- **CLI 上报 `--server <url>`**: `fg-core ./project --scan --server http://localhost:3456` 扫描后自动上报到看板服务器。支持 `--serve` 快捷方式（使用默认 localhost:3456）
+- **Web 看板 SPA**: 零外部依赖的纯前端看板，AJAX 加载数据，Canvas 绘制趋势折线图、严重级别柱状图。支持多项目切换、30 秒自动刷新
+- **环境变量自动检测**: `FG_DASHBOARD_SERVER` 和 `FG_DASHBOARD_TOKEN` 支持自动配置上报目标
 
 ### v3.5.1 — 扫描策略分级 + 合规报告（已交付，546 测试通过）
 

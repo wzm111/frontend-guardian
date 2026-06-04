@@ -1,6 +1,6 @@
 {
     "name": "frontend-guardian-core",
-    "version": "3.5.1",
+    "version": "3.5.2",
     "description": "Core analysis engine for frontend-guardian — AST-based scanning and auto-fixing",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -13,7 +13,8 @@
     },
     "bin": {
         "fg-core": "bin/fg-core.js",
-        "fg-lsp": "bin/fg-lsp.js"
+        "fg-lsp": "bin/fg-lsp.js",
+        "fg-server": "bin/fg-server.js"
     },
     "files": [
         "dist",

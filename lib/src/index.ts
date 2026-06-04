@@ -156,3 +156,23 @@ export type {
 } from "./utils/compliance.js";
 
 export { getFileExt, getJSXTagName } from "./utils/common.js";
+
+// v3.5.2: Governance Dashboard Server
+export { DashboardServer } from "./server/dashboard-server.js";
+export type {
+    DashboardProject,
+    DashboardReport,
+    DashboardServerOptions,
+    ReportPayload,
+    TrendPoint,
+} from "./server/dashboard-server.js";
+export { generateDashboardHtml } from "./server/dashboard-html.js";
+export {
+    uploadToDashboardServer,
+    detectDashboardConfig,
+} from "./utils/dashboard-client.js";
+export type {
+    DashboardClientConfig,
+    DashboardUploadResult,
+    DashboardReportPayload,
+} from "./utils/dashboard-client.js";
