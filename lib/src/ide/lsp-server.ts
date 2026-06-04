@@ -8,12 +8,10 @@
  * 启动方式: node bin/fg-lsp.js --stdio
  */
 
+import { createConnection, ProposedFeatures } from "vscode-languageserver/node";
 import {
-    createConnection,
     TextDocuments,
-    ProposedFeatures,
     TextDocumentSyncKind,
-    type Connection,
     type InitializeParams,
     type InitializeResult,
     type TextDocumentChangeEvent,

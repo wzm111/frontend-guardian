@@ -39,7 +39,7 @@ import { runAllExternalTools } from "@/integrations/index.js";
 import { SmartCache } from "./cache.js";
 import { HistoryReport } from "@/utils/history-report.js";
 import { runFormat } from "@/integrations/formatter.js";
-import { concurrentMap, getDefaultConcurrency, getAdaptiveConcurrency } from "@/utils/concurrent.js";
+import { concurrentMap, getAdaptiveConcurrency } from "@/utils/concurrent.js";
 
 export interface EngineOptions {
     /** 项目根目录 */

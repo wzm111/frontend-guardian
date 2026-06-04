@@ -42,7 +42,6 @@ export interface IncrementalDiagnosticOptions {
  */
 export class IncrementalDiagnostic {
     private engine: RuleEngine;
-    private projectDir: string;
     /** 文件内容缓存：filePath → content */
     private contentCache = new Map<string, string>();
     /** 诊断结果缓存：filePath → Issue[] */
@@ -52,8 +51,6 @@ export class IncrementalDiagnostic {
     private cacheMisses = 0;
 
     constructor(options: IncrementalDiagnosticOptions) {
-        this.projectDir = options.projectDir;
-
         const engineOptions: EngineOptions = {
             projectDir: options.projectDir,
             minSeverity: options.minSeverity,
