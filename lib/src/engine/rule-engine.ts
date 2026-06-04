@@ -76,6 +76,8 @@ export interface EngineOptions {
     cacheInstance?: SmartCache;
     /** v3.2.0: 增量扫描时通过 import 图分析扩展扫描范围（变更文件及其依赖方） */
     incrementalImportGraph?: boolean;
+    /** v3.5.0: 扫描策略分级 strict | standard | loose */
+    strategy?: "strict" | "standard" | "loose";
 }
 
 export class RuleEngine {
@@ -94,6 +96,13 @@ export class RuleEngine {
 
         // Phase 3: 从配置加载规则覆盖和自定义规则
         this.loadConfigRules();
+
+        // v3.5.0: 应用扫描策略（配置文件的 strategy 或 CLI 参数）
+        const strategy = options.strategy ?? this.config.strategy ?? "standard";
+        if (strategy !== "standard") {
+            this.registry.applyStrategy(strategy);
+            console.log(pc.blue(`⚙️  扫描策略: ${strategy}`));
+        }
 
         // Phase 5: 初始化智能缓存
         if (options.cache !== false) {

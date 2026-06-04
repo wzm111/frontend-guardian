@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v3.5.0**
+> **当前版本：v3.5.1**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -886,6 +886,11 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.5.1 — 扫描策略分级 + 合规报告（已交付，546 测试通过）
+
+- **扫描策略分级 `--strategy strict|standard|loose`**：`strict` 启用所有规则（包括默认禁用的）；`standard` 保持默认行为；`loose` 禁用所有 `suggestion` 级别规则。策略通过 `RuleRegistry.applyStrategy()` 实现，与配置文件中的 `strategy` 字段联动
+- **合规报告 `--compliance <file>`**：生成 SOC2 / ISO27001 / WCAG 风格的代码质量合规报告。内置规则到控制项的映射表（如 `security-xss-vulnerable` → SOC2-CC7.1），输出包含执行摘要、合规评分（0-100）、不符合项清单、整改建议与优先级、控制项映射参考
 
 ### v3.5.0 — 企业级团队协作（已交付，532 测试通过）
 

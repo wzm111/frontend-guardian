@@ -139,4 +139,20 @@ export {
 export type { NotificationConfig, NotificationPayload, NotificationResult } from "./utils/notification.js";
 export { downloadBaseline, loadBaselineAsync } from "./utils/baseline.js";
 
+// v3.5.0: Compliance report
+export {
+    generateComplianceReport,
+    complianceReportToMarkdown,
+    saveComplianceReport,
+    getComplianceMapping,
+    registerComplianceMapping,
+} from "./utils/compliance.js";
+export type {
+    ComplianceControl,
+    ComplianceFinding,
+    ComplianceRecommendation,
+    ComplianceReport,
+    RuleComplianceMapping,
+} from "./utils/compliance.js";
+
 export { getFileExt, getJSXTagName } from "./utils/common.js";

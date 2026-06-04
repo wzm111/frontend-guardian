@@ -10,7 +10,7 @@
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Rule, RuleConfig, RuleCategory, Severity } from "@/types.js";
+import type { Rule, RuleConfig, RuleCategory, Severity, ScanStrategy } from "@/types.js";
 import pc from "picocolors";
 
 /** 规则注册中心 */
@@ -158,6 +158,9 @@ export class RuleRegistry {
             const rule = this.getRule(id);
             if (!rule) continue;
 
+            // 默认禁用的规则（显式 false），除非配置显式启用，否则跳过
+            if (rule.defaultEnabled === false && override?.enabled !== true) continue;
+
             if (category && rule.category !== category) continue;
 
             result.push(rule);
@@ -194,6 +197,35 @@ export class RuleRegistry {
     /** 清除所有自定义规则 */
     clearCustomRules(): void {
         this.customRules.clear();
+    }
+
+    /**
+     * v3.5.0: 应用扫描策略分级
+     * - strict:  启用所有规则（包括默认禁用的），severity 不降级
+     * - standard: 默认行为，无额外覆盖
+     * - loose:   禁用所有 suggestion 级别规则
+     */
+    applyStrategy(strategy: ScanStrategy): void {
+        if (strategy === "strict") {
+            for (const [id, rule] of this.builtInRules) {
+                if (!rule.defaultEnabled) {
+                    this.configOverrides.set(id, { id, enabled: true });
+                }
+            }
+        } else if (strategy === "loose") {
+            for (const [id, rule] of this.builtInRules) {
+                if (rule.severity === "suggestion") {
+                    this.configOverrides.set(id, { id, enabled: false });
+                }
+            }
+            // 同时禁用 security 和 accessibility 中标记为 suggestion 的规则
+            for (const [id, rule] of this.customRules) {
+                if (rule.severity === "suggestion") {
+                    this.configOverrides.set(id, { id, enabled: false });
+                }
+            }
+        }
+        // standard: 不做任何额外覆盖
     }
 
     /** ───────────────────────────────────────────────────────────────────────── */

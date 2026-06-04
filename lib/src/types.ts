@@ -3,6 +3,7 @@
  */
 
 export type Severity = "critical" | "warning" | "suggestion";
+export type ScanStrategy = "strict" | "standard" | "loose";
 export type Platform =
     | "pc"
     | "h5"
@@ -235,6 +236,8 @@ export interface ProjectConfig {
     customRules?: CustomRuleConfig[];
     /** v2.7.0: 从 npm 插件包加载的规则（内部使用，不写入配置文件） */
     __pluginRules?: Rule[];
+    /** v3.5.0: 扫描策略分级 strict | standard | loose */
+    strategy?: ScanStrategy;
 }
 
 export interface I18nConfig {

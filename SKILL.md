@@ -127,6 +127,13 @@ Skill 会自动检测项目类型并加载对应规则：
 # 为 issue 推断责任人（CODEOWNERS）
 /frontend-guardian --scan --assign
 
+# 扫描策略分级（strict / standard / loose）
+/frontend-guardian --scan --strategy strict
+/frontend-guardian --scan --strategy loose
+
+# 生成合规报告（SOC2 / ISO27001 风格）
+/frontend-guardian --scan --compliance compliance-report.md
+
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
 ```
