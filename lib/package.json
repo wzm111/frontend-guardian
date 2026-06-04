@@ -12,8 +12,8 @@
         }
     },
     "bin": {
-        "fg-core": "./bin/fg-core.js",
-        "fg-lsp": "./bin/fg-lsp.js"
+        "fg-core": "bin/fg-core.js",
+        "fg-lsp": "bin/fg-lsp.js"
     },
     "files": [
         "dist",
