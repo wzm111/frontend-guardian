@@ -44,11 +44,17 @@ npm run format
 npm run check
 ```
 
-Running the CLI locally:
+Running the CLI locally (must `npm run build` first since bins import from `../dist/index.js`):
 
 ```bash
-# AST engine directly
+# AST engine
 node bin/fg-core.js ./my-project --module all --json
+
+# LSP server (IDE integration)
+node bin/fg-lsp.js --stdio
+
+# Dashboard server (governance dashboard)
+node bin/fg-server.js --port 3456
 
 # Unified entry (AST + Bash + Knip merged)
 bash scripts/full-scan.sh --scan --json
@@ -83,6 +89,12 @@ bash scripts/full-scan.sh --scan --json
 - **`lsp-server.ts`** — LSP server implementation (launched via `fg-lsp --stdio`). Uses `vscode-languageserver`.
 - **`incremental-diagnostic.ts`** — Single-file diagnostic engine for IDE real-time feedback. Targets <100ms per file.
 
+### Governance Dashboard Server (`lib/src/server/`)
+
+- **`dashboard-server.ts`** — Zero-dependency HTTP server (`node:http` only) that collects multi-project scan results. REST API endpoints: `POST /api/reports`, `GET /api/projects`, `GET /api/projects/:id/trends`, `GET /api/projects/:id/latest`. Data stored in `~/.frontend-guardian-server/` as JSON files (`projects.json` index + `reports/{projectId}/{timestamp}.json`).
+- **`dashboard-html.ts`** — Generates the web dashboard SPA (pure JS + Canvas charts, AJAX loading from API endpoints, 30s auto-refresh).
+- **`dashboard-client.ts`** — CLI client that uploads scan results to the dashboard server. Auto-detects `FG_DASHBOARD_SERVER` and `FG_DASHBOARD_TOKEN` env vars.
+
 ### Unified Output (v3.4.0)
 
 `full-scan.sh` parses Bash scanner text output into structured JSON and merges it with AST engine JSON and Knip JSON into a single `UnifiedOutput`:
@@ -98,18 +110,19 @@ bash scripts/full-scan.sh --scan --json
 ## TypeScript Configuration
 
 - `lib/tsconfig.json` — `module: NodeNext`, `moduleResolution: NodeNext`, `target: ES2022`.
-- Path mapping: `@/*` → `src/*`.
+- Path mapping: `@/*` → `src/*`, `@engine/*` → `src/engine/*`, `@scanners/*` → `src/scanners/*`, `@fixers/*` → `src/fixers/*`, `@reporters/*` → `src/reporters/*`, `@utils/*` → `src/utils/*`.
 - `noUnusedLocals: true` — unused variables cause build failure.
 - `declaration: true` — builds `.d.ts` files into `dist/`.
 
 ## Important Notes
 
-- **Two version strings to keep in sync**: `lib/package.json` and `lib/bin/fg-core.js` (help text).
+- **Three version strings to keep in sync**: `lib/package.json`, `lib/bin/fg-core.js` (help text), `lib/bin/fg-server.js` (help text), and `lib/bin/fg-lsp.js` (help text).
 - **Tests live in `lib/tests/`** and use vitest with `globals: true`.
 - **Bash scanners output text** in the format `  [emoji] [file:line] message`. `full-scan.sh` parses this with regex `/^\s+([❌🔴⚠️🟡💡])\s+\[(.+?):(\d+)\]\s+(.+)$/`. Emoji maps to severity: ❌/🔴 → `critical`, ⚠️/🟡 → `warning`, 💡 → `suggestion`.
 - **`--scan` is an alias for `--module all`** in `fg-core.js`.
 - The npm package `prepublishOnly` runs `npm run build && npm test`.
-- **`bin/fg-core.js` imports from `../dist/index.js`**, not `src/`. You must `npm run build` before CLI changes take effect. Tests import from `src/` directly via path aliases, so test-driven development does not require rebuilding.
+- **`bin/*.js` imports from `../dist/index.js`**, not `src/`. You must `npm run build` before CLI changes take effect. Tests import from `src/` directly via path aliases, so test-driven development does not require rebuilding.
+- **Dashboard server data dir**: default `~/.frontend-guardian-server/`, configurable via `--data-dir`.
 
 ## Adding a New Scanner Module
 
@@ -135,7 +148,7 @@ When adding CLI parameters, update **both** `SKILL.md` and `README.md`.
 When preparing a new minor release (e.g., v3.5.0):
 
 1. Bump version in `lib/package.json`.
-2. Update version in `lib/bin/fg-core.js` help text.
+2. Update version in `lib/bin/fg-core.js`, `lib/bin/fg-lsp.js`, and `lib/bin/fg-server.js` help text.
 3. Ensure all tests pass (`npm test`).
 4. Update `README.md` version evolution section.
 5. Update `ROADMAP-v3.md` to tick completed tasks.
