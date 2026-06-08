@@ -18,6 +18,19 @@ export { _stylelintIntegration as stylelintIntegration };
 import { playwrightIntegration as _playwrightIntegration } from "./playwright.js";
 export { _playwrightIntegration as playwrightIntegration };
 
+// v3.7.1: 页面健康检查
+export {
+    runPageHealthCheck,
+    isPlaywrightAvailable,
+    formatPageHealthReport,
+    formatPageHealthJson,
+} from "./page-health.js";
+export type {
+    PageHealthOptions,
+    PageHealthResult,
+    CheckedRoute,
+} from "./page-health.js";
+
 /** 所有可用的外部工具列表 */
 export const allExternalTools = [
     _eslintIntegration,

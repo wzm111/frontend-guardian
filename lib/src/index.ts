@@ -109,8 +109,18 @@ export {
     stylelintIntegration,
     playwrightIntegration,
     runAllExternalTools,
+    runPageHealthCheck,
+    isPlaywrightAvailable,
+    formatPageHealthReport,
+    formatPageHealthJson,
 } from "./integrations/index.js";
-export type { ExternalTool, ExternalToolResult } from "./integrations/index.js";
+export type {
+    ExternalTool,
+    ExternalToolResult,
+    PageHealthOptions,
+    PageHealthResult,
+    CheckedRoute,
+} from "./integrations/index.js";
 
 export { i18nRules } from "./scanners/i18n-scanner.js";
 

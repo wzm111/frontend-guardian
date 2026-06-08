@@ -144,30 +144,34 @@
 
 ---
 
-## 🚧 v3.7.0 — 增量索引与影响分析（Incremental Index & Impact Analysis）
+## ✅ v3.7.0 — 增量索引与影响分析（已交付 2026-06-01，607 测试通过）
 
 **目标**：借鉴 [CodeGraph](https://github.com/colbymchenry/codegraph) 的预索引理念，解决大项目扫描慢的问题；同时引入影响分析能力，让治理更智能。
 
-**预计发布**：2026-07-15
+> **CodeGraph 借鉴点**：预索引（符号、调用图）、文件监听自动同步、框架路由理解
 
-> **CodeGraph 借鉴点**：预索引 SQLite（符号、调用图、FTS5）、文件监听自动同步、框架路由理解
+### 已交付
 
-### P0 — 必须完成
+- [x] **预索引建立**：首次扫描后建立 `.frontend-guardian/index/index.json` 本地索引（文件哈希 → 符号表 + import 关系 + 路由表）
+- [x] **文件监听自动同步**：基于 `fs.watch` 的文件变更监听，500ms 防抖自动同步索引（`--watch-index`）
+- [x] **框架路由自动解析**：自动识别 React Router / Vue Router / Next.js / Nuxt / UniApp / Taro 路由配置
+- [x] **影响分析**：`getTransitiveImporters()` 递归追踪文件依赖链，定位变更影响范围
 
-- [ ] **预索引建立**：首次扫描后建立 `.frontend-guardian/index/` 本地索引（文件哈希 → AST 缓存 + 规则结果缓存）
-- [ ] **增量扫描优化**：基于 git diff + 文件哈希，只扫描变更文件及其 import 依赖链，大项目扫描时间从分钟级降至秒级
-- [ ] **文件监听自动同步**：集成 FSEvents/inotify/ReadDirectoryChanges，文件保存后自动更新索引（`--watch-index`）
+---
 
-### P1 — 尽量完成
+## ✅ v3.7.1 — 页面健康检查（已交付 2026-06-08，611 测试通过）
 
-- [ ] **框架路由自动解析**：自动解析 React Router / Vue Router / Next.js / Nuxt / UniApp 路由配置，替代手动配置 `pages.json`
-- [ ] **调用图分析**：分析 hooks（useEffect/useCallback）的调用链，检测"深层嵌套 hooks"性能反模式
-- [ ] **扫描进度显示**：长扫描任务显示实时进度条（已扫描文件数 / 总文件数 / 预估剩余时间）
+**目标**：结合 webapp-testing skill 的运行时验证能力，补充 frontend-guardian 的"页面测试"能力。
 
-### P2 — 排期实现
+> **webapp-testing 借鉴点**：侦察-行动模式（访问 → 等待 networkidle → 检查 DOM/控制台 → 截图）
 
-- [ ] **配置推荐**：根据项目规模和框架自动推荐最优配置（并发数、缓存策略、规则集）
-- [ ] **增量 baseline**：baseline 文件只记录新增问题，不重复记录已知问题，减少 baseline 文件膨胀
+### 已交付
+
+- [x] **页面健康检查 `--page-health`**：启动浏览器遍历路由，验证页面渲染质量
+- [x] **6 类运行时 Issue**：HTTP 错误、白屏、控制台 Error、资源加载失败、导航失败
+- [x] **自动截图**：保存到 `.frontend-guardian/screenshots/`，供人工核查
+- [x] **服务器生命周期管理**：`--serve "npm run dev"` 自动启动 dev server 并等待端口就绪
+- [x] **Playwright 可选依赖**：运行时检测，未安装时友好提示，不强制引入
 
 ---
 

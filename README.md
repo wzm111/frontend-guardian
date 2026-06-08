@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v3.7.0**
+> **当前版本：v3.7.1**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -889,6 +889,29 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.7.1 — 页面健康检查（已交付，611 测试通过）
+
+- **页面健康检查 `--page-health`**: 结合 webapp-testing skill 的侦察-行动模式，启动浏览器遍历项目路由，验证页面渲染质量
+  - 自动检测 Playwright 可用性，未安装时给出友好提示
+  - 支持 `--serve "npm run dev"` 自动启动 dev server 并等待端口就绪
+  - 支持 `--base-url` 直接指定目标 URL
+  - 支持 `--routes` 指定要检查的路由列表
+- **6 类运行时 Issue 检测**:
+  - `page-health-http-error`: HTTP 404/500 等错误状态码
+  - `page-health-white-screen`: 页面白屏检测（body 无可见内容）
+  - `page-health-console-error`: 控制台 Error 日志捕获
+  - `page-health-resource-error`: 资源（JS/CSS/图片）加载失败
+  - `page-health-navigation-failed`: 页面导航超时/连接失败
+- **自动截图**: 每个路由检查完成后自动截图保存到 `.frontend-guardian/screenshots/`，供人工核查
+- **复用 v3.7.0 索引**: 自动从 `ProjectIndexer` 获取路由列表，无需手动配置
+
+### v3.7.0 — 增量索引与影响分析（已交付，607 测试通过）
+
+- **项目索引器 `ProjectIndexer`**: 预索引文件结构、符号、import 关系、路由，持久化到 `.frontend-guardian/index/index.json`
+- **文件监听 `--watch-index`**: 基于 `fs.watch` 的文件变更监听，500ms 防抖自动同步索引
+- **路由解析器 `RouteParser`**: 自动识别 React Router / Vue Router / Next.js / Nuxt / UniApp / Taro 路由
+- **影响分析 `getTransitiveImporters()`**: 递归追踪文件依赖链，定位变更影响范围
 
 ### v3.6.1 — Playwright 外部工具集成（已交付，576 测试通过）
 
