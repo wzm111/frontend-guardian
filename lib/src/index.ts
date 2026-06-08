@@ -23,7 +23,7 @@ export type {
     Position,
     ImportInfo,
     ParseOptions,
-    Framework,
+    Framework as BaseFramework,
     Platform,
     ComponentLib,
     RuleCategory,
@@ -191,3 +191,27 @@ export type {
     DashboardUploadResult,
     DashboardReportPayload,
 } from "./utils/dashboard-client.js";
+
+// v3.7.0: Incremental Index & Impact Analysis
+export { ProjectIndexer } from "./engine/indexer.js";
+export type {
+    SymbolInfo,
+    RouteInfo,
+    FileIndex,
+    ProjectIndex,
+} from "./engine/indexer.js";
+export { FileWatcher, watchProject } from "./utils/file-watcher.js";
+export type { WatchOptions } from "./utils/file-watcher.js";
+export {
+    parseRoutes,
+    parseAllRoutes,
+    findRouteFiles,
+    parseNextJsRoutes,
+    parseNuxtRoutes,
+    parseUniAppRoutes,
+    parseTaroRoutes,
+    parseReactRouterConfig,
+    parseVueRouterConfig,
+    detectRouteFramework,
+} from "./utils/route-parser.js";
+export type { Framework, ParsedRoutes } from "./utils/route-parser.js";
