@@ -122,6 +122,20 @@ export { componentRules } from "./scanners/component-scanner.js";
 export { hooksRules } from "./scanners/hooks-scanner.js";
 export { platformRules } from "./scanners/platform-scanner.js";
 export { svelteRules } from "./scanners/svelte-scanner.js";
+// v3.6.0: E2E 测试治理
+export { e2eRules } from "./scanners/e2e-scanner.js";
+export {
+    detectE2EGaps,
+    formatE2EGapReport,
+    formatE2EGapJson,
+} from "./utils/e2e-gap-detector.js";
+export type {
+    E2EGapResult,
+    E2EGapOptions,
+    UncoveredPage,
+    UncoveredApi,
+    TestSuggestion,
+} from "./utils/e2e-gap-detector.js";
 // v3.3.0: IDE 集成
 export { IncrementalDiagnostic, createIncrementalDiagnostic } from "./ide/incremental-diagnostic.js";
 export type { DiagnosticResult, IncrementalDiagnosticOptions } from "./ide/incremental-diagnostic.js";

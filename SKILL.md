@@ -84,6 +84,7 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --module naming          # 命名规范
 /frontend-guardian --module cross-file      # 跨文件分析
 /frontend-guardian --module svelte          # Svelte 专项检查
+/frontend-guardian --module e2e            # E2E 测试治理
 ```
 
 单模块支持 `--fix`、`--json`、`--severity`、`--staged`、`--diff`、`--external` 参数：
@@ -141,6 +142,11 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --serve
 # 或独立启动
 fg-server --port 3456 --cors "*"
+
+# E2E 测试覆盖缺口检测
+/frontend-guardian --e2e-detect-gaps
+# JSON 输出
+/frontend-guardian --e2e-detect-gaps --json
 
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci

@@ -144,7 +144,8 @@ export type RuleCategory =
     | "accessibility"
     | "security"
     | "style"
-    | "architecture";
+    | "architecture"
+    | "e2e";
 
 export interface RuleContext {
     /** Absolute path to the file being analyzed */

@@ -1,7 +1,7 @@
 # frontend-guardian — 前端统一治理助手
 
 > 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v3.5.2**
+> **当前版本：v3.6.0**
 > 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
 
 ## 核心能力矩阵
@@ -24,6 +24,7 @@
 | 🏷️ **命名规范** | 类 / 接口 / 函数 / 变量 / 文件名 | `--module naming` | ✅ 全端 | ⭐⭐⭐☆☆ |
 | 🔗 **跨文件分析** | props 检查 / 重复代码 / Context | `--module cross-file` | ✅ 全端 | ⭐⭐⭐☆☆ |
 | 🧹 **代码库瘦身** | 未使用依赖/导出/文件（Knip） | `--knip` | ✅ 全端 | ⭐⭐⭐☆☆ |
+| 🧪 **E2E 测试治理** | 测试代码反模式 / 覆盖缺口检测 | `--module e2e` / `--e2e-detect-gaps` | ✅ 全端 | ⭐⭐⭐⭐☆ |
 
 ## 安装
 
@@ -888,6 +889,18 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.6.0 — 运行时治理扩展（E2E 测试治理，已交付）
+
+- **E2E 测试规范扫描 `--module e2e`**: 扫描 Playwright/Cypress 测试代码，检测 6 类反模式：
+  - `e2e-no-hardcode-selector`: 硬编码 CSS 选择器（推荐 data-testid）
+  - `e2e-no-wait-for-timeout`: 固定时长等待（waitForTimeout）
+  - `e2e-missing-api-assert`: UI 操作后缺少接口断言（waitForResponse）
+  - `e2e-no-try-catch`: 测试用例缺少错误处理
+  - `e2e-naming-convention`: 测试文件命名不规范
+  - `e2e-selector-over-class`: 选择器过度依赖类名
+- **测试覆盖缺口检测 `--e2e-detect-gaps`**: 对比项目页面路由（pages.json / pages/ 目录 / router 配置）和现有 E2E 测试文件，发现未覆盖的页面路径和 API 接口，输出覆盖率和建议生成的测试文件名
+- **零外部依赖**: 不依赖 Playwright 运行时，纯文本/文件系统扫描
 
 ### v3.5.2 — 治理看板服务端（已交付，559 测试通过）
 
