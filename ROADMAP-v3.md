@@ -106,28 +106,122 @@
 
 ---
 
-## 🚧 v3.6.0 — 运行时治理扩展（Runtime Governance）
+## ✅ v3.6.0 — E2E 测试治理（E2E Test Governance）
 
-**目标**：将前端治理从静态代码扫描延伸到运行时质量，覆盖 E2E 测试规范、测试覆盖缺口、运行时性能。
+**目标**：将前端治理从静态代码扫描延伸到 E2E 测试质量，覆盖测试代码规范、覆盖缺口检测。
 
-**预计发布**：2026-07-08
+**实际发布**：2026-05-27
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅
 
-- [ ] **E2E 测试规范扫描**：扫描 Playwright/Cypress 测试代码，检测反模式（硬编码选择器、固定时长等待、缺少接口断言）
-- [ ] **测试覆盖缺口检测**：对比项目页面路由/接口文档与现有 E2E 测试文件，发现未覆盖的页面路径和接口
-- [ ] **运行时规则引擎**：复用现有 `RuleEngine`，新增 `e2e` 规则类别，不引入 Playwright 等重型依赖
+- [x] **E2E 测试规范扫描**：扫描 Playwright/Cypress 测试代码，检测反模式（硬编码选择器、固定时长等待、缺少接口断言）
+- [x] **测试覆盖缺口检测**：对比项目页面路由/接口文档与现有 E2E 测试文件，发现未覆盖的页面路径和接口
+- [x] **运行时规则引擎**：复用现有 `RuleEngine`，新增 `e2e` 规则类别，不引入 Playwright 等重型依赖
 
-### P1 — 尽量完成
+### P1 — 尽量完成 ✅
 
-- [ ] **测试骨架生成器**：根据接口文档（Markdown）自动生成 Playwright 测试代码骨架
-- [ ] **测试报告质量分析**：解析 Playwright/Cypress JSON 报告，发现 flaky 测试、慢测试、未覆盖页面
-- [ ] **性能测试报告集成**：解析 Lighthouse CI 报告，发现运行时性能瓶颈
+- [x] **测试骨架生成器**：根据接口文档（Markdown）自动生成 Playwright 测试代码骨架
+- [x] **测试报告质量分析**：解析 Playwright/Cypress JSON 报告，发现 flaky 测试、慢测试、未覆盖页面
 
 ### P2 — 排期实现
 
 - [ ] **智能测试补全建议**：基于缺口检测结果，AI 生成测试用例建议
 - [ ] **多框架支持**：除 Playwright 外，支持 Cypress、Selenium、Katalon 的测试代码扫描
+
+---
+
+## ✅ v3.6.1 — Playwright 外部工具集成（Playwright External Tool Integration）
+
+**目标**：Skill 作为统一入口调用 Playwright 执行测试，聚合结果到统一报告。
+
+**实际发布**：2026-05-28
+
+### P0 — 必须完成 ✅
+
+- [x] **Playwright 外部工具集成**：`lib/src/integrations/playwright.ts`，调用 `npx playwright test --reporter=json`
+- [x] **CLI 统一入口**：`fg-core . --e2e-run` 自动检测 Playwright 配置并执行测试
+- [x] **JSON 报告解析**：将 failed/timedOut 转为 `Issue`，passed/skipped 忽略
+
+---
+
+## 🚧 v3.7.0 — 增量索引与影响分析（Incremental Index & Impact Analysis）
+
+**目标**：借鉴 [CodeGraph](https://github.com/colbymchenry/codegraph) 的预索引理念，解决大项目扫描慢的问题；同时引入影响分析能力，让治理更智能。
+
+**预计发布**：2026-07-15
+
+> **CodeGraph 借鉴点**：预索引 SQLite（符号、调用图、FTS5）、文件监听自动同步、框架路由理解
+
+### P0 — 必须完成
+
+- [ ] **预索引建立**：首次扫描后建立 `.frontend-guardian/index/` 本地索引（文件哈希 → AST 缓存 + 规则结果缓存）
+- [ ] **增量扫描优化**：基于 git diff + 文件哈希，只扫描变更文件及其 import 依赖链，大项目扫描时间从分钟级降至秒级
+- [ ] **文件监听自动同步**：集成 FSEvents/inotify/ReadDirectoryChanges，文件保存后自动更新索引（`--watch-index`）
+
+### P1 — 尽量完成
+
+- [ ] **框架路由自动解析**：自动解析 React Router / Vue Router / Next.js / Nuxt / UniApp 路由配置，替代手动配置 `pages.json`
+- [ ] **调用图分析**：分析 hooks（useEffect/useCallback）的调用链，检测"深层嵌套 hooks"性能反模式
+- [ ] **扫描进度显示**：长扫描任务显示实时进度条（已扫描文件数 / 总文件数 / 预估剩余时间）
+
+### P2 — 排期实现
+
+- [ ] **配置推荐**：根据项目规模和框架自动推荐最优配置（并发数、缓存策略、规则集）
+- [ ] **增量 baseline**：baseline 文件只记录新增问题，不重复记录已知问题，减少 baseline 文件膨胀
+
+---
+
+## 🚧 v3.8.0 — MCP Server 与 AI Agent 集成（MCP Server & AI Agent Integration）
+
+**目标**：让 frontend-guardian 成为 AI Agent 的标准工具，通过 MCP 协议暴露治理能力。
+
+**预计发布**：2026-07-22
+
+> **CodeGraph 借鉴点**：MCP Server 模式（`codegraph serve --mcp`）、自动向 Agent 注入使用指引
+
+### P0 — 必须完成
+
+- [ ] **MCP Server 启动**：`fg-core --mcp` 启动 MCP Server，暴露 scan / fix / e2e-run / e2e-detect-gaps 工具
+- [ ] **Cursor / Copilot 兼容**：MCP Server 兼容 Cursor 的 MCP 配置格式和 GitHub Copilot 的 tool calling 格式
+- [ ] **自然语言触发**：Agent 无需记忆 CLI 命令，通过自然语言描述需求即可触发治理（如"检查这个项目有没有 i18n 问题"）
+
+### P1 — 尽量完成
+
+- [ ] **上下文感知扫描**：Agent 传入当前编辑文件/光标位置，MCP Server 只扫描相关上下文（而非全量扫描）
+- [ ] **修复结果反馈**：MCP 返回修复后的代码 diff，Agent 直接应用到编辑器
+- [ ] **多 Agent 协作**：支持同时接入 Claude Code、Cursor、Copilot、Kimi Code，共享同一份扫描索引
+
+### P2 — 排期实现
+
+- [ ] **自动注入使用指引**：MCP Server 初始化时自动向 Agent 发送工具使用说明（类似 CodeGraph 的自动 guidance）
+- [ ] **Agent 记忆持久化**：记录 Agent 的偏好设置（如常用规则集、忽略模式），跨会话保持一致
+
+---
+
+## 🚧 v3.9.0 — 智能测试推荐（Intelligent Test Recommendation）
+
+**目标**：基于代码变更影响分析，自动推荐需要重新运行的测试，减少 CI 耗时。
+
+**预计发布**：2026-07-29
+
+> **CodeGraph 借鉴点**：影响分析（Impact Analysis）、callers/callees 工具
+
+### P0 — 必须完成
+
+- [ ] **修改影响分析**：修改某个组件/页面时，自动分析哪些 E2E 测试文件依赖它（基于 import 图 + 路由映射）
+- [ ] **智能测试推荐**：`fg-core --recommend-tests` 输出"本次变更建议运行的测试列表"
+- [ ] **PR 阶段增量测试**：在 CI 中只运行受影响的测试套件（而非全量），结合 `--gate` 使用
+
+### P1 — 尽量完成
+
+- [ ] **测试优先级排序**：根据变更影响范围、测试历史失败率、测试执行时长排序推荐列表
+- [ ] **跨文件影响追踪**：修改 utils/hooks 等共享模块时，追踪到所有引用它的页面和测试
+- [ ] ** flaky 测试预警**：基于历史测试数据，标记高 flakiness 风险的测试
+
+### P2 — 排期实现
+
+- [ ] **可视化影响图**：Web 看板中展示"组件 → 页面 → 测试"的依赖关系图（Canvas/SVG）
+- [ ] **预测性扫描**：基于代码变更模式预测可能引入的问题，在提交前预警
 
 ---
 
@@ -139,17 +233,37 @@
    - 更新 `README.md`「版本演进」章节
    - 在 ROADMAP 中勾选已完成的任务
 3. **版本号示例**：
-   - `v3.2.0`：v3.2 迭代开始
-   - `v3.2.1`：v3.2 迭代中的 bug 修复
-   - `v3.3.0`：v3.3 迭代开始（新功能发布）
+   - `v3.7.0`：v3.7 迭代开始
+   - `v3.7.1`：v3.7 迭代中的 bug 修复
+   - `v3.8.0`：v3.8 迭代开始（新功能发布）
+
+---
+
+## 🔗 CodeGraph 借鉴总览
+
+| CodeGraph 能力 | 借鉴方向 | 对应版本 |
+|----------------|---------|---------|
+| 预索引 SQLite | 本地 AST 缓存索引 + 文件哈希 | v3.7.0 |
+| FSEvents/inotify 监听 | `--watch-index` 自动同步 | v3.7.0 |
+| 框架路由理解 | React/Vue/Next.js 路由自动解析 | v3.7.0 |
+| MCP Server | `fg-core --mcp` Agent 集成 | v3.8.0 |
+| 影响分析 (Impact) | 修改 → 测试推荐 | v3.9.0 |
+| callers/callees | hooks 调用链分析 | v3.7.0 |
 
 ---
 
 ## 🎯 下一步建议
 
-当前推荐进入 **v3.2.0 性能与体验优化**，原因：
-1. 工具已经功能完整，性能是日常使用的最大痛点
-2. 大项目扫描速度直接影响用户留存
-3. 为后续的 IDE 集成（v3.3.0）打基础（IDE 要求毫秒级响应）
+当前已交付到 **v3.6.1**，推荐进入 **v3.7.0 增量索引与影响分析**，原因：
+
+1. **性能痛点**：大项目（1000+ 文件）全量扫描仍是分钟级，预索引可降至秒级
+2. **IDE 基础**：v3.3.0 的 LSP 集成已落地，但增量诊断仍依赖实时 AST 解析，索引可进一步加速
+3. **E2E 基础**：v3.6.x 的 E2E 治理已就绪，v3.7.0 的路由自动解析可让 `--e2e-detect-gaps` 更智能
+4. **AI Agent 趋势**：v3.8.0 的 MCP 集成是前端治理工具的下一个差异化竞争力
+
+**可选路线**：
+- **路线 A（推荐）**：v3.7.0 → v3.8.0 → v3.9.0（按序迭代）
+- **路线 B**：直接跳到 v3.8.0 MCP Server（如果当前团队主要用 Cursor/Copilot）
+- **路线 C**：v3.7.0 P0 完成后，并行开发 v3.8.0 MCP（如果资源充足）
 
 **你说继续我就继续，或者你选一个方向。**

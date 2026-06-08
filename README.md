@@ -890,7 +890,14 @@ platform:
 
 ## 版本演进
 
-### v3.6.0 — 运行时治理扩展（E2E 测试治理，已交付）
+### v3.6.1 — Playwright 外部工具集成（已交付，576 测试通过）
+
+- **Skill 统一入口 `--e2e-run`**: `fg-core . --e2e-run` 自动检测 Playwright 配置并执行 `npx playwright test --reporter=json`，将失败/超时结果转为 `Issue` 对象统一展示
+- **JSON 报告解析**: 解析 Playwright JSON 报告，支持 `failed` / `timedOut` / `skipped` / `passed` 状态，提取错误消息、堆栈、步骤信息、行号列号
+- **全局错误检测**: 捕获 `beforeAll` / `afterAll` 钩子失败等全局 setup 错误，转为 `playwright-setup-error` Issue
+- **零额外依赖**: Playwright 仍由项目自行安装，skill 只作为统一调用入口和结果聚合器
+
+### v3.6.0 — E2E 测试治理（已交付，569 测试通过）
 
 - **E2E 测试规范扫描 `--module e2e`**: 扫描 Playwright/Cypress 测试代码，检测 6 类反模式：
   - `e2e-no-hardcode-selector`: 硬编码 CSS 选择器（推荐 data-testid）
@@ -1092,6 +1099,28 @@ platform:
   - project-detector 自动检测 svelte / solid-js / astro 依赖
 - **总计规则数**：47 → 51 条内置规则 + 3 个外部工具集成
 - **测试覆盖**：129 个单元测试全部通过
+
+---
+
+### 📍 未来路线图（Roadmap Preview）
+
+> 基于 [CodeGraph](https://github.com/colbymchenry/codegraph) 等优秀工具的借鉴分析，frontend-guardian 的下一步方向：
+
+**v3.7.0 — 增量索引与影响分析**
+- 预索引建立：首次扫描后建立 `.frontend-guardian/index/` 本地索引，后续扫描秒级响应
+- 文件监听自动同步：`--watch-index` 集成 FSEvents/inotify/ReadDirectoryChanges
+- 框架路由自动解析：React Router / Vue Router / Next.js / Nuxt 路由配置自动识别
+- 调用图分析：hooks 调用链检测深层嵌套反模式
+
+**v3.8.0 — MCP Server 与 AI Agent 集成**
+- `fg-core --mcp` 启动 MCP Server，暴露 scan / fix / e2e-run 工具
+- Cursor / Copilot / Claude Code 兼容，自然语言触发治理
+- 上下文感知扫描：Agent 传入当前编辑文件，只扫描相关上下文
+
+**v3.9.0 — 智能测试推荐**
+- 修改影响分析：修改组件/页面时自动分析依赖的 E2E 测试
+- `fg-core --recommend-tests` 输出"本次变更建议运行的测试列表"
+- PR 阶段增量测试：CI 中只运行受影响的测试套件
 
 ---
 
