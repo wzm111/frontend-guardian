@@ -148,6 +148,11 @@ fg-server --port 3456 --cors "*"
 # JSON 输出
 /frontend-guardian --e2e-detect-gaps --json
 
+# 运行 Playwright E2E 测试（skill 作为统一入口）
+/frontend-guardian --e2e-run
+# JSON 输出
+/frontend-guardian --e2e-run --json
+
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
 ```

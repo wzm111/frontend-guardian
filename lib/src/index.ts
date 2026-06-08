@@ -107,6 +107,7 @@ export {
     eslintIntegration,
     typescriptIntegration,
     stylelintIntegration,
+    playwrightIntegration,
     runAllExternalTools,
 } from "./integrations/index.js";
 export type { ExternalTool, ExternalToolResult } from "./integrations/index.js";

@@ -14,8 +14,17 @@ export { _eslintIntegration as eslintIntegration };
 export { _typescriptIntegration as typescriptIntegration };
 export { _stylelintIntegration as stylelintIntegration };
 
+// v3.6.1: Playwright E2E 测试集成
+import { playwrightIntegration as _playwrightIntegration } from "./playwright.js";
+export { _playwrightIntegration as playwrightIntegration };
+
 /** 所有可用的外部工具列表 */
-export const allExternalTools = [_eslintIntegration, _typescriptIntegration, _stylelintIntegration];
+export const allExternalTools = [
+    _eslintIntegration,
+    _typescriptIntegration,
+    _stylelintIntegration,
+    _playwrightIntegration,
+];
 
 // Phase 5+6: 格式化器集成
 export { detectFormatter, runFormat } from "./formatter.js";
