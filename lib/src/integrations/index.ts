@@ -24,6 +24,8 @@ export {
     isPlaywrightAvailable,
     formatPageHealthReport,
     formatPageHealthJson,
+    toScanResult,
+    uploadPageHealthResult,
 } from "./page-health.js";
 export type {
     PageHealthOptions,

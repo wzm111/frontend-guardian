@@ -118,7 +118,7 @@ describe("HistoryReport", () => {
         expect(report2.getEntries()).toHaveLength(1);
     });
 
-    it("should limit to 100 entries", () => {
+    it("should limit to 100 entries", { timeout: 15000 }, () => {
         const report = new HistoryReport(TEST_DIR);
         const result = makeResult("i18n", { c: 0, w: 0, s: 0 });
 

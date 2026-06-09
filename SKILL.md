@@ -1,5 +1,6 @@
 # frontend-guardian — 前端统一治理助手（跨 AI 智能体 Skill）
 
+> **定位**：聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查、E2E 测试治理、页面健康检查、增量索引与影响分析的前端开发一体化 Skill。
 > **兼容性**：本 Skill 采用标准 slash command 格式，设计目标为跨 AI 智能体兼容（Claude Code、Codex、Kimi Code、Qode、Gemini CLI、Hermes 等）。
 >
 > ⚠️ **诚实说明**：目前仅 Claude Code 的 Skill 系统经过实际验证。其他智能体的 Skill/插件机制、目录结构、文件格式均需根据各自生态确认。设计层面（标准 slash command + 纯文本规则 + 独立 CLI）是通用的，但实际安装路径和加载机制请查阅对应智能体的官方文档。
@@ -152,6 +153,13 @@ fg-server --port 3456 --cors "*"
 /frontend-guardian --e2e-run
 # JSON 输出
 /frontend-guardian --e2e-run --json
+
+# 页面健康检查（运行时浏览器验证）
+/frontend-guardian --page-health --serve "npm run dev" --port 5173
+/frontend-guardian --page-health --base-url http://localhost:3000
+/frontend-guardian --page-health --base-url http://localhost:3000 --routes /login,/dashboard
+# 调整并发数（默认 3 个 page 并行）
+/frontend-guardian --page-health --base-url http://localhost:3000 --page-health-concurrency 5
 
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci

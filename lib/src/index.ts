@@ -113,6 +113,8 @@ export {
     isPlaywrightAvailable,
     formatPageHealthReport,
     formatPageHealthJson,
+    toScanResult,
+    uploadPageHealthResult,
 } from "./integrations/index.js";
 export type {
     ExternalTool,

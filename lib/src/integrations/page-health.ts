@@ -12,10 +12,16 @@
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
-import type { Issue } from "@/types.js";
+import { createHash } from "node:crypto";
+import type { Issue, ScanResult } from "@/types.js";
 import { ProjectIndexer } from "@/engine/indexer.js";
+import {
+    uploadToDashboardServer,
+    type DashboardClientConfig,
+    type DashboardUploadResult,
+} from "@/utils/dashboard-client.js";
 
 
 // ── 类型 ───────────────────────────────────────────────────────────────────
@@ -41,8 +47,20 @@ export interface PageHealthOptions {
     checkWhiteScreen?: boolean;
     /** 是否检查资源加载失败 */
     checkResources?: boolean;
+    /** 是否检查交互元素（button/link/input 可点击性） */
+    checkInteractive?: boolean;
     /** 截图保存目录 */
     screenshotDir?: string;
+    /** 并发检查的页面数量（默认 3） */
+    concurrency?: number;
+    /** 上报到的 dashboard server URL */
+    server?: string;
+    /** dashboard server auth token */
+    authToken?: string;
+    /** 是否更新基线截图 */
+    updateBaseline?: boolean;
+    /** 基线截图目录 */
+    baselineDir?: string;
 }
 
 export interface CheckedRoute {
@@ -66,6 +84,16 @@ export interface CheckedRoute {
     duration: number;
     /** 错误信息列表 */
     messages: string[];
+    /** 交互元素总数 */
+    interactiveTotal?: number;
+    /** 可见的交互元素数 */
+    interactiveVisible?: number;
+    /** 不可用的交互元素数 */
+    interactiveDisabled?: number;
+    /** 截图是否与基线不同 */
+    screenshotChanged?: boolean;
+    /** 基线截图路径 */
+    baselinePath?: string;
 }
 
 export interface PageHealthResult {
@@ -86,6 +114,23 @@ export interface PageHealthResult {
 const DEFAULT_TIMEOUT = 30000;
 const DEFAULT_SERVE_PORT = 5173;
 const SCREENSHOT_DIR = ".frontend-guardian/screenshots";
+const BASELINE_DIR = ".frontend-guardian/screenshots/baseline";
+
+// ── 截图对比辅助 ───────────────────────────────────────────────────────────
+
+function hashFile(filePath: string): string {
+    const buf = readFileSync(filePath);
+    return createHash("sha256").update(buf).digest("hex");
+}
+
+function compareScreenshotHash(currentPath: string, baselinePath: string): boolean {
+    if (!existsSync(baselinePath)) return false;
+    try {
+        return hashFile(currentPath) === hashFile(baselinePath);
+    } catch {
+        return false;
+    }
+}
 
 // ── 核心函数 ───────────────────────────────────────────────────────────────
 
@@ -155,6 +200,29 @@ async function waitForPort(port: number, timeoutMs: number): Promise<boolean> {
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * 并发控制辅助函数 —— 限制同时运行的异步任务数量
+ */
+async function runWithConcurrency<T>(
+    items: T[],
+    concurrency: number,
+    fn: (item: T) => Promise<void>
+): Promise<void> {
+    const queue = [...items];
+    const workers = Array.from({ length: concurrency }, async () => {
+        while (true) {
+            const item = queue.shift();
+            if (!item) break;
+            try {
+                await fn(item);
+            } catch {
+                // 单个任务失败不阻断其他任务（错误已在 fn 内处理）
+            }
+        }
+    });
+    await Promise.all(workers);
 }
 
 /**
@@ -239,133 +307,205 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
     const checkResources = options.checkResources !== false;
     const timeout = options.timeout || DEFAULT_TIMEOUT;
 
-    try {
-        for (const route of routes) {
-            const pageStart = Date.now();
-            const url = baseUrl + (route.startsWith("/") ? route : "/" + route);
+    const concurrency = options.concurrency || 3;
+    let completed = 0;
 
-            const page = await context.newPage();
+    const checkRoute = async (route: string) => {
+        const pageStart = Date.now();
+        const url = baseUrl + (route.startsWith("/") ? route : "/" + route);
 
-            // 收集控制台日志和资源错误
-            const consoleErrors: string[] = [];
-            const consoleWarns: string[] = [];
-            const resourceErrors: string[] = [];
+        const page = await context.newPage();
 
-            if (checkConsole) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                page.on("console", (msg: any) => {
-                    const text: string = msg.text();
-                    if (msg.type() === "error") {
-                        consoleErrors.push(text);
-                    } else if (msg.type() === "warning") {
-                        consoleWarns.push(text);
-                    }
-                });
-            }
+        // 收集控制台日志和资源错误
+        const consoleErrors: string[] = [];
+        const consoleWarns: string[] = [];
+        const resourceErrors: string[] = [];
 
-            if (checkResources) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                page.on("requestfailed", (request: any) => {
-                    const failure = request.failure();
-                    resourceErrors.push(
-                        `${request.url()} — ${failure?.errorText || "unknown"}`
-                    );
-                });
-            }
-
-            let httpStatus: number | undefined;
-            let hasContent = true;
-            let status: CheckedRoute["status"] = "ok";
-            const messages: string[] = [];
-
-            try {
-                // 导航到页面并等待加载
-                const response = await page.goto(url, {
-                    waitUntil: "networkidle",
-                    timeout,
-                });
-
-                httpStatus = response?.status();
-
-                // HTTP 错误
-                if (httpStatus && httpStatus >= 400) {
-                    status = "error";
-                    messages.push(`HTTP ${httpStatus}`);
+        if (checkConsole) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            page.on("console", (msg: any) => {
+                const text: string = msg.text();
+                if (msg.type() === "error") {
+                    consoleErrors.push(text);
+                } else if (msg.type() === "warning") {
+                    consoleWarns.push(text);
                 }
+            });
+        }
 
-                // 白屏检测
-                if (checkWhiteScreen) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const bodyText = await (page as any).evaluate(() => {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const body = (globalThis as any).document.body;
-                        return body ? body.innerText.trim().length : 0;
-                    });
-                    hasContent = bodyText > 0;
-                    if (!hasContent) {
-                        status = status === "error" ? "error" : "warning";
-                        messages.push("页面可能白屏（body 无可见内容）");
-                    }
-                }
+        if (checkResources) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            page.on("requestfailed", (request: any) => {
+                const failure = request.failure();
+                resourceErrors.push(
+                    `${request.url()} — ${failure?.errorText || "unknown"}`
+                );
+            });
+        }
 
-                // 资源加载失败
-                if (resourceErrors.length > 0) {
-                    status = status === "error" ? "error" : "warning";
-                    messages.push(`${resourceErrors.length} 个资源加载失败`);
-                }
+        let httpStatus: number | undefined;
+        let hasContent = true;
+        let status: CheckedRoute["status"] = "ok";
+        const messages: string[] = [];
+        let interactiveTotal = 0;
+        let interactiveVisible = 0;
+        let interactiveDisabled = 0;
 
-                // 控制台错误
-                if (consoleErrors.length > 0) {
-                    status = status === "error" ? "error" : "warning";
-                    messages.push(`${consoleErrors.length} 个控制台 Error`);
-                }
+        try {
+            // 导航到页面并等待加载
+            const response = await page.goto(url, {
+                waitUntil: "networkidle",
+                timeout,
+            });
 
-                // 控制台警告（不升级状态，只记录）
-                if (consoleWarns.length > 0) {
-                    if (status === "ok") status = "warning";
-                    messages.push(`${consoleWarns.length} 个控制台 Warning`);
-                }
-            } catch (err) {
+            httpStatus = response?.status();
+
+            // HTTP 错误
+            if (httpStatus && httpStatus >= 400) {
                 status = "error";
-                messages.push(`导航失败: ${err instanceof Error ? err.message : String(err)}`);
+                messages.push(`HTTP ${httpStatus}`);
             }
 
-            // 截图
-            if (options.screenshot !== false) {
-                const safeName = route.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
-                const screenshotPath = join(screenshotDir, `${safeName}.png`);
-                try {
-                    await page.screenshot({ path: screenshotPath, fullPage: true });
-                    screenshots.push(screenshotPath);
-                } catch {
-                    // 截图失败不阻断
+            // 白屏检测
+            if (checkWhiteScreen) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const bodyText = await (page as any).evaluate(() => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const body = (globalThis as any).document.body;
+                    return body ? body.innerText.trim().length : 0;
+                });
+                hasContent = bodyText > 0;
+                if (!hasContent) {
+                    status = status === "error" ? "error" : "warning";
+                    messages.push("页面可能白屏（body 无可见内容）");
                 }
             }
 
-            await page.close();
+            // 交互元素检测
+            const checkInteractive = options.checkInteractive !== false;
+            if (checkInteractive && hasContent) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const interactive = await (page as any).evaluate(() => {
+                    const doc = (globalThis as any).document;
+                    const selectors = 'button, a[href], input:not([type="hidden"]), textarea, select, [role="button"], [role="link"], [role="checkbox"], [role="radio"]';
+                    const elements = doc.querySelectorAll(selectors);
+                    let total = 0;
+                    let visible = 0;
+                    let disabled = 0;
+                    for (const el of Array.from(elements)) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const htmlEl = el as any;
+                        // 只统计可见区域尺寸 > 0 的元素
+                        const rect = htmlEl.getBoundingClientRect();
+                        if (rect.width === 0 || rect.height === 0) continue;
+                        total++;
+                        const style = (globalThis as any).getComputedStyle(htmlEl);
+                        const isVisible = style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const isDisabled = (htmlEl as any).disabled || htmlEl.getAttribute("aria-disabled") === "true" || htmlEl.getAttribute("disabled") !== null;
+                        if (isVisible) visible++;
+                        if (isDisabled) disabled++;
+                    }
+                    return { total, visible, disabled };
+                });
+                interactiveTotal = interactive.total;
+                interactiveVisible = interactive.visible;
+                interactiveDisabled = interactive.disabled;
+                if (interactiveTotal > 0 && interactiveDisabled > 0) {
+                    status = status === "error" ? "error" : "warning";
+                    messages.push(`${interactiveDisabled} 个交互元素被禁用`);
+                }
+            }
 
-            const pageDuration = Date.now() - pageStart;
+            // 资源加载失败
+            if (resourceErrors.length > 0) {
+                status = status === "error" ? "error" : "warning";
+                messages.push(`${resourceErrors.length} 个资源加载失败`);
+            }
 
-            const checkedRoute: CheckedRoute = {
-                path: route,
-                url,
-                status,
-                httpStatus,
-                consoleErrors: consoleErrors.length,
-                consoleWarns: consoleWarns.length,
-                resourceErrors: resourceErrors.length,
-                hasContent,
-                duration: pageDuration,
-                messages,
-            };
+            // 控制台错误
+            if (consoleErrors.length > 0) {
+                status = status === "error" ? "error" : "warning";
+                messages.push(`${consoleErrors.length} 个控制台 Error`);
+            }
 
-            checkedRoutes.push(checkedRoute);
+            // 控制台警告（不升级状态，只记录）
+            if (consoleWarns.length > 0) {
+                if (status === "ok") status = "warning";
+                messages.push(`${consoleWarns.length} 个控制台 Warning`);
+            }
+        } catch (err) {
+            status = "error";
+            messages.push(`导航失败: ${err instanceof Error ? err.message : String(err)}`);
+        }
 
-            // 生成 Issue
-            if (status !== "ok") {
-                issues.push(...routeToIssues(checkedRoute, projectDir, consoleErrors, resourceErrors));
+        // 截图 + 基线对比
+        let screenshotChanged = false;
+        let baselinePath: string | undefined;
+        if (options.screenshot !== false) {
+            const safeName = route.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
+            const screenshotPath = join(screenshotDir, `${safeName}.png`);
+            baselinePath = options.baselineDir
+                ? resolve(projectDir, options.baselineDir, `${safeName}.png`)
+                : resolve(projectDir, BASELINE_DIR, `${safeName}.png`);
+            try {
+                await page.screenshot({ path: screenshotPath, fullPage: true });
+                screenshots.push(screenshotPath);
+
+                // 基线对比
+                if (options.updateBaseline) {
+                    if (!existsSync(options.baselineDir ? resolve(projectDir, options.baselineDir) : resolve(projectDir, BASELINE_DIR))) {
+                        mkdirSync(options.baselineDir ? resolve(projectDir, options.baselineDir) : resolve(projectDir, BASELINE_DIR), { recursive: true });
+                    }
+                    // 复制当前截图到基线
+                    const { copyFileSync } = await import("node:fs");
+                    copyFileSync(screenshotPath, baselinePath);
+                } else if (existsSync(baselinePath)) {
+                    const same = compareScreenshotHash(screenshotPath, baselinePath);
+                    if (!same) {
+                        screenshotChanged = true;
+                        status = status === "error" ? "error" : "warning";
+                        messages.push("截图与基线不同（UI 可能发生变化）");
+                    }
+                }
+            } catch {
+                // 截图失败不阻断
             }
         }
+
+        await page.close();
+
+        const pageDuration = Date.now() - pageStart;
+        completed++;
+
+        const checkedRoute: CheckedRoute = {
+            path: route,
+            url,
+            status,
+            httpStatus,
+            consoleErrors: consoleErrors.length,
+            consoleWarns: consoleWarns.length,
+            resourceErrors: resourceErrors.length,
+            hasContent,
+            duration: pageDuration,
+            messages,
+            interactiveTotal,
+            interactiveVisible,
+            interactiveDisabled,
+            screenshotChanged,
+            baselinePath,
+        };
+
+        checkedRoutes.push(checkedRoute);
+
+        // 生成 Issue
+        if (status !== "ok") {
+            issues.push(...routeToIssues(checkedRoute, projectDir, consoleErrors, resourceErrors));
+        }
+    };
+
+    try {
+        await runWithConcurrency(routes, concurrency, checkRoute);
     } finally {
         await browser.close();
         if (serverProcess) {
@@ -468,6 +608,46 @@ function routeToIssues(
         });
     }
 
+    // 交互元素被禁用
+    if ((route.interactiveDisabled ?? 0) > 0) {
+        issues.push({
+            ruleId: "page-health-interactive-disabled",
+            title: `交互元素被禁用 (${route.interactiveDisabled} 个)`,
+            description:
+                `路由 ${route.path} 检测到 ${route.interactiveDisabled} 个交互元素（button/link/input）被禁用。\n` +
+                `总交互元素: ${route.interactiveTotal}，可见: ${route.interactiveVisible}，禁用: ${route.interactiveDisabled}`,
+            severity: "warning",
+            file: route.path,
+            line: 1,
+            column: 1,
+            meta: {
+                url: route.url,
+                interactiveTotal: route.interactiveTotal,
+                interactiveVisible: route.interactiveVisible,
+                interactiveDisabled: route.interactiveDisabled,
+            },
+        });
+    }
+
+    // 截图与基线不同
+    if (route.screenshotChanged) {
+        issues.push({
+            ruleId: "page-health-screenshot-changed",
+            title: "截图与基线不同",
+            description:
+                `路由 ${route.path} 的当前截图与基线截图不一致，UI 可能发生了变化。\n` +
+                (route.baselinePath ? `基线路径: ${route.baselinePath}` : ""),
+            severity: "warning",
+            file: route.path,
+            line: 1,
+            column: 1,
+            meta: {
+                url: route.url,
+                baselinePath: route.baselinePath,
+            },
+        });
+    }
+
     // 导航失败（非 HTTP 错误，而是超时/连接失败等）
     if (route.status === "error" && !route.httpStatus && route.messages.some((m) => m.includes("导航失败"))) {
         issues.push({
@@ -519,8 +699,17 @@ export function formatPageHealthReport(result: PageHealthResult): string {
         if (route.resourceErrors > 0) {
             lines.push(`      资源失败: ${route.resourceErrors}`);
         }
+        if (route.interactiveTotal !== undefined && route.interactiveTotal > 0) {
+            lines.push(`      🖱️  交互元素: ${route.interactiveVisible ?? 0}/${route.interactiveTotal} 可见`);
+            if ((route.interactiveDisabled ?? 0) > 0) {
+                lines.push(`      ⚠️  禁用: ${route.interactiveDisabled} 个`);
+            }
+        }
         if (!route.hasContent) {
             lines.push(`      ⚠️  页面可能白屏`);
+        }
+        if (route.screenshotChanged) {
+            lines.push(`      🖼️  截图与基线不同`);
         }
         if (route.duration > 5000) {
             lines.push(`      ⏱️  加载耗时: ${route.duration}ms`);
@@ -560,4 +749,56 @@ export function formatPageHealthJson(result: PageHealthResult): object {
         issues: result.issues,
         screenshots: result.screenshots,
     };
+}
+
+// ── Dashboard 上报 ─────────────────────────────────────────────────────────
+
+/**
+ * 将 PageHealthResult 转换为 ScanResult（供 dashboard server 消费）
+ */
+export function toScanResult(result: PageHealthResult): ScanResult {
+    const critical = result.issues.filter((i) => i.severity === "critical");
+    const warning = result.issues.filter((i) => i.severity === "warning");
+    const suggestion = result.issues.filter((i) => i.severity === "suggestion");
+
+    return {
+        module: "page-health",
+        total: result.issues.length,
+        issues: { critical, warning, suggestion },
+        duration: result.duration,
+        filesScanned: result.checkedRoutes.length,
+        filesWithIssues: result.checkedRoutes.filter((r) => r.status !== "ok").length,
+    };
+}
+
+/**
+ * 将页面健康检查结果上报到治理看板服务器
+ *
+ * @param result PageHealthResult
+ * @param projectDir 项目目录
+ * @param config Dashboard server 配置
+ * @returns 上报结果
+ */
+export async function uploadPageHealthResult(
+    result: PageHealthResult,
+    projectDir: string,
+    config: DashboardClientConfig
+): Promise<DashboardUploadResult> {
+    const projectName = projectDir.split("/").pop() || "unknown";
+
+    const payload = {
+        projectName,
+        projectPath: projectDir,
+        module: "page-health",
+        result: toScanResult(result),
+        issues: result.issues,
+        meta: {
+            duration: result.duration,
+            filesScanned: result.checkedRoutes.length,
+            baseUrl: result.baseUrl,
+            screenshotCount: result.screenshots.length,
+        },
+    };
+
+    return uploadToDashboardServer(payload, config);
 }

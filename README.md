@@ -1,93 +1,96 @@
-# frontend-guardian — 前端统一治理助手
+# frontend-guardian — 前端代码质量检查工具
 
-> 聚合国际化治理、组件规范、Hooks 最佳实践、多端适配检查的前端开发一体化 Skill。
-> **当前版本：v3.7.1**
-> 覆盖 PC Web、H5、小程序（微信/支付宝/抖音）、iOS、Android、鸿蒙 HarmonyOS。
-
-## 核心能力矩阵
-
-按重要程度排序：
-
-| 维度 | 能力 | 命令 | 多端支持 | 优先级 |
-| ---- | ---- | ---- | -------- | ------ |
-| 🧠 **智能化** | 深度技术栈检测 + Issue 聚类 + 增量扫描 | `--scan --staged/--diff` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
-| 🚀 **脚手架** | 一键初始化项目 + 治理配置 | `--init-scaffold` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
-| 🔍 **full-scan** | 全量治理扫描（9 大模块） | `--scan` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
-| | CI 门禁模式（阻断流水线） | `--scan --gate` | ✅ 全端 | ⭐⭐⭐⭐⭐ |
-| 🌍 **i18n-governance** | 硬编码文案 / 缺失 key / 死 key | `--module i18n` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| 🏥 **component-doctor** | 反模式 / token / 性能 / 可访问性 | `--module component` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| ⚡ **hook-checker** | useEffect / 闭包 / 自定义 Hook | `--module hooks` | React / Vue | ⭐⭐⭐⭐⭐ |
-| 📱 **platform-guard** | 小程序 / 移动端 / 鸿蒙 / 响应式 | `--module platform` | 多端专项 | ⭐⭐⭐⭐☆ |
-| 🔧 **性能优化** | 请求瀑布 / 懒加载 / 整库导入 / memo | `--module performance` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| 🛡️ **安全扫描** | XSS / eval / 密钥泄露 / CORS | `--module security` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| ♿ **可访问性** | alt / label / 对比度 / ARIA | `--module a11y` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-| 🏷️ **命名规范** | 类 / 接口 / 函数 / 变量 / 文件名 | `--module naming` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| 🔗 **跨文件分析** | props 检查 / 重复代码 / Context | `--module cross-file` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| 🧹 **代码库瘦身** | 未使用依赖/导出/文件（Knip） | `--knip` | ✅ 全端 | ⭐⭐⭐☆☆ |
-| 🧪 **E2E 测试治理** | 测试代码反模式 / 覆盖缺口检测 | `--module e2e` / `--e2e-detect-gaps` | ✅ 全端 | ⭐⭐⭐⭐☆ |
-
-## 安装
-
-### 方式一：作为 AI 智能体 Skill 安装（推荐）
-
-各智能体的 Skill 安装路径：
-
-| 智能体 | Skill 目录 |
-| ------ | ---------- |
-| Claude Code | `.claude/skills/` |
-| Codex (OpenAI) | `.codex/skills/` |
-| Kimi Code | `.kimi/skills/` |
-| Qode | `.qode/skills/` |
-| Gemini CLI | `.gemini/skills/` |
-| Hermes | `.hermes/skills/` |
-| 通用 / 其他 | `.ai/skills/` |
-
-```bash
-# 以 Claude Code 为例，其他智能体替换对应目录即可
-cp -r frontend-guardian /your/project/.claude/skills/
-```
-
-### 方式二：作为 npm CLI 工具使用
-
-```bash
-cd lib && npm install && npm run build
-npx fg-core ./my-project --module all
-```
-
-## AI 智能体兼容性
-
-frontend-guardian 设计为**跨智能体兼容**的 Skill/插件，不绑定任何特定 AI 平台。
-
-| 智能体 | Skill 目录 | 命令格式 | 状态 |
-| ------ | ---------- | -------- | ---- |
-| Claude Code | `.claude/skills/` | `/frontend-guardian` | ✅ 已验证 |
-| Codex (OpenAI) | `.codex/skills/` | `/frontend-guardian` | 🚧 待验证 |
-| Kimi Code | `.kimi/skills/` | `/frontend-guardian` | 🚧 待验证 |
-| Qode | `.qode/skills/` | `/frontend-guardian` | 🚧 待验证 |
-| Gemini CLI | `.gemini/skills/` | `/frontend-guardian` | 🚧 待验证 |
-| Hermes | `.hermes/skills/` | `/frontend-guardian` | 🚧 待验证 |
-| 其他 / 自定义 | `.ai/skills/` | `/frontend-guardian` | 🚧 待验证 |
-
-> ⚠️ **诚实说明**：目前仅 Claude Code 的 Skill 系统经过实际验证。其他智能体的 Skill/插件机制是否存在、目录结构、文件格式均需根据各自生态确认。上述"待验证"状态表示**设计层面兼容**（标准 slash command + 纯文本规则 + 独立 CLI），但**实际安装路径和加载机制需查阅对应智能体的官方文档**。
+> 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> 如果你在某个智能体上验证成功，欢迎提 PR 更新此表格。
+> **当前版本：v3.7.6** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
-**设计原则**（便于移植）：
-1. **标准 slash command**：所有命令采用 `/command --flag` 格式，各智能体通用
-2. **纯文本规则文件**：`rules/*.md` 为纯 Markdown，不依赖任何智能体专有语法
-3. **Node.js CLI 核心**：`fg-core` 为独立可执行文件，智能体仅作为调用入口
-4. **零外部依赖**：Skill 文件自包含，不调用智能体专有 API
+## 核心能力
 
-## 使用方式
+frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、运行时验证、团队协作三个层面：
 
-frontend-guardian 支持两种使用方式，你可以根据场景自由选择：
+| 能力 | 说明 | 对应命令 |
+| ------ | ------ | ---------- |
+| **🔍 代码扫描** | 9 大模块、50+ 条规则，检测 i18n、性能、安全、可访问性、命名规范、Hooks 等问题 | `fg-core . --scan` |
+| **🧪 页面健康检查** | 启动真实浏览器遍历路由，发现白屏、控制台报错、资源加载失败、交互元素异常 | `fg-core . --page-health` |
+| **📸 截图基线对比** | 保存基线截图，后续检查自动对比发现 UI 变化（视觉回归） | `fg-core . --page-health --update-baseline` |
+| **🛠️ 自动修复** | 8 类问题支持一键自动修复，含修复预览（dry-run）和交互式确认 | `fg-core . --scan --fix` |
+| **📊 治理看板** | 扫描结果上报到 Web 看板，团队维度追踪代码质量趋势 | `fg-core . --scan --server <url>` |
+| **🧠 AI 修复建议** | 为无自动修复方案的问题调用 LLM 生成修复建议 | `fg-core . --scan --ai-fix` |
+| **📝 E2E 测试治理** | 扫描 Playwright/Cypress 测试代码反模式，检测测试覆盖缺口 | `fg-core . --module e2e` |
+| **⚡ 增量扫描** | 基于 git diff / import 图分析，只扫描变更文件及影响范围 | `fg-core . --scan --staged` |
 
-| 方式         | 命令格式                       | 适用场景                       |
-|--------------|--------------------------------|--------------------------------|
-| **CLI 工具** | `fg-core . [options]`          | CI/CD、脚本自动化、本地终端    |
-| **AI Skill** | `/frontend-guardian [options]` | AI 对话中调用，智能体自动执行   |
+---
 
-> 💡 **选择建议**：本地开发和 CI 用 `fg-core`，AI 辅助编程用 `/frontend-guardian`。两者功能完全一致。
+## 两种使用形态
+
+frontend-guardian 同时提供 **npm 包** 和 **AI Skill** 两种形态，功能完全一致：
+
+### 形态一：npm 包（CLI）
+
+适合 CI/CD 流水线、本地开发终端、自动化脚本。
+
+```bash
+# 全局安装
+npm install -g frontend-guardian-core
+
+# 扫描当前项目
+fg-core . --scan
+
+# 只检查国际化问题
+fg-core . --module i18n
+
+# 检查页面是否正常渲染（需要 Playwright）
+fg-core . --page-health --serve "npm run dev"
+```
+
+**CLI 工具清单**：
+
+| 命令 | 用途 |
+|------|------|
+| `fg-core` | 核心扫描引擎 |
+| `fg-lsp` | LSP 语言服务器（IDE 实时诊断） |
+| `fg-server` | 治理看板服务端 |
+
+### 形态二：AI Skill
+
+适合在 AI 对话中直接调用，无需安装 npm 包。
+
+**安装方式**：将本仓库复制到对应智能体的 Skill 目录：
+
+| 智能体 | Skill 目录 | 安装命令 |
+|--------|-----------|---------|
+| Claude Code | `.claude/skills/` | `cp -r frontend-guardian .claude/skills/` |
+| Codex (OpenAI) | `.codex/skills/` | `cp -r frontend-guardian .codex/skills/` |
+| Kimi Code | `.kimi/skills/` | `cp -r frontend-guardian .kimi/skills/` |
+| 通用 / 其他 | `.ai/skills/` | `cp -r frontend-guardian .ai/skills/` |
+
+**使用方式**：在 AI 对话中输入 `/frontend-guardian [选项]`
+
+```text
+/frontend-guardian --scan
+/frontend-guardian --module i18n
+/frontend-guardian --page-health --serve "npm run dev"
+```
+
+> 💡 **Skill 自动触发**：当 AI 检测到项目中的 `i18n/`、`pages.json`、`app.json`、`package.json` 中的相关依赖时，会自动建议调用 frontend-guardian。
+
+---
+
+## 30 秒上手
+
+```bash
+# 1. 安装
+npm install -g frontend-guardian-core
+
+# 2. 初始化配置（自动检测技术栈）
+fg-core . --init-config
+
+# 3. 全量扫描
+fg-core . --scan
+
+# 4. 安装 git hook（提交前自动检查）
+fg-core . --install-hooks
+```
 
 ---
 
@@ -889,6 +892,50 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.7.6 — README 重写与文档改进（已交付，622 测试通过）
+
+- **README 重写**: 重新组织 README 结构，降低新用户认知负担
+  - 新增「核心能力」表格：8 大能力一目了然，每行附带对应命令
+  - 新增「两种使用形态」章节：清晰区分 npm 包（CLI）和 AI Skill 的安装与使用方式
+  - 简化「30 秒上手」为 4 步流程（安装 → 初始化 → 扫描 → 装 hook）
+  - 移除冗余的 AI 智能体兼容性大表格，保留关键信息
+
+### v3.7.5 — 页面健康检查截图对比（已交付，622 测试通过）
+
+- **截图基线对比**: 页面健康检查支持基线截图对比，发现 UI 回退
+  - 首次运行保存基线到 `.frontend-guardian/screenshots/baseline/`
+  - 后续运行自动对比当前截图与基线（SHA256 哈希）
+  - 截图不同时生成 `page-health-screenshot-changed` warning Issue
+  - `--update-baseline` 更新基线截图
+- **CLI 参数**: `--update-baseline` 更新基线截图（配合 `--page-health`）
+- **测试覆盖**: 新增 2 个截图对比测试
+
+### v3.7.4 — 页面健康检查交互元素发现（已交付，620 测试通过）
+
+- **交互元素检测**: 页面健康检查自动发现 button/link/input 等交互元素并验证可点击性
+  - 默认启用，可通过 `--no-check-interactive` 关闭
+  - 检测范围：button、a[href]、input、textarea、select、role="button/link/checkbox/radio"
+  - 统计可见/禁用交互元素数量
+  - 新增 Issue 规则 `page-health-interactive-disabled`：交互元素被禁用
+- **CLI 参数**: `--no-check-interactive` 禁用交互元素检查（配合 `--page-health`）
+- **测试覆盖**: 新增 2 个交互元素测试（带数据报告 + 无数据报告）
+
+### v3.7.3 — 页面健康检查报告集成（已交付，618 测试通过）
+
+- **Dashboard 上报**: 页面健康检查结果自动上报到 v3.5.2 治理看板服务器
+  - 复用 `--server <url>` 参数，`--page-health` 模式下检查结果自动上报
+  - `toScanResult()` 将 `PageHealthResult` 转换为 `ScanResult`，兼容 dashboard server API
+  - `uploadPageHealthResult()` 封装上报逻辑，支持 auth token
+- **测试覆盖**: 新增 2 个 `toScanResult` 测试（正常转换 + 空结果处理）
+
+### v3.7.2 — 页面健康检查并发优化（已交付，616 测试通过）
+
+- **并发路由检查**: 页面健康检查支持并发执行，默认 3 个 page 并行，大项目检查时间大幅缩短
+  - 新增 `--page-health-concurrency <n>` CLI 参数自定义并发数
+  - 基于 `runWithConcurrency` 并发池实现，限制同时运行的浏览器 page 数量
+  - 单个路由失败不阻断其他并发任务，确保检查完整性
+- **测试覆盖**: 新增 5 个并发相关测试（类型检查 + 并发控制逻辑 + 边界条件）
 
 ### v3.7.1 — 页面健康检查（已交付，611 测试通过）
 

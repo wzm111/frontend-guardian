@@ -175,6 +175,60 @@
 
 ---
 
+## ✅ v3.7.2 — 页面健康检查并发优化（已交付 2026-06-09，616 测试通过）
+
+**目标**：解决大项目页面健康检查串行遍历慢的问题，通过并发检查数倍提升速度。
+
+### 已交付
+
+- [x] **并发路由检查**：基于 `runWithConcurrency` 并发池，默认 3 个 page 并行遍历路由
+- [x] **可配置并发数**：`--page-health-concurrency <n>` CLI 参数自定义并发度
+- [x] **故障隔离**：单个路由检查失败不阻断其他并发任务
+- [x] **测试覆盖**：新增 5 个并发相关测试（类型检查 + 并发控制逻辑 + 边界条件）
+
+---
+
+## ✅ v3.7.3 — 页面健康检查报告集成（已交付 2026-06-09，618 测试通过）
+
+**目标**：将页面健康检查结果自动上报到 v3.5.2 治理看板服务器，实现运行时验证数据的集中管理。
+
+### 已交付
+
+- [x] **Dashboard 上报**：`uploadPageHealthResult()` 将 `PageHealthResult` 转换为 `ScanResult` 并上报
+- [x] **CLI 集成**：`--page-health --server <url>` 自动上报检查结果
+- [x] **类型适配**：`toScanResult()` 函数实现 PageHealthResult → ScanResult 转换
+- [x] **测试覆盖**：新增 2 个 `toScanResult` 测试（正常转换 + 空结果边界）
+
+---
+
+## ✅ v3.7.4 — 页面健康检查交互元素发现（已交付 2026-06-09，620 测试通过）
+
+**目标**：在页面健康检查中自动发现交互元素（button/link/input）并验证可点击性，发现潜在的交互体验问题。
+
+### 已交付
+
+- [x] **交互元素检测**：`page.evaluate()` 获取 button、a[href]、input、textarea、select 及 ARIA role 元素
+- [x] **可见性/禁用检查**：统计可见元素数和禁用元素数
+- [x] **CLI 开关**：`--no-check-interactive` 可关闭交互元素检查
+- [x] **Issue 规则**：`page-health-interactive-disabled` 标记被禁用的交互元素
+- [x] **测试覆盖**：新增 2 个交互元素测试
+
+---
+
+## ✅ v3.7.5 — 页面健康检查截图对比（已交付 2026-06-09，622 测试通过）
+
+**目标**：在页面健康检查中引入截图基线对比能力，发现 UI 回退和未预期的视觉变化。
+
+### 已交付
+
+- [x] **截图基线管理**：`.frontend-guardian/screenshots/baseline/` 保存基线截图
+- [x] **哈希对比**：SHA256 哈希对比当前截图与基线
+- [x] **CLI 更新基线**：`--update-baseline` 参数更新基线截图
+- [x] **Issue 规则**：`page-health-screenshot-changed` 标记截图变化
+- [x] **测试覆盖**：新增 2 个截图对比测试
+
+---
+
 ## 🚧 v3.8.0 — MCP Server 与 AI Agent 集成（MCP Server & AI Agent Integration）
 
 **目标**：让 frontend-guardian 成为 AI Agent 的标准工具，通过 MCP 协议暴露治理能力。
