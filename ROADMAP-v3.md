@@ -325,3 +325,183 @@
 - **路线 C**：v3.7.0 P0 完成后，并行开发 v3.8.0 MCP（如果资源充足）
 
 **你说继续我就继续，或者你选一个方向。**
+
+---
+
+## 🚧 v3.10.0 — 页面测试进阶（Web Testing Advanced）
+
+**目标**：将页面健康检查从「可用性验证」升级为「质量度量」，覆盖视觉回归、性能指标、无障碍测试等维度。
+
+**预计发布**：2026-07-15
+
+> **市场参考**：Playwright 2026 年已成为视觉回归测试事实标准（月下载量 2.31 亿），内置 `toHaveScreenshot()` 使用 pixelmatch 做像素级对比。Lighthouse 的 Core Web Vitals 是页面性能的行业基准。
+
+### P0 — 必须完成
+
+- [ ] **像素级视觉回归**：引入 pixelmatch（或 Playwright 原生 `toHaveScreenshot()`）替代 SHA256 哈希，实现真正的像素差异检测
+  - 支持 `maxDiffPixels` / `maxDiffPixelRatio` 阈值配置
+  - 生成差异高亮图（diff overlay），直观展示变化区域
+  - 支持元素级截图（`page.locator().screenshot()`）替代全页截图，减少噪音
+- [ ] **动态内容遮罩**：自动识别并遮罩不稳定元素（日期、随机数、广告位），降低视觉回归的误报率
+  - 遮罩配置：CSS 选择器 → 统一替换为灰色色块
+  - 内置常见不稳定元素预设（`[data-testid="timestamp"]`, `.ad-banner` 等）
+- [ ] **性能指标采集**：集成 Lighthouse Core Web Vitals，采集 LCP / FID / CLS / TTFB / FCP
+  - `--page-health --metrics` 输出性能指标 JSON
+  - 性能阈值告警：LCP > 2.5s、CLS > 0.1 时生成 warning Issue
+  - 历史趋势追踪：性能指标随时间变化曲线
+
+### P1 — 尽量完成
+
+- [ ] **跨浏览器截图对比**：支持 Chromium / Firefox / WebKit 三套基线，检测浏览器渲染差异
+  - `--page-health --browser all` 遍历所有浏览器引擎
+  - 基线目录按浏览器隔离：`.frontend-guardian/screenshots/baseline/{chromium,firefox,webkit}/`
+- [ ] **无障碍运行时测试**：在页面健康检查中注入 axe-core，检测运行时 DOM 的无障碍问题
+  - 检测 color contrast、aria 属性、焦点管理等动态问题
+  - 与静态 AST 的 a11y 扫描互补（静态查源码，动态查渲染后 DOM）
+- [ ] **移动端视口模拟**：模拟 iPhone / Android 常见视口尺寸，检测响应式布局问题
+  - 预设视口列表：iPhone 14 Pro (390×844)、Pixel 7 (412×915)、iPad (820×1180)
+  - 每个视口独立基线，发现断点处的布局异常
+
+### P2 — 排期实现
+
+- [ ] **AI 视觉异常检测**：对接 LLM Vision API，判断截图变化是否为「有意义的 UI 变更」而非噪声
+  - 过滤字体渲染差异、滚动条变化、anti-aliasing 差异
+  - 为变化区域生成自然语言描述（如"按钮颜色从蓝色变为红色"）
+- [ ] **录屏回放**：页面健康检查时录制视频（Playwright `recordVideo`），失败时提供回放链路
+  - 视频保存到 `.frontend-guardian/videos/`，与截图同目录
+  - Dashboard 支持视频在线播放
+
+---
+
+## 🚧 v3.11.0 — 小程序自动化测试（Mini-Program Testing）
+
+**目标**：将页面健康检查能力扩展到微信小程序、支付宝小程序、抖音小程序，解决小程序无法直接用 Playwright 测试的痛点。
+
+**预计发布**：2026-07-29
+
+> **市场参考**：微信开发者工具提供 CLI 自动化能力（`cli --auto --project`），支付宝小程序 IDE 和抖音开发者工具也有类似 CLI。Appium 可通过 WebView 上下文测试小程序内嵌 H5。
+
+### P0 — 必须完成
+
+- [ ] **微信开发者工具 CLI 自动化**：`lib/src/integrations/miniprogram-wechat.ts`
+  - 自动检测 `project.config.json` 定位微信项目
+  - 调用 `cli --auto --project <path>` 编译并启动预览
+  - 通过 `--qr-code` 或开发者工具的自动化接口获取预览二维码/URL
+  - 遍历 `app.json` / `pages.json` 中的页面路由，验证渲染质量
+- [ ] **小程序页面健康检查**：复用 v3.7.x 的页面健康检查框架，适配小程序环境
+  - 白屏检测：检查页面是否有可见内容（通过微信开发者工具的调试协议或截图分析）
+  - 控制台错误捕获：监听 `vConsole` 或开发者工具的 console 输出
+  - 包体积检查：主包 / 分包大小是否超限（v3.7.x 已有 AST 层面的包体积检测，此处补充运行时验证）
+- [ ] **CLI 统一入口**：`fg-core . --page-health --miniprogram wechat`
+  - 自动检测项目类型（微信/支付宝/抖音），无需手动指定
+  - 未安装微信开发者工具时给出友好提示和下载链接
+
+### P1 — 尽量完成
+
+- [ ] **支付宝小程序 IDE 自动化**：类似微信方案，调用支付宝小程序开发者工具 CLI
+  - 检测 `mini.project.json` 定位支付宝项目
+  - 支持支付宝小程序特有的 API 检测（如 `my.request` vs `wx.request`）
+- [ ] **抖音小程序自动化**：调用抖音开发者工具 CLI
+  - 检测 `project.config.json` + `tt` 字段识别抖音项目
+- [ ] **小程序截图对比**：保存小程序页面基线截图，检测 UI 回退
+  - 微信开发者工具支持 headless 截图（`cli --screenshot`）
+  - 基线目录：`.frontend-guardian/screenshots/baseline/miniprogram/`
+
+### P2 — 排期实现
+
+- [ ] **小程序性能采集**：通过开发者工具性能面板采集启动时间、setData 耗时、渲染帧率
+  - 启动时间 > 2s 时生成 warning Issue
+  - setData 数据量 > 100KB 时生成 warning Issue
+- [ ] **多平台并行测试**：同时测试微信 + 支付宝 + 抖音三个平台，发现平台差异
+  - 同一份代码编译到不同平台，对比截图差异
+  - 输出平台兼容性报告
+
+---
+
+## 🚧 v4.0.0 — 移动端应用测试（Mobile App Testing）
+
+**目标**：将治理能力从 Web / 小程序延伸到原生移动端应用（iOS / Android），支持 React Native / Flutter / 原生 App 的测试。
+
+**预计发布**：2026-08-12
+
+> **市场参考**：2026 年移动端测试双雄格局：Appium（成熟、跨平台、真机支持，但学习曲线陡峭、flakiness 10-15%）vs Maestro（新兴、YAML 声明式、快 2-3 倍、flakiness <1%，但 iOS 真机支持有限）。推荐双方案覆盖不同场景。
+
+### P0 — 必须完成
+
+- [ ] **Maestro 集成**：`lib/src/integrations/maestro.ts`
+  - 检测项目中的 `.maestro/` 目录或 `maestro.yaml` 文件
+  - `fg-core . --mobile --maestro` 调用 `maestro test` 执行测试
+  - 解析 Maestro JUnit/XML 报告，转换为统一 Issue 格式
+  - 零额外依赖：Maestro 由项目自行安装，skill 只作为统一调用入口
+- [ ] **Appium 集成**：`lib/src/integrations/appium.ts`
+  - 检测项目中的 Appium 配置（`wdio.conf.js`、`appium:capabilities` 等）
+  - `fg-core . --mobile --appium` 调用 Appium 测试套件
+  - 解析 Appium JSON/XML 报告，提取 failed/skipped 用例为 Issue
+- [ ] **移动端页面健康检查**：`--mobile --page-health`
+  - 启动 Appium/Maestro 打开 App，遍历关键页面路径
+  - 截图保存到 `.frontend-guardian/screenshots/mobile/`
+  - 检测白屏、崩溃、ANR（Application Not Responding）
+
+### P1 — 尽量完成
+
+- [ ] **移动端性能指标**：集成 Firebase Performance / Flipper，采集启动时间、帧率、内存占用
+  - 启动时间 > 3s 时生成 warning Issue
+  - 内存占用 > 阈值时生成 warning Issue
+- [ ] **真机云测集成**：对接 BrowserStack / Sauce Labs / Firebase Test Lab
+  - `--mobile --cloud browserstack` 在云端真机上运行测试
+  - 环境变量自动检测：`FG_BROWSERSTACK_USERNAME`、`FG_BROWSERSTACK_KEY`
+- [ ] **移动端截图对比**：保存移动端页面基线，检测 UI 回退
+  - 区分 iOS / Android 基线（系统字体、阴影渲染差异）
+  - 支持设备型号维度：iPhone 14 Pro / Pixel 7 独立基线
+
+### P2 — 排期实现
+
+- [ ] **手势操作测试**：通过 Maestro/Appium 模拟滑动、长按、捏合等手势，验证交互流程
+  - 定义常见手势模板（下拉刷新、左滑删除、轮播图滑动）
+  - 手势失败时截图 + 录屏留存证据
+- [ ] **离线/弱网测试**：模拟无网络 / 2G / 3G 环境，验证 App 的降级表现
+  - 配合 Maestro 的 `network` 条件或 Appium 的网络模拟能力
+
+---
+
+## 🎯 下一步建议（2026-06-09 更新）
+
+当前已交付到 **v3.7.6**，下一步推荐方向：
+
+### 路线 D（推荐）—— 页面测试 → 小程序 → 移动端（按序迭代）
+
+这是用户最关心的方向，覆盖 Web → 小程序 → App 的完整测试链路：
+
+1. **v3.10.0 页面测试进阶**（预计 2 周）
+   - 像素级视觉回归（pixelmatch）替代 SHA256 哈希
+   - Lighthouse 性能指标采集
+   - 动态内容遮罩降低误报
+   - 这是 v3.7.x 页面健康检查的自然延伸，市场需求最明确
+
+2. **v3.11.0 小程序测试**（预计 2 周）
+   - 微信开发者工具 CLI 自动化
+   - 小程序页面健康检查（白屏、控制台、包体积）
+   - 支付宝 + 抖音扩展
+   - 填补小程序无法被 Playwright 覆盖的空白
+
+3. **v4.0.0 移动端应用测试**（预计 3 周）
+   - Maestro + Appium 双方案
+   - 移动端页面健康检查
+   - 真机云测集成
+   - 覆盖 React Native / Flutter / 原生 App
+
+### 路线 E — 并行推进
+
+如果资源充足，可并行开发：
+- 主线 A：v3.10.0 页面测试进阶 + v3.11.0 小程序测试（有依赖关系，页面测试框架可复用）
+- 主线 B：v3.8.0 MCP Server（AI Agent 集成，与测试方向不冲突）
+
+### 各版本价值
+
+| 版本 | 核心价值 | 目标用户 |
+|------|---------|---------|
+| v3.10.0 | 视觉回归 + 性能度量 | 前端团队、UI 工程师 |
+| v3.11.0 | 小程序自动化测试 | 小程序开发者、跨端团队 |
+| v4.0.0 | 移动端 App 测试 | 移动端团队、RN/Flutter 开发者 |
+
+**你说继续我就继续，或者你选一个版本开始。**
