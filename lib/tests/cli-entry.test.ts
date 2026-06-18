@@ -177,6 +177,53 @@ describe("CLI — 特殊命令", () => {
     });
 });
 
+describe("CLI — v3.9.0 --recommend-tests", () => {
+    it("--help 应包含 --recommend-tests", () => {
+        const result = runCLI(["--help"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("--recommend-tests");
+    });
+
+    it("--recommend-tests 应输出推荐结果", () => {
+        writeFileSync(
+            join(tempDir, "package.json"),
+            JSON.stringify({ name: "test", devDependencies: { jest: "^29.0.0" } })
+        );
+        mkdirSync(join(tempDir, "src"), { recursive: true });
+        writeFileSync(join(tempDir, "src", "helper.ts"), "export function helper() { return 1; }\n");
+        writeFileSync(
+            join(tempDir, "src", "helper.test.ts"),
+            'import { helper } from "./helper";\ntest("helper", () => {});\n'
+        );
+        execSync("git init", { cwd: tempDir, stdio: "ignore" });
+        execSync("git add .", { cwd: tempDir, stdio: "ignore" });
+
+        const result = runCLI(["--recommend-tests", "--staged"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("helper.test.ts");
+    });
+
+    it("--recommend-tests --json 应输出 JSON", () => {
+        writeFileSync(
+            join(tempDir, "package.json"),
+            JSON.stringify({ name: "test", devDependencies: { jest: "^29.0.0" } })
+        );
+        mkdirSync(join(tempDir, "src"), { recursive: true });
+        writeFileSync(join(tempDir, "src", "a.ts"), "export const a = 1;\n");
+        writeFileSync(join(tempDir, "src", "a.test.ts"), 'import { a } from "./a";\ntest("a", () => {});\n');
+        execSync("git init", { cwd: tempDir, stdio: "ignore" });
+        execSync("git add .", { cwd: tempDir, stdio: "ignore" });
+
+        const result = runCLI(["--recommend-tests", "--staged", "--json"]);
+        expect(result.exitCode).toBe(0);
+        const jsonStart = result.stdout.indexOf("{");
+        const jsonStr = jsonStart >= 0 ? result.stdout.slice(jsonStart) : "{}";
+        const json = JSON.parse(jsonStr);
+        expect(json).toHaveProperty("recommendations");
+        expect(json.recommendations.length).toBeGreaterThanOrEqual(1);
+    });
+});
+
 describe("CLI — 其他参数", () => {
     it("--severity 应被解析", () => {
         writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test" }), "utf-8");

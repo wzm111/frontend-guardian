@@ -23,6 +23,7 @@ import type { Issue, Rule, ScanResult, Severity } from "@/types.js";
 import { generateAIFixSuggestions } from "@/utils/ai-fix-suggester.js";
 import { detectE2EGaps, formatE2EGapJson } from "@/utils/e2e-gap-detector.js";
 import { detectProjectMeta } from "@/utils/project-detector.js";
+import { formatRecommendations, formatRecommendationsJson, recommendTests } from "@/utils/test-recommender.js";
 import type { MCPServerOptions, MCPToolArgs, MCPToolResult } from "./types.js";
 
 const MODULES = [
@@ -362,6 +363,39 @@ export function getToolDefinitions(): Tool[] {
                 },
             },
         },
+        {
+            name: "recommend-tests",
+            description:
+                "Intelligently recommend which tests to run based on changed files. " +
+                "Analyzes git diff, import graph, and route mappings to determine the minimal set of tests " +
+                "that cover the code changes. Supports staged files, diff ranges, or explicit file lists.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    scope: {
+                        type: "string",
+                        enum: ["staged", "diff", "auto", "explicit"],
+                        description: "How to determine changed files. Default: auto.",
+                    },
+                    diffRange: {
+                        type: "string",
+                        description: "Git diff range when scope=diff, e.g. main...feature.",
+                    },
+                    changedFiles: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Explicit changed file paths when scope=explicit.",
+                    },
+                    minPriority: {
+                        type: "number",
+                        enum: [1, 2, 3],
+                        description: "Minimum priority: 1=direct imports only, 2=+transitive, 3=+route-related.",
+                        default: 1,
+                    },
+                    json: { type: "boolean", description: "Return JSON output instead of Markdown." },
+                },
+            },
+        },
     ];
 }
 
@@ -396,6 +430,8 @@ export async function handleToolCall(
                 return handleGetProjectMeta(args as Record<string, never>, options);
             case "index-project":
                 return handleIndexProject(args as import("./types.js").IndexProjectToolArgs, options);
+            case "recommend-tests":
+                return handleRecommendTests(args as import("./types.js").RecommendTestsToolArgs, options);
             default:
                 return textResult(`Unknown tool: ${name}`, true);
         }
@@ -698,4 +734,23 @@ async function handleIndexProject(
     return textResult(
         `# 项目索引\n\n- 有效: ${payload.valid}\n- 文件: ${stats.files}\n- 路由: ${stats.routes}\n- 符号: ${stats.symbols}`
     );
+}
+
+async function handleRecommendTests(
+    args: import("./types.js").RecommendTestsToolArgs,
+    options: MCPServerOptions
+): Promise<MCPToolResult> {
+    const result = await recommendTests({
+        projectDir: options.projectDir,
+        staged: args.scope === "staged",
+        diffRange: args.scope === "diff" ? args.diffRange : undefined,
+        autoScope: args.scope === "auto" || !args.scope,
+        changedFiles: args.scope === "explicit" ? args.changedFiles : undefined,
+        minPriority: args.minPriority ?? 1,
+    });
+
+    if (args.json) {
+        return textResult(JSON.stringify(formatRecommendationsJson(result), null, 2));
+    }
+    return textResult(formatRecommendations(result));
 }

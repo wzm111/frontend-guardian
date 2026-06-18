@@ -104,6 +104,32 @@ describe("MCP Server tools", () => {
         expect(issues.length).toBeGreaterThanOrEqual(1);
     });
 
+    it("recommend-tests 工具应推荐测试", async () => {
+        writeBasePackageJson(projectDir, { devDependencies: { jest: "^29.0.0" } });
+        writeProjectFile(projectDir, "src/calc.ts", "export function add(a: number, b: number) { return a + b; }\n");
+        writeProjectFile(
+            projectDir,
+            "src/calc.test.ts",
+            'import { add } from "./calc";\ntest("add", () => { expect(add(1, 2)).toBe(3); });\n'
+        );
+
+        const result = await handleToolCall(
+            "recommend-tests",
+            {
+                scope: "explicit",
+                changedFiles: [`${projectDir}/src/calc.ts`],
+                json: true,
+            },
+            { projectDir }
+        );
+
+        expect(result.isError).toBeFalsy();
+        const data = JSON.parse(result.content[0].text);
+        expect(data.recommendations.length).toBe(1);
+        expect(data.recommendations[0].testFile).toContain("calc.test.ts");
+        expect(data.recommendations[0].priority).toBe(1);
+    });
+
     it("未知工具应返回错误", async () => {
         const result = await handleToolCall("unknown-tool", {}, { projectDir });
         expect(result.isError).toBe(true);

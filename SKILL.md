@@ -41,7 +41,7 @@ Skill 会自动检测项目类型并加载对应规则：
 | `solid-js` | SolidJS | `rules/solidjs.md` |
 | `astro` | Astro | `rules/astro.md` |
 
-## 指令路由（7 个核心命令）
+## 指令路由（8 个核心命令）
 
 所有命令通过 `full-scan.sh` 统一入口执行，结果自动合并 AST + Bash + Knip：
 
@@ -68,6 +68,11 @@ Skill 会自动检测项目类型并加载对应规则：
 # 7️⃣ 安装 Git hook
 /frontend-guardian --install-hooks
 /frontend-guardian --install-hooks --install-hooks-type pre-push
+
+# 8️⃣ 智能测试推荐（PR 阶段增量测试）
+/frontend-guardian --recommend-tests
+/frontend-guardian --recommend-tests --staged
+/frontend-guardian --recommend-tests --json
 ```
 
 ### 单模块精细扫描
@@ -116,6 +121,9 @@ Skill 会自动检测项目类型并加载对应规则：
 
 # 启动 MCP Server（供 AI Agent 调用）
 /frontend-guardian --mcp
+
+# 智能测试推荐（PR 阶段只跑相关测试）
+/frontend-guardian --recommend-tests --staged --json
 
 # SARIF 报告输出（GitHub Security tab）
 /frontend-guardian --scan --sarif report.sarif
@@ -190,6 +198,7 @@ fg-server --port 3456 --cors "*"
 | `ai-fix` | 为无自动修复的问题生成 AI 建议 |
 | `get-project-meta` | 获取检测到的项目元数据 |
 | `index-project` | 查询/构建项目索引 |
+| `recommend-tests` | 基于变更文件智能推荐需要运行的测试 |
 
 Cursor / Copilot 配置示例（`.cursor/mcp.json`）：
 

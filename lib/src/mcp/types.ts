@@ -15,7 +15,8 @@ export type MCPToolName =
     | "page-health"
     | "ai-fix"
     | "get-project-meta"
-    | "index-project";
+    | "index-project"
+    | "recommend-tests";
 
 /** scan 工具参数 */
 export interface ScanToolArgs {
@@ -91,6 +92,15 @@ export interface IndexProjectToolArgs {
     json?: boolean;
 }
 
+/** recommend-tests 工具参数 */
+export interface RecommendTestsToolArgs {
+    scope?: "staged" | "diff" | "auto" | "explicit";
+    diffRange?: string;
+    changedFiles?: string[];
+    minPriority?: number;
+    json?: boolean;
+}
+
 /** 工具分发器接受的参数 */
 export type MCPToolArgs =
     | ScanToolArgs
@@ -102,6 +112,7 @@ export type MCPToolArgs =
     | PageHealthToolArgs
     | AIFixToolArgs
     | IndexProjectToolArgs
+    | RecommendTestsToolArgs
     | Record<string, never>;
 
 /** 工具调用返回结构 */

@@ -5,8 +5,8 @@
  * 不依赖 Playwright 运行时，纯文件系统扫描。
  */
 
-import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { resolve, join, relative } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 
 /** 缺口检测结果 */
 export interface E2EGapResult {
@@ -87,9 +87,7 @@ export function detectE2EGaps(options: E2EGapOptions): E2EGapResult {
     const suggestions: TestSuggestion[] = [];
 
     for (const page of allPages) {
-        const isCovered = Array.from(coveredPages).some((cp) =>
-            page.path.includes(cp) || cp.includes(page.path)
-        );
+        const isCovered = Array.from(coveredPages).some((cp) => page.path.includes(cp) || cp.includes(page.path));
         if (!isCovered) {
             uncoveredPages.push(page);
             suggestions.push({
@@ -102,9 +100,7 @@ export function detectE2EGaps(options: E2EGapOptions): E2EGapResult {
     }
 
     for (const api of allApis) {
-        const isCovered = Array.from(coveredApis).some((ca) =>
-            api.path.includes(ca) || ca.includes(api.path)
-        );
+        const isCovered = Array.from(coveredApis).some((ca) => api.path.includes(ca) || ca.includes(api.path));
         if (!isCovered) {
             uncoveredApis.push(api);
             suggestions.push({
@@ -141,7 +137,7 @@ function findE2EDir(projectDir: string): string | null {
 }
 
 /** 收集所有测试文件 */
-function collectTestFiles(dir: string): string[] {
+export function collectTestFiles(dir: string): string[] {
     const files: string[] = [];
     const entries = readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
@@ -156,7 +152,7 @@ function collectTestFiles(dir: string): string[] {
 }
 
 /** 从测试文件内容提取覆盖的页面和接口 */
-function extractCoveredPaths(content: string, pages: Set<string>, apis: Set<string>): void {
+export function extractCoveredPaths(content: string, pages: Set<string>, apis: Set<string>): void {
     // 提取 page.goto / cy.visit 中的路径
     const gotoRegex = /(?:page\.goto|cy\.visit)\s*\(\s*['"]([^'"]+)['"]/g;
     let match;
@@ -165,7 +161,8 @@ function extractCoveredPaths(content: string, pages: Set<string>, apis: Set<stri
     }
 
     // 提取 waitForResponse / cy.intercept 中的接口路径
-    const apiRegex = /(?:waitForResponse|cy\.intercept)\s*\([^)]*(?:url\s*=>\s*)?['"]([^'"]*(?:api|graphql|rest)[^'"]*)['"]/gi;
+    const apiRegex =
+        /(?:waitForResponse|cy\.intercept)\s*\([^)]*(?:url\s*=>\s*)?['"]([^'"]*(?:api|graphql|rest)[^'"]*)['"]/gi;
     while ((match = apiRegex.exec(content)) !== null) {
         apis.add(match[1]);
     }
@@ -193,7 +190,9 @@ function collectProjectPages(projectDir: string, pagesDir?: string): UncoveredPa
                     if (path) pages.push({ path, source: "router-config", framework: "uniapp" });
                 }
             }
-        } catch { /* ignore */ }
+        } catch {
+            /* ignore */
+        }
     }
 
     // 2. 检测 Next.js / Nuxt 路由（pages/ 或 app/ 目录）
@@ -234,12 +233,14 @@ function collectRouteFiles(dir: string, projectDir: string, pages: UncoveredPage
         if (entry.isDirectory() && !entry.name.startsWith("_") && !entry.name.startsWith(".")) {
             collectRouteFiles(fullPath, projectDir, pages, framework);
         } else if (entry.isFile() && /\.(tsx?|jsx?|vue)$/.test(entry.name)) {
-            const routePath = "/" + relative(dir, fullPath)
-                .replace(/\\/g, "/")
-                .replace(/\.(tsx?|jsx?|vue)$/, "")
-                .replace(/\/index$/, "")
-                .replace(/\[\.{3}[^\]]+\]/g, "*")
-                .replace(/\[[^\]]+\]/g, ":param");
+            const routePath =
+                "/" +
+                relative(dir, fullPath)
+                    .replace(/\\/g, "/")
+                    .replace(/\.(tsx?|jsx?|vue)$/, "")
+                    .replace(/\/index$/, "")
+                    .replace(/\[\.{3}[^\]]+\]/g, "*")
+                    .replace(/\[[^\]]+\]/g, ":param");
             if (routePath !== "/") {
                 pages.push({ path: routePath, source: framework.includes("app") ? "app-dir" : "pages-dir", framework });
             }
@@ -252,11 +253,9 @@ function collectProjectApis(projectDir: string, apiDir?: string): UncoveredApi[]
     const apis: UncoveredApi[] = [];
 
     // 1. 检测 api/ 目录（Next.js 风格）
-    const apiDirs = apiDir ? [resolve(apiDir)] : [
-        join(projectDir, "api"),
-        join(projectDir, "src/api"),
-        join(projectDir, "server/api"),
-    ];
+    const apiDirs = apiDir
+        ? [resolve(apiDir)]
+        : [join(projectDir, "api"), join(projectDir, "src/api"), join(projectDir, "server/api")];
 
     for (const dir of apiDirs) {
         if (existsSync(dir)) {
@@ -289,12 +288,14 @@ function collectApiFiles(dir: string, projectDir: string, apis: UncoveredApi[]):
         if (entry.isDirectory()) {
             collectApiFiles(fullPath, projectDir, apis);
         } else if (/\.(ts|js|mjs)$/.test(entry.name) && !/request\.(ts|js|mjs)$/.test(entry.name)) {
-            const routePath = "/api/" + relative(dir, fullPath)
-                .replace(/\\/g, "/")
-                .replace(/\.(ts|js|mjs)$/, "")
-                .replace(/\/route$/, "")
-                .replace(/\[\.{3}[^\]]+\]/g, "*")
-                .replace(/\[[^\]]+\]/g, ":param");
+            const routePath =
+                "/api/" +
+                relative(dir, fullPath)
+                    .replace(/\\/g, "/")
+                    .replace(/\.(ts|js|mjs)$/, "")
+                    .replace(/\/route$/, "")
+                    .replace(/\[\.{3}[^\]]+\]/g, "*")
+                    .replace(/\[[^\]]+\]/g, ":param");
             apis.push({ path: routePath, source: "api-dir" });
         }
     }
@@ -309,17 +310,19 @@ function suggestTestFileName(path: string, type: "page" | "api"): string {
         .replace(/\*/g, "all")
         .replace(/\./g, "-")
         .toLowerCase();
-    return type === "page"
-        ? `${sanitized}.spec.ts`
-        : `api-${sanitized}.spec.ts`;
+    return type === "page" ? `${sanitized}.spec.ts` : `api-${sanitized}.spec.ts`;
 }
 
 /** 格式化缺口检测结果为终端报告 */
 export function formatE2EGapReport(result: E2EGapResult): string {
     const lines: string[] = [];
     lines.push(`📊 E2E 测试覆盖缺口检测报告`);
-    lines.push(`   页面覆盖率: ${result.pageCoverage}% (${result.coveredPages} / ${result.coveredPages + result.uncoveredPages.length})`);
-    lines.push(`   接口覆盖率: ${result.apiCoverage}% (${result.coveredApis} / ${result.coveredApis + result.uncoveredApis.length})`);
+    lines.push(
+        `   页面覆盖率: ${result.pageCoverage}% (${result.coveredPages} / ${result.coveredPages + result.uncoveredPages.length})`
+    );
+    lines.push(
+        `   接口覆盖率: ${result.apiCoverage}% (${result.coveredApis} / ${result.coveredApis + result.uncoveredApis.length})`
+    );
     lines.push("");
 
     if (result.uncoveredPages.length > 0) {

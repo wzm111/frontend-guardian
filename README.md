@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.8.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.9.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -19,6 +19,7 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **📝 E2E 测试治理** | 扫描 Playwright/Cypress 测试代码反模式，检测测试覆盖缺口 | `fg-core . --module e2e` |
 | **⚡ 增量扫描** | 基于 git diff / import 图分析，只扫描变更文件及影响范围 | `fg-core . --scan --staged` |
 | **🤖 MCP Server** | 以 MCP 协议暴露治理能力，供 Claude / Cursor / Copilot 等 AI Agent 调用 | `fg-core . --mcp` |
+| **🎯 智能测试推荐** | 基于代码变更影响分析，自动推荐需要运行的测试文件，减少 CI 全量测试耗时 | `fg-core . --recommend-tests` |
 
 ---
 
@@ -242,15 +243,21 @@ fg-core . --scan --diff main...feature
 # 6️⃣ 智能扫描范围（未提交修改 → 最近 5 次提交）
 fg-core . --scan --auto-scope
 
-# 7️⃣ 初始化项目配置
+# 8️⃣ 智能测试推荐（基于变更影响分析）
+fg-core . --recommend-tests
+fg-core . --recommend-tests --staged
+fg-core . --recommend-tests --diff main...feature
+fg-core . --recommend-tests --json
+
+# 9️⃣ 初始化项目配置
 fg-core . --init-config
 
-# 7️⃣ 安装 Git hook（pre-commit / pre-push）
+# 🔟 安装 Git hook（pre-commit / pre-push）
 fg-core . --install-hooks
 fg-core . --install-hooks --install-hooks-type pre-push
 fg-core . --install-hooks --install-hooks-type both
 
-# 8️⃣ 初始化 CI 配置（自动检测平台）
+# 1️⃣1️⃣ 初始化 CI 配置（自动检测平台）
 fg-core . --init-ci
 fg-core . --init-ci --init-ci-provider gitlab
 fg-core . --init-ci --init-ci-provider both
@@ -295,6 +302,9 @@ fg-core . --scan --external
 
 # Watch 模式（开发时自动扫描）
 fg-core . --scan --watch
+
+# 智能测试推荐（PR 阶段只跑相关测试）
+fg-core . --recommend-tests --staged --json
 
 # SARIF 报告输出（GitHub Security tab 兼容）
 fg-core . --scan --sarif report.sarif
@@ -894,6 +904,17 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.9.0 — 智能测试推荐（已交付，642 测试通过）
+
+- **智能测试推荐 `--recommend-tests`**: 基于代码变更影响分析，自动推荐需要运行的测试文件
+  - Priority 1：测试文件直接 import 了变更文件
+  - Priority 2：变更文件通过 import 链间接影响测试文件
+  - Priority 3：变更文件影响某个路由，E2E 测试覆盖该路由
+  - 复用 v3.7.0 的 `ProjectIndexer` 反向依赖图，无需重新解析 AST
+- **PR 阶段增量测试**: 配合 `--staged` / `--diff` / `--auto-scope` 使用，CI 中只运行受影响的测试套件
+- **MCP 工具 `recommend-tests`**: AI Agent 可直接调用获取推荐测试列表
+- **测试覆盖**: 新增 `lib/tests/v3.9.0-test-recommender.test.ts`（7 个单元测试）以及 CLI / MCP 冒烟测试
 
 ### v3.8.0 — MCP Server 与 AI Agent 集成（已交付，631 测试通过）
 

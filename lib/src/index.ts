@@ -223,6 +223,13 @@ export {
     parseUniAppRoutes,
     parseVueRouterConfig,
 } from "./utils/route-parser.js";
+export type { RecommendTestsOptions, RecommendTestsResult, TestRecommendation } from "./utils/test-recommender.js";
+// v3.9.0: Intelligent Test Recommendation
+export {
+    formatRecommendations,
+    formatRecommendationsJson,
+    recommendTests,
+} from "./utils/test-recommender.js";
 export type {
     PackageScanResult,
     WorkspaceScanOptions,
