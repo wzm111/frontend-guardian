@@ -229,19 +229,19 @@
 
 ---
 
-## 🚧 v3.8.0 — MCP Server 与 AI Agent 集成（MCP Server & AI Agent Integration）
+## ✅ v3.8.0 — MCP Server 与 AI Agent 集成（已交付 2026-06-18，631 测试通过）
 
 **目标**：让 frontend-guardian 成为 AI Agent 的标准工具，通过 MCP 协议暴露治理能力。
 
-**预计发布**：2026-07-22
+**实际发布**：2026-06-18
 
 > **CodeGraph 借鉴点**：MCP Server 模式（`codegraph serve --mcp`）、自动向 Agent 注入使用指引
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅
 
-- [ ] **MCP Server 启动**：`fg-core --mcp` 启动 MCP Server，暴露 scan / fix / e2e-run / e2e-detect-gaps 工具
-- [ ] **Cursor / Copilot 兼容**：MCP Server 兼容 Cursor 的 MCP 配置格式和 GitHub Copilot 的 tool calling 格式
-- [ ] **自然语言触发**：Agent 无需记忆 CLI 命令，通过自然语言描述需求即可触发治理（如"检查这个项目有没有 i18n 问题"）
+- [x] **MCP Server 启动**：`fg-core --mcp` 启动 MCP Server，暴露 scan / fix / e2e-run / e2e-detect-gaps 工具
+- [x] **Cursor / Copilot 兼容**：MCP Server 兼容 Cursor 的 MCP 配置格式和 GitHub Copilot 的 tool calling 格式
+- [x] **自然语言触发**：Agent 无需记忆 CLI 命令，通过自然语言描述需求即可触发治理（如"检查这个项目有没有 i18n 问题"）
 
 ### P1 — 尽量完成
 

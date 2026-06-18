@@ -9,37 +9,37 @@
  * 5. 支持增量扫描（git diff）
  */
 
-import { readFileSync, writeFileSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { createInterface } from "node:readline";
+import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type {
-    Rule,
-    RuleContext,
-    Issue,
-    Severity,
-    ScanResult,
-    ProjectConfig,
-    ProjectMeta,
-    RuleUtils,
-    ParseOptions,
-    Position,
-    FixPreview,
-} from "@/types.js";
-import { parseAST, getImports } from "@/utils/ast-parser.js";
+import { createInterface } from "node:readline";
 import type { ParseResult } from "@babel/parser";
 import type { File } from "@babel/types";
-import { detectProjectMeta } from "@/utils/project-detector.js";
-import { loadConfig } from "@/utils/config-loader.js";
-import { RuleRegistry, createRegistry } from "@/rules/registry.js";
 import { globby } from "globby";
 import pc from "picocolors";
+import { runFormat } from "@/integrations/formatter.js";
 import type { ExternalTool, ExternalToolResult } from "@/integrations/index.js";
 import { runAllExternalTools } from "@/integrations/index.js";
-import { SmartCache } from "./cache.js";
-import { HistoryReport } from "@/utils/history-report.js";
-import { runFormat } from "@/integrations/formatter.js";
+import { createRegistry, type RuleRegistry } from "@/rules/registry.js";
+import type {
+    FixPreview,
+    Issue,
+    ParseOptions,
+    Position,
+    ProjectConfig,
+    ProjectMeta,
+    Rule,
+    RuleContext,
+    RuleUtils,
+    ScanResult,
+    Severity,
+} from "@/types.js";
+import { getImports, parseAST } from "@/utils/ast-parser.js";
 import { concurrentMap, getAdaptiveConcurrency } from "@/utils/concurrent.js";
+import { loadConfig } from "@/utils/config-loader.js";
+import { HistoryReport } from "@/utils/history-report.js";
+import { detectProjectMeta } from "@/utils/project-detector.js";
+import { SmartCache } from "./cache.js";
 
 export interface EngineOptions {
     /** 项目根目录 */
@@ -78,6 +78,8 @@ export interface EngineOptions {
     incrementalImportGraph?: boolean;
     /** v3.5.0: 扫描策略分级 strict | standard | loose */
     strategy?: "strict" | "standard" | "loose";
+    /** v3.8.0: 静默模式（禁止向 stdout 输出日志，供 MCP Server 等场景使用） */
+    silent?: boolean;
 }
 
 export class RuleEngine {
@@ -87,6 +89,17 @@ export class RuleEngine {
     private options: EngineOptions;
     private cache?: SmartCache;
     private history: HistoryReport;
+
+    /** v3.8.0: 静默模式下禁止 stdout 日志 */
+    private log(...args: unknown[]): void {
+        if (this.options.silent) return;
+        console.log(...args);
+    }
+
+    private logError(...args: unknown[]): void {
+        if (this.options.silent) return;
+        console.error(...args);
+    }
 
     constructor(options: EngineOptions) {
         this.options = options;
@@ -101,7 +114,7 @@ export class RuleEngine {
         const strategy = options.strategy ?? this.config.strategy ?? "standard";
         if (strategy !== "standard") {
             this.registry.applyStrategy(strategy);
-            console.log(pc.blue(`⚙️  扫描策略: ${strategy}`));
+            this.log(pc.blue(`⚙️  扫描策略: ${strategy}`));
         }
 
         // Phase 5: 初始化智能缓存
@@ -125,17 +138,17 @@ export class RuleEngine {
             const paths = this.config.customRules.map((c) => c.path);
             const result = this.registry.loadCustomRules(paths, this.options.projectDir);
             if (result.loaded.length > 0) {
-                console.log(pc.blue(`🔌 已加载 ${result.loaded.length} 个自定义规则`));
+                this.log(pc.blue(`🔌 已加载 ${result.loaded.length} 个自定义规则`));
             }
             if (result.failed.length > 0) {
-                console.log(pc.yellow(`⚠️  ${result.failed.length} 个自定义规则加载失败`));
+                this.log(pc.yellow(`⚠️  ${result.failed.length} 个自定义规则加载失败`));
             }
         }
 
         // v2.7.0: 3. 加载 npm 插件包规则
         if (this.config.__pluginRules && this.config.__pluginRules.length > 0) {
             this.registry.registerAll(this.config.__pluginRules);
-            console.log(pc.blue(`🔌 已注册 ${this.config.__pluginRules.length} 个插件规则`));
+            this.log(pc.blue(`🔌 已注册 ${this.config.__pluginRules.length} 个插件规则`));
         }
     }
 
@@ -210,13 +223,11 @@ export class RuleEngine {
         const files = await this.getScanFiles();
         let filesWithIssues = 0;
 
-        console.log(pc.blue(`🔍 [${module}] 扫描 ${files.length} 个文件，${activeRules.length} 条规则...`));
+        this.log(pc.blue(`🔍 [${module}] 扫描 ${files.length} 个文件，${activeRules.length} 条规则...`));
 
         // v3.2.0: 自适应并发 — 根据文件数、规则数和 CPU 动态调整
         const concurrency = this.options.concurrency ?? getAdaptiveConcurrency(files.length, activeRules.length);
-        const fileResults = await concurrentMap(files, concurrency, (file) =>
-            this.scanFile(file, activeRules)
-        );
+        const fileResults = await concurrentMap(files, concurrency, (file) => this.scanFile(file, activeRules));
 
         let filesSkipped = 0;
         for (const { issues: fileIssues, skipped } of fileResults) {
@@ -245,7 +256,7 @@ export class RuleEngine {
             this.cache.save();
             const stats = this.cache.getStats();
             if (stats.total > 0) {
-                console.log(pc.gray(`   💾 缓存: ${stats.valid} 命中 / ${stats.expired} 过期 / ${stats.total} 总计`));
+                this.log(pc.gray(`   💾 缓存: ${stats.valid} 命中 / ${stats.expired} 过期 / ${stats.total} 总计`));
             }
         }
 
@@ -262,13 +273,16 @@ export class RuleEngine {
         const allIssues = [...issues.critical, ...issues.warning, ...issues.suggestion];
         this.history.record(result, allIssues);
 
-        const trend = this.history.analyze(module, allIssues.map((i) => `${i.file}|${i.ruleId}|${i.line}`));
+        const trend = this.history.analyze(
+            module,
+            allIssues.map((i) => `${i.file}|${i.ruleId}|${i.line}`)
+        );
         if (trend.totalScans > 1) {
             if (trend.newIssues.length > 0) {
-                console.log(pc.yellow(`   📈 新增 ${trend.newIssues.length} 个问题（对比上次扫描）`));
+                this.log(pc.yellow(`   📈 新增 ${trend.newIssues.length} 个问题（对比上次扫描）`));
             }
             if (trend.fixedIssues.length > 0) {
-                console.log(pc.green(`   ✅ 已修复 ${trend.fixedIssues.length} 个问题（对比上次扫描）`));
+                this.log(pc.green(`   ✅ 已修复 ${trend.fixedIssues.length} 个问题（对比上次扫描）`));
             }
         }
 
@@ -308,7 +322,7 @@ export class RuleEngine {
                 try {
                     const stats = statSync(filePath);
                     if (stats.size > threshold) {
-                        console.log(
+                        this.log(
                             pc.yellow(
                                 `   ⚠️ 跳过超大文件: ${filePath} (${(stats.size / 1024).toFixed(1)}KB > ${(threshold / 1024).toFixed(0)}KB)`
                             )
@@ -352,7 +366,7 @@ export class RuleEngine {
                     }
                     allIssues.push(...result);
                 } catch (err) {
-                    console.error(pc.red(`  Rule "${rule.id}" failed on ${filePath}:`), err);
+                    this.logError(pc.red(`  Rule "${rule.id}" failed on ${filePath}:`), err);
                 }
             }
 
@@ -370,13 +384,11 @@ export class RuleEngine {
     private async getScanFiles(): Promise<string[]> {
         // 增量扫描：git staged / diff 范围 / auto-scope
         if (this.options.staged || this.options.diffRange || this.options.autoScope) {
-            const diffFiles = this.options.autoScope
-                ? this.getAutoScopeFiles()
-                : this.getDiffFiles();
+            const diffFiles = this.options.autoScope ? this.getAutoScopeFiles() : this.getDiffFiles();
             if (diffFiles.length === 0) {
                 if (this.options.autoScope) {
                     // auto-scope 无结果时回退到全量扫描
-                    console.log(pc.yellow("⚠️  未检测到修改文件，回退到全量扫描"));
+                    this.log(pc.yellow("⚠️  未检测到修改文件，回退到全量扫描"));
                 }
                 return [];
             }
@@ -388,13 +400,13 @@ export class RuleEngine {
             if (this.options.incrementalImportGraph !== false && filtered.length > 0 && filtered.length < 500) {
                 const expanded = this.expandIncrementalFiles(filtered, include);
                 if (expanded.length > filtered.length) {
-                    console.log(pc.cyan(`   📎 import 图扩展: ${filtered.length} → ${expanded.length} 个文件`));
+                    this.log(pc.cyan(`   📎 import 图扩展: ${filtered.length} → ${expanded.length} 个文件`));
                     filtered = expanded;
                 }
             }
 
             if (this.options.autoScope && filtered.length > 0) {
-                console.log(pc.cyan(`🔍 智能扫描范围: ${filtered.length} 个文件`));
+                this.log(pc.cyan(`🔍 智能扫描范围: ${filtered.length} 个文件`));
             }
             return filtered;
         }
@@ -528,7 +540,8 @@ export class RuleEngine {
             try {
                 const source = readFileSync(file, "utf-8");
                 // 简单正则提取相对路径 import（不依赖 AST，速度更快）
-                const importRegex = /import\s+.*?\s+from\s+['"](\.\.?\/[^'"]+)['"]|import\s*\(\s*['"](\.\.?\/[^'"]+)['"]\s*\)/g;
+                const importRegex =
+                    /import\s+.*?\s+from\s+['"](\.\.?\/[^'"]+)['"]|import\s*\(\s*['"](\.\.?\/[^'"]+)['"]\s*\)/g;
                 let match: RegExpExecArray | null;
                 while ((match = importRegex.exec(source)) !== null) {
                     const importPath = match[1] || match[2];
@@ -700,7 +713,13 @@ export class RuleEngine {
      * @param issues 包含 fix 字段的 Issue 列表
      * @returns 修复统计（dryRun 模式下 filesModified 为空，fixedCount 为预览数量）
      */
-    applyFixes(issues: Issue[]): { fixedCount: number; filesModified: string[]; errors: string[]; previews?: FixPreview[]; skippedByUser?: number } {
+    applyFixes(issues: Issue[]): {
+        fixedCount: number;
+        filesModified: string[];
+        errors: string[];
+        previews?: FixPreview[];
+        skippedByUser?: number;
+    } {
         const dryRun = this.options.dryRun;
         const interactive = this.options.interactive;
         let fixedCount = 0;
@@ -786,8 +805,13 @@ export class RuleEngine {
             }
         }
 
-        const result: { fixedCount: number; filesModified: string[]; errors: string[]; previews?: FixPreview[]; skippedByUser?: number } =
-            { fixedCount, filesModified, errors, skippedByUser };
+        const result: {
+            fixedCount: number;
+            filesModified: string[];
+            errors: string[];
+            previews?: FixPreview[];
+            skippedByUser?: number;
+        } = { fixedCount, filesModified, errors, skippedByUser };
         if (dryRun) {
             result.previews = previews;
         }
@@ -800,17 +824,18 @@ export class RuleEngine {
      */
     private promptForFix(issue: Issue, confidence: string, original: string, patched: string): boolean {
         const diff = this.makeDiffPreview(original, patched, issue.fix!);
-        const confidenceIcon = confidence === "high" ? pc.green("●") : confidence === "medium" ? pc.yellow("●") : pc.red("●");
+        const confidenceIcon =
+            confidence === "high" ? pc.green("●") : confidence === "medium" ? pc.yellow("●") : pc.red("●");
         const confidenceLabel = confidence === "high" ? "高置信度" : confidence === "medium" ? "中置信度" : "低置信度";
 
-        console.log(pc.cyan(`\n  📄 ${issue.file}:${issue.line}`));
-        console.log(pc.yellow(`     [${issue.ruleId}] ${issue.title}`));
-        console.log(pc.gray(`     置信度: ${confidenceIcon} ${confidenceLabel}`));
+        this.log(pc.cyan(`\n  📄 ${issue.file}:${issue.line}`));
+        this.log(pc.yellow(`     [${issue.ruleId}] ${issue.title}`));
+        this.log(pc.gray(`     置信度: ${confidenceIcon} ${confidenceLabel}`));
         if (issue.fix?.description) {
-            console.log(pc.gray(`     说明: ${issue.fix.description}`));
+            this.log(pc.gray(`     说明: ${issue.fix.description}`));
         }
-        console.log(diff);
-        console.log(pc.gray("     选项: [y] 应用  [n] 跳过  [a] 全部应用  [q] 退出"));
+        this.log(diff);
+        this.log(pc.gray("     选项: [y] 应用  [n] 跳过  [a] 全部应用  [q] 退出"));
 
         // 使用同步 readline 读取用户输入
         const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -824,7 +849,7 @@ export class RuleEngine {
                 return true;
             }
             if (trimmed === "q") {
-                console.log(pc.gray("     已退出交互式修复"));
+                this.log(pc.gray("     已退出交互式修复"));
                 process.exit(0);
             }
             return trimmed === "y" || trimmed === "yes" || trimmed === "";
@@ -1000,7 +1025,7 @@ export class RuleEngine {
             return [];
         }
 
-        console.log(pc.cyan("🔌 运行外部工具集成..."));
+        this.log(pc.cyan("🔌 运行外部工具集成..."));
 
         // 获取当前扫描文件列表（用于增量模式）
         const scanFiles = this.options.staged || this.options.diffRange ? this.getDiffFiles() : undefined;

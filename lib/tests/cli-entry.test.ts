@@ -5,11 +5,11 @@
  * 使用子进程调用，验证输出与退出码
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const CLI_PATH = resolve(__dirname, "../bin/fg-core.js");
 
@@ -214,6 +214,23 @@ describe("CLI — 其他参数", () => {
         } catch (err: any) {
             // timeout 会抛异常，但 stdout 中应包含扫描信息
             expect(err.stdout || "").toContain("Frontend Guardian Core");
+        }
+    });
+
+    it("--mcp 参数应被解析并启动 MCP Server（快速超时）", () => {
+        writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test" }), "utf-8");
+        try {
+            execSync(`node ${CLI_PATH} ${tempDir} --mcp`, {
+                encoding: "utf-8",
+                timeout: 500,
+                cwd: tempDir,
+            });
+        } catch (err: any) {
+            // timeout 会抛异常；不应出现未知选项或 require 错误
+            const stderr = err.stderr || "";
+            expect(stderr).not.toContain("unknown option");
+            expect(stderr).not.toContain("Cannot find module");
+            expect(stderr).not.toContain("Error");
         }
     });
 

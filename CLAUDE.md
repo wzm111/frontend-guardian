@@ -95,6 +95,12 @@ bash scripts/full-scan.sh --scan --json
 - **`dashboard-html.ts`** — Generates the web dashboard SPA (pure JS + Canvas charts, AJAX loading from API endpoints, 30s auto-refresh).
 - **`dashboard-client.ts`** — CLI client that uploads scan results to the dashboard server. Auto-detects `FG_DASHBOARD_SERVER` and `FG_DASHBOARD_TOKEN` env vars.
 
+### MCP Server (`lib/src/mcp/`)
+
+- **`mcp-server.ts`** — v3.8.0 MCP Server implementation launched via `fg-core --mcp`. Uses `@modelcontextprotocol/sdk` with `StdioServerTransport`.
+- **`tools.ts`** — Tool definitions (`getToolDefinitions`) and dispatcher (`handleToolCall`) for `scan`, `fix`, `e2e-run`, `e2e-detect-gaps`, `list-rules`, `scan-file`, `page-health`, `ai-fix`, `get-project-meta`, `index-project`.
+- **`types.ts`** — MCP-specific argument and result types.
+
 ### Unified Output (v3.4.0)
 
 `full-scan.sh` parses Bash scanner text output into structured JSON and merges it with AST engine JSON and Knip JSON into a single `UnifiedOutput`:
@@ -116,7 +122,7 @@ bash scripts/full-scan.sh --scan --json
 
 ## Important Notes
 
-- **Three version strings to keep in sync**: `lib/package.json`, `lib/bin/fg-core.js` (help text), `lib/bin/fg-server.js` (help text), and `lib/bin/fg-lsp.js` (help text).
+- **Four version strings to keep in sync**: `lib/package.json`, `lib/bin/fg-core.js` (help text), `lib/bin/fg-lsp.js` (help text), `lib/bin/fg-server.js` (help text **and** startup log), and `lib/src/mcp/mcp-server.ts` `ServerInfo`.
 - **Tests live in `lib/tests/`** and use vitest with `globals: true`.
 - **Bash scanners output text** in the format `  [emoji] [file:line] message`. `full-scan.sh` parses this with regex `/^\s+([❌🔴⚠️🟡💡])\s+\[(.+?):(\d+)\]\s+(.+)$/`. Emoji maps to severity: ❌/🔴 → `critical`, ⚠️/🟡 → `warning`, 💡 → `suggestion`.
 - **`--scan` is an alias for `--module all`** in `fg-core.js`.

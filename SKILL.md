@@ -114,6 +114,9 @@ Skill 会自动检测项目类型并加载对应规则：
 # Watch 模式（开发时自动扫描）
 /frontend-guardian --scan --watch
 
+# 启动 MCP Server（供 AI Agent 调用）
+/frontend-guardian --mcp
+
 # SARIF 报告输出（GitHub Security tab）
 /frontend-guardian --scan --sarif report.sarif
 
@@ -163,6 +166,42 @@ fg-server --port 3456 --cors "*"
 
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
+```
+
+## MCP Server 集成
+
+`frontend-guardian` 支持以 MCP（Model Context Protocol）Server 模式运行，让 Claude Code、Cursor、Copilot 等 AI Agent 直接调用治理能力：
+
+```
+/frontend-guardian --mcp
+```
+
+启动后通过 stdio 暴露以下工具：
+
+| 工具 | 说明 |
+| ---- | ---- |
+| `scan` | 运行治理扫描，可指定模块、severity、staged 等 |
+| `fix` | 扫描并自动修复，支持 `dryRun` 预览 |
+| `e2e-run` | 运行 Playwright E2E 测试并返回失败 Issue |
+| `e2e-detect-gaps` | 检测 E2E 覆盖缺口 |
+| `list-rules` | 列出可用规则 |
+| `scan-file` | 单文件快速扫描 |
+| `page-health` | 页面健康检查（需 Playwright） |
+| `ai-fix` | 为无自动修复的问题生成 AI 建议 |
+| `get-project-meta` | 获取检测到的项目元数据 |
+| `index-project` | 查询/构建项目索引 |
+
+Cursor / Copilot 配置示例（`.cursor/mcp.json`）：
+
+```json
+{
+  "mcpServers": {
+    "frontend-guardian": {
+      "command": "npx",
+      "args": ["frontend-guardian-core", ".", "--mcp"]
+    }
+  }
+}
 ```
 
 ## 严重级别定义

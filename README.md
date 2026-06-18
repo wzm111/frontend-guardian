@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.7.6** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.8.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -18,6 +18,7 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **🧠 AI 修复建议** | 为无自动修复方案的问题调用 LLM 生成修复建议 | `fg-core . --scan --ai-fix` |
 | **📝 E2E 测试治理** | 扫描 Playwright/Cypress 测试代码反模式，检测测试覆盖缺口 | `fg-core . --module e2e` |
 | **⚡ 增量扫描** | 基于 git diff / import 图分析，只扫描变更文件及影响范围 | `fg-core . --scan --staged` |
+| **🤖 MCP Server** | 以 MCP 协议暴露治理能力，供 Claude / Cursor / Copilot 等 AI Agent 调用 | `fg-core . --mcp` |
 
 ---
 
@@ -339,6 +340,7 @@ fg-core . --scan --post-comment
 | `--upload` | 上传报告（需配置 FG_UPLOAD_PROVIDER 环境变量） | - |
 | `--interactive` | 交互式修复（逐条确认，类似 `git add -p`） | false |
 | `--skip-large-files-threshold <bytes>` | 大文件跳过阈值（默认 512000 = 500KB，0 表示不跳过） | 512000 |
+| `--mcp` | 启动 MCP Server（stdio，供 AI Agent 调用） | - |
 
 ## 使用场景
 
@@ -892,6 +894,16 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.8.0 — MCP Server 与 AI Agent 集成（已交付，631 测试通过）
+
+- **MCP Server 模式 `--mcp`**: `fg-core . --mcp` 启动基于 stdio 的 MCP Server，暴露治理能力为 AI Agent 可调用的工具
+  - 暴露工具：`scan`、`fix`、`e2e-run`、`e2e-detect-gaps`、`list-rules`、`scan-file`、`page-health`、`ai-fix`、`get-project-meta`、`index-project`
+  - 兼容 Claude Code、Cursor、Copilot 等支持 MCP 协议的客户端
+  - 自然语言触发：Agent 无需记忆 CLI 命令，通过工具描述即可调用
+- **静默扫描模式**: `EngineOptions.silent` 避免 MCP stdio 传输被 stdout 日志污染
+- **版本号同步**: 修复 `fg-server.js` 帮助文本与启动日志版本不一致的问题
+- **测试覆盖**: 新增 `lib/tests/mcp-server.test.ts`（8 个 MCP 工具单元测试）和 CLI `--mcp` 冒烟测试
 
 ### v3.7.6 — README 重写与文档改进（已交付，622 测试通过）
 
