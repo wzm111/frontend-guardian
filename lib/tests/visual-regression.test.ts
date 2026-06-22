@@ -54,14 +54,29 @@ describe("visual-regression", () => {
 
         it("路径生成工具使用正确目录", () => {
             expect(visualRegression.getCurrentScreenshotPath("/tmp/shots", "/home")).toBe("/tmp/shots/_home.png");
-            expect(visualRegression.getBaselinePath("/tmp/shots/baseline", "/home")).toBe("/tmp/shots/baseline/_home.png");
+            expect(visualRegression.getBaselinePath("/tmp/shots/baseline", "/home")).toBe(
+                "/tmp/shots/baseline/_home.png"
+            );
             expect(visualRegression.getDiffImagePath("/tmp/shots/diff", "/home")).toBe("/tmp/shots/diff/_home.png");
+        });
+
+        it("profile 作为目录层级隔离", () => {
+            expect(
+                visualRegression.getCurrentScreenshotPath("/tmp/shots", "/home", undefined, "firefox/iphone-14-pro")
+            ).toBe("/tmp/shots/firefox/iphone-14-pro/_home.png");
+            expect(visualRegression.getBaselinePath("/tmp/baseline", "/home", "#main", "chromium/desktop")).toBe(
+                "/tmp/baseline/chromium/desktop/_home__sel" + visualRegression.selectorHash("#main") + ".png"
+            );
         });
     });
 
     describe("availability", () => {
         it("未安装时返回 false", () => {
-            vi.stubGlobal("require", { resolve: vi.fn(() => { throw new Error("not found"); }) });
+            vi.stubGlobal("require", {
+                resolve: vi.fn(() => {
+                    throw new Error("not found");
+                }),
+            });
             expect(visualRegression.isPixelmatchAvailable()).toBe(false);
             expect(visualRegression.isPngjsAvailable()).toBe(false);
             vi.unstubAllGlobals();
@@ -101,7 +116,11 @@ describe("visual-regression", () => {
         it.skip("差异低于阈值时仍返回结果", async () => {
             // 需要本地安装 pixelmatch + pngjs 后启用
             const { PNG } = await import("pngjs");
-            (PNG.sync.read as ReturnType<typeof vi.fn>).mockReturnValue({ data: Buffer.alloc(100), width: 5, height: 5 });
+            (PNG.sync.read as ReturnType<typeof vi.fn>).mockReturnValue({
+                data: Buffer.alloc(100),
+                width: 5,
+                height: 5,
+            });
             const { default: pixelmatch } = await import("pixelmatch");
             (pixelmatch as ReturnType<typeof vi.fn>).mockReturnValue(10);
 

@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.10.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.10.1** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -16,6 +16,8 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **🎭 动态内容遮罩** | 自动遮罩时间戳/广告等不稳定元素，降低视觉回归误报 | `fg-core . --page-health --mask-selectors ".clock"` |
 | **⚡ Lighthouse CWV** | 集成 Lighthouse 采集 LCP/CLS/FCP/TTFB/INP 性能指标 | `fg-core . --page-health --page-health-metrics` |
 | **♿ 运行时无障碍检测** | 注入 axe-core 检测渲染后 DOM 的可访问性问题 | `fg-core . --page-health --a11y` |
+| **🌐 跨浏览器基线** | 支持 Chromium / Firefox / WebKit 三套独立基线，检测浏览器渲染差异 | `fg-core . --page-health --browser all` |
+| **📱 移动端视口模拟** | 使用 Playwright 设备预设或自定义视口，发现响应式布局问题 | `fg-core . --page-health --device "iPhone 14 Pro"` |
 | **🛠️ 自动修复** | 8 类问题支持一键自动修复，含修复预览（dry-run）和交互式确认 | `fg-core . --scan --fix` |
 | **📊 治理看板** | 扫描结果上报到 Web 看板，团队维度追踪代码质量趋势 | `fg-core . --scan --server <url>` |
 | **🧠 AI 修复建议** | 为无自动修复方案的问题调用 LLM 生成修复建议 | `fg-core . --scan --ai-fix` |
@@ -46,6 +48,15 @@ fg-core . --module i18n
 
 # 检查页面是否正常渲染（需要 Playwright）
 fg-core . --page-health --serve "npm run dev"
+
+# 跨浏览器基线对比（Chromium / Firefox / WebKit）
+fg-core . --page-health --serve "npm run dev" --browser all --update-baseline
+
+# 移动端视口模拟（使用 Playwright 设备预设）
+fg-core . --page-health --serve "npm run dev" --device "iPhone 14 Pro"
+
+# 自定义视口尺寸
+fg-core . --page-health --serve "npm run dev" --viewport 390x844
 ```
 
 **CLI 工具清单**：
@@ -354,6 +365,10 @@ fg-core . --scan --post-comment
 | `--interactive` | 交互式修复（逐条确认，类似 `git add -p`） | false |
 | `--skip-large-files-threshold <bytes>` | 大文件跳过阈值（默认 512000 = 500KB，0 表示不跳过） | 512000 |
 | `--mcp` | 启动 MCP Server（stdio，供 AI Agent 调用） | - |
+| `--browser <name>` | 页面健康检查浏览器：`chromium` / `firefox` / `webkit` / `all` | `chromium` |
+| `--device <name>` | 页面健康检查模拟设备（如 `iPhone 14 Pro`） | - |
+| `--viewport <WxH>` | 页面健康检查自定义视口（如 `390x844`） | - |
+| `--viewport-mobile` | 页面健康检查使用移动端预设视口 | false |
 
 ## 使用场景
 
@@ -908,7 +923,21 @@ platform:
 
 ## 版本演进
 
-### v3.10.0 — 页面测试进阶（开发中，预计 650+ 测试）
+### v3.10.1 — 跨浏览器基线与移动端视口模拟（已交付，688 测试通过，3 个 skip）
+
+- **跨浏览器截图对比**：`--page-health --browser all` 依次在 Chromium / Firefox / WebKit 上执行
+  - `--browser chromium|firefox|webkit|all` 选择浏览器引擎
+  - 每个浏览器拥有独立基线目录：`.frontend-guardian/screenshots/baseline/{chromium,firefox,webkit}/`
+  - Issue `meta` 携带 `browser` 字段，便于按浏览器分组
+- **移动端视口模拟**：支持 Playwright 设备预设或自定义视口
+  - `--device "iPhone 14 Pro"` 使用 Playwright 内置设备（含 viewport / userAgent / touch / deviceScaleFactor）
+  - `--viewport 390x844` 自定义视口尺寸
+  - `--viewport-mobile` 快捷使用 iPhone 14 Pro 预设
+  - 基线目录按 `baseline/{browser}/{viewportKey}/` 隔离
+- **Lighthouse 限制**：Core Web Vitals 仅在 Chromium profile 上运行，Firefox/WebKit 自动跳过
+- **测试覆盖**：新增 `lib/tests/page-health-profile.test.ts`，扩展 `visual-regression.test.ts` 与 `page-health.test.ts`
+
+### v3.10.0 — 页面测试进阶（已交付，669 测试通过，3 个 skip）
 
 - **像素级视觉回归**：`--page-health` 支持真实像素差异对比，替代原有 SHA256 哈希对比
   - 依赖 `pixelmatch` + `pngjs`（可选安装），未安装时自动回退到 SHA256

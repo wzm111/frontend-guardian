@@ -346,6 +346,23 @@ export function getToolDefinitions(): Tool[] {
                         items: { type: "string" },
                         description: "Axe tags to filter, e.g. ['wcag2a', 'wcag2aa'].",
                     },
+                    browser: {
+                        type: "string",
+                        enum: ["chromium", "firefox", "webkit", "all"],
+                        description: "Browser engine for page-health. Default: chromium.",
+                    },
+                    device: {
+                        type: "string",
+                        description: "Playwright device to emulate, e.g. 'iPhone 14 Pro'.",
+                    },
+                    viewport: {
+                        type: "string",
+                        description: "Viewport size as 'WxH', e.g. '390x844'.",
+                    },
+                    viewportMobile: {
+                        type: "boolean",
+                        description: "Use mobile viewport preset.",
+                    },
                 },
             },
         },
@@ -687,6 +704,11 @@ async function handlePageHealth(
         cwvThresholds: args.cwvThresholds,
         a11y: args.a11y,
         a11yTags: args.a11yTags,
+        // v3.10.1
+        browser: args.browser,
+        device: args.device,
+        viewport: args.viewport,
+        viewportMobile: args.viewportMobile,
     });
     if (args.json) {
         return textResult(JSON.stringify(formatPageHealthJson(result), null, 2));

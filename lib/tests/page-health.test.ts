@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PageHealthOptions, PageHealthResult } from "../src/integrations/page-health.js";
 import {
-    isPlaywrightAvailable,
-    formatPageHealthReport,
     formatPageHealthJson,
+    formatPageHealthReport,
+    isPlaywrightAvailable,
 } from "../src/integrations/page-health.js";
-import type { PageHealthResult, PageHealthOptions } from "../src/integrations/page-health.js";
 
 describe("v3.7.1 — 页面健康检查", () => {
     describe("isPlaywrightAvailable", () => {
@@ -24,14 +24,11 @@ describe("v3.7.1 — 页面健康检查", () => {
         });
 
         it("should return false when playwright is not installed", () => {
-            const mockRequire = Object.assign(
-                vi.fn(),
-                {
-                    resolve: vi.fn().mockImplementation(() => {
-                        throw new Error("Cannot find module 'playwright'");
-                    }),
-                }
-            );
+            const mockRequire = Object.assign(vi.fn(), {
+                resolve: vi.fn().mockImplementation(() => {
+                    throw new Error("Cannot find module 'playwright'");
+                }),
+            });
             (globalThis as any).require = mockRequire;
 
             expect(isPlaywrightAvailable()).toBe(false);
@@ -218,9 +215,42 @@ describe("v3.7.1 — 页面健康检查", () => {
                     },
                 ],
                 checkedRoutes: [
-                    { path: "/", url: "http://localhost:3000/", status: "ok", httpStatus: 200, consoleErrors: 0, consoleWarns: 0, resourceErrors: 0, hasContent: true, duration: 100, messages: [] },
-                    { path: "/admin", url: "http://localhost:3000/admin", status: "error", httpStatus: 404, consoleErrors: 0, consoleWarns: 0, resourceErrors: 0, hasContent: false, duration: 100, messages: ["HTTP 404"] },
-                    { path: "/about", url: "http://localhost:3000/about", status: "warning", httpStatus: 200, consoleErrors: 1, consoleWarns: 0, resourceErrors: 0, hasContent: true, duration: 100, messages: ["1 个控制台 Error"] },
+                    {
+                        path: "/",
+                        url: "http://localhost:3000/",
+                        status: "ok",
+                        httpStatus: 200,
+                        consoleErrors: 0,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: true,
+                        duration: 100,
+                        messages: [],
+                    },
+                    {
+                        path: "/admin",
+                        url: "http://localhost:3000/admin",
+                        status: "error",
+                        httpStatus: 404,
+                        consoleErrors: 0,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: false,
+                        duration: 100,
+                        messages: ["HTTP 404"],
+                    },
+                    {
+                        path: "/about",
+                        url: "http://localhost:3000/about",
+                        status: "warning",
+                        httpStatus: 200,
+                        consoleErrors: 1,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: true,
+                        duration: 100,
+                        messages: ["1 个控制台 Error"],
+                    },
                 ],
                 screenshots: [],
                 duration: 300,
@@ -580,4 +610,91 @@ describe("v3.7.1 — 页面健康检查", () => {
         });
     });
 
+    describe("v3.10.1 — 跨浏览器与移动端视口", () => {
+        it("should accept new PageHealthOptions fields", () => {
+            const opts: PageHealthOptions = {
+                projectDir: "/tmp/test",
+                baseUrl: "http://localhost:3000",
+                browser: "all",
+                device: "iPhone 14 Pro",
+                viewport: "390x844",
+                viewportMobile: true,
+            };
+            expect(opts.browser).toBe("all");
+            expect(opts.device).toBe("iPhone 14 Pro");
+        });
+
+        it("formatPageHealthReport shows browser/viewport summary", () => {
+            const result: PageHealthResult = {
+                issues: [],
+                checkedRoutes: [
+                    {
+                        path: "/",
+                        url: "http://localhost:3000/",
+                        status: "ok",
+                        httpStatus: 200,
+                        consoleErrors: 0,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: true,
+                        duration: 100,
+                        messages: [],
+                        browser: "chromium",
+                        viewport: "iphone-14-pro",
+                    },
+                    {
+                        path: "/",
+                        url: "http://localhost:3000/",
+                        status: "ok",
+                        httpStatus: 200,
+                        consoleErrors: 0,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: true,
+                        duration: 100,
+                        messages: [],
+                        browser: "firefox",
+                        viewport: "iphone-14-pro",
+                    },
+                ],
+                screenshots: [],
+                duration: 200,
+                baseUrl: "http://localhost:3000",
+            };
+
+            const report = formatPageHealthReport(result);
+            expect(report).toContain("🖥️  浏览器/视口: chromium/iphone-14-pro, firefox/iphone-14-pro");
+            expect(report).toContain("[chromium] /");
+            expect(report).toContain("[firefox] /");
+            expect(report).toContain("视口: iphone-14-pro");
+        });
+
+        it("formatPageHealthReport skips browser when not set", () => {
+            const result: PageHealthResult = {
+                issues: [],
+                checkedRoutes: [
+                    {
+                        path: "/",
+                        url: "http://localhost:3000/",
+                        status: "ok",
+                        httpStatus: 200,
+                        consoleErrors: 0,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: true,
+                        duration: 100,
+                        messages: [],
+                    },
+                ],
+                screenshots: [],
+                duration: 100,
+                baseUrl: "http://localhost:3000",
+            };
+
+            const report = formatPageHealthReport(result);
+            expect(report).not.toContain("🖥️");
+            expect(report).not.toContain("[chromium]");
+            expect(report).not.toContain("视口:");
+        });
+    });
 });

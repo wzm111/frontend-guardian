@@ -62,11 +62,12 @@ export function selectorHash(selector: string): string {
     return createHash("sha256").update(selector).digest("hex").slice(0, 6);
 }
 
-/** 生成截图 key（含可选元素选择器后缀） */
-export function getScreenshotKey(route: string, selector?: string): string {
+/** 生成截图 key（含可选元素选择器后缀与 browser/viewport profile） */
+export function getScreenshotKey(route: string, selector?: string, profile?: string): string {
     const base = safeRouteName(route);
-    if (!selector) return base;
-    return `${base}__sel${selectorHash(selector)}`;
+    const key = selector ? `${base}__sel${selectorHash(selector)}` : base;
+    if (!profile) return key;
+    return `${profile}/${key}`;
 }
 
 /**
@@ -87,10 +88,10 @@ export async function compareScreenshotsPixel(
     const thresholdRatio = options.maxDiffPixelRatio ?? DEFAULT_MAX_DIFF_PIXEL_RATIO;
 
     try {
-        // @ts-ignore — pngjs 是可选依赖，运行时检测
+        // @ts-expect-error — pngjs 是可选依赖，运行时检测
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { PNG }: any = await import("pngjs");
-        // @ts-ignore — pixelmatch 是可选依赖，运行时检测
+        // @ts-expect-error — pixelmatch 是可选依赖，运行时检测
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { default: pixelmatch }: any = await import("pixelmatch");
 
@@ -114,14 +115,10 @@ export async function compareScreenshotsPixel(
         const { width, height } = current;
         const diff = new PNG({ width, height });
 
-        const diffPixels = pixelmatch(
-            current.data,
-            baseline.data,
-            diff.data,
-            width,
-            height,
-            { threshold: 0.1, includeAA: true }
-        ) as number;
+        const diffPixels = pixelmatch(current.data, baseline.data, diff.data, width, height, {
+            threshold: 0.1,
+            includeAA: true,
+        }) as number;
 
         const diffDir = dirname(diffImagePath);
         if (diffDir && !existsSync(diffDir)) {
@@ -157,23 +154,28 @@ export function isVisualRegressionFailed(
 /**
  * 生成建议的差异图路径
  */
-export function getDiffImagePath(diffDir: string, route: string, selector?: string): string {
-    const key = getScreenshotKey(route, selector);
+export function getDiffImagePath(diffDir: string, route: string, selector?: string, profile?: string): string {
+    const key = getScreenshotKey(route, selector, profile);
     return join(diffDir, `${key}.png`);
 }
 
 /**
  * 生成建议的基线图路径
  */
-export function getBaselinePath(baselineDir: string, route: string, selector?: string): string {
-    const key = getScreenshotKey(route, selector);
+export function getBaselinePath(baselineDir: string, route: string, selector?: string, profile?: string): string {
+    const key = getScreenshotKey(route, selector, profile);
     return join(baselineDir, `${key}.png`);
 }
 
 /**
  * 生成建议的当前截图路径
  */
-export function getCurrentScreenshotPath(screenshotDir: string, route: string, selector?: string): string {
-    const key = getScreenshotKey(route, selector);
+export function getCurrentScreenshotPath(
+    screenshotDir: string,
+    route: string,
+    selector?: string,
+    profile?: string
+): string {
+    const key = getScreenshotKey(route, selector, profile);
     return join(screenshotDir, `${key}.png`);
 }

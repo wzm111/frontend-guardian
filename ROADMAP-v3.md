@@ -350,10 +350,10 @@
 
 ### P1 — 尽量完成
 
-- [ ] **跨浏览器截图对比**：支持 Chromium / Firefox / WebKit 三套基线，检测浏览器渲染差异
+- [x] **跨浏览器截图对比**：支持 Chromium / Firefox / WebKit 三套基线，检测浏览器渲染差异
   - `--page-health --browser all` 遍历所有浏览器引擎
   - 基线目录按浏览器隔离：`.frontend-guardian/screenshots/baseline/{chromium,firefox,webkit}/`
-- [ ] **移动端视口模拟**：模拟 iPhone / Android 常见视口尺寸，检测响应式布局问题
+- [x] **移动端视口模拟**：模拟 iPhone / Android 常见视口尺寸，检测响应式布局问题
   - 预设视口列表：iPhone 14 Pro (390×844)、Pixel 7 (412×915)、iPad (820×1180)
   - 每个视口独立基线，发现断点处的布局异常
 
@@ -367,6 +367,22 @@
   - Dashboard 支持视频在线播放
 
 ---
+
+## ✅ v3.10.1 — 跨浏览器基线与移动端视口模拟（已交付 2026-06-22，688 测试通过，3 个 skip）
+
+**目标**：补全 v3.10.0 P1，让 `--page-health` 支持多浏览器与移动端视口，并为每个浏览器/视口组合建立独立基线。
+
+**实际发布**：2026-06-22
+
+### P0 — 必须完成
+
+- [x] `--browser <chromium|firefox|webkit|all>` 浏览器引擎选择
+- [x] `--device <name>` 使用 Playwright 内置设备预设（iPhone 14 Pro / Pixel 7 / iPad 等）
+- [x] `--viewport <WxH>` 自定义视口尺寸
+- [x] `--viewport-mobile` 快捷使用移动端预设视口
+- [x] 基线目录按 `baseline/{browser}/{viewportKey}/` 隔离
+- [x] Issue `meta` 与报告携带 `browser` / `viewport` 信息
+- [x] Lighthouse CWV 仅在 Chromium 上运行，Firefox/WebKit 自动跳过
 
 ## 🚧 v3.11.0 — 小程序自动化测试（Mini-Program Testing）
 

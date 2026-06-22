@@ -92,6 +92,11 @@ export interface PageHealthToolArgs {
     };
     a11y?: boolean;
     a11yTags?: string[];
+    // v3.10.1
+    browser?: "chromium" | "firefox" | "webkit" | "all";
+    device?: string;
+    viewport?: string;
+    viewportMobile?: boolean;
 }
 
 /** ai-fix 工具参数 */

@@ -4,35 +4,39 @@
  */
 
 export type { ExternalTool, ExternalToolResult } from "./base.js";
-export { runAllExternalTools, runCommand, eslintSeverityToFg, hasPackage } from "./base.js";
+export { eslintSeverityToFg, hasPackage, runAllExternalTools, runCommand } from "./base.js";
 
 import { eslintIntegration as _eslintIntegration } from "./eslint.js";
-import { typescriptIntegration as _typescriptIntegration } from "./typescript.js";
 import { stylelintIntegration as _stylelintIntegration } from "./stylelint.js";
+import { typescriptIntegration as _typescriptIntegration } from "./typescript.js";
 
-export { _eslintIntegration as eslintIntegration };
-export { _typescriptIntegration as typescriptIntegration };
-export { _stylelintIntegration as stylelintIntegration };
+export {
+    _eslintIntegration as eslintIntegration,
+    _stylelintIntegration as stylelintIntegration,
+    _typescriptIntegration as typescriptIntegration,
+};
 
 // v3.6.1: Playwright E2E 测试集成
 import { playwrightIntegration as _playwrightIntegration } from "./playwright.js";
-export { _playwrightIntegration as playwrightIntegration };
 
-// v3.7.1: 页面健康检查
+export type { CoreWebVitalsResult, CWVThresholds } from "../utils/lighthouse-metrics.js";
 export {
-    runPageHealthCheck,
-    isPlaywrightAvailable,
-    formatPageHealthReport,
-    formatPageHealthJson,
-    toScanResult,
-    uploadPageHealthResult,
-} from "./page-health.js";
-export type {
-    PageHealthOptions,
-    PageHealthResult,
-    CheckedRoute,
-} from "./page-health.js";
-
+    checkCWVThresholds,
+    extractCoreWebVitals,
+    formatCoreWebVitals,
+    isLighthouseAvailable,
+    runLighthouseForUrl,
+} from "../utils/lighthouse-metrics.js";
+// v3.10.1: 浏览器/视口 profile 工具
+export {
+    buildProfileKey,
+    parseViewport,
+    resolveBrowserTypes,
+    sanitizeProfileName,
+} from "../utils/page-health-profile.js";
+export type { AxeRunResult, AxeViolation } from "../utils/runtime-a11y.js";
+export { axeViolationsToIssues, isAxeCoreAvailable, mapAxeImpact, runAxeOnPage } from "../utils/runtime-a11y.js";
+export type { VisualRegressionOptions, VisualRegressionResult } from "../utils/visual-regression.js";
 // v3.10.0: 页面测试进阶工具
 export {
     compareScreenshotsPixel,
@@ -43,19 +47,22 @@ export {
     isPngjsAvailable,
     safeRouteName,
 } from "../utils/visual-regression.js";
-export type { VisualRegressionOptions, VisualRegressionResult } from "../utils/visual-regression.js";
+export type {
+    BrowserName,
+    CheckedRoute,
+    PageHealthOptions,
+    PageHealthResult,
+} from "./page-health.js";
+// v3.7.1: 页面健康检查
 export {
-    checkCWVThresholds,
-    extractCoreWebVitals,
-    formatCoreWebVitals,
-    isLighthouseAvailable,
-    runLighthouseForUrl,
-} from "../utils/lighthouse-metrics.js";
-export type { CoreWebVitalsResult, CWVThresholds } from "../utils/lighthouse-metrics.js";
-export { axeViolationsToIssues, isAxeCoreAvailable, mapAxeImpact, runAxeOnPage } from "../utils/runtime-a11y.js";
-export type { AxeRunResult, AxeViolation } from "../utils/runtime-a11y.js";
-
-/** 所有可用的外部工具列表 */
+    formatPageHealthJson,
+    formatPageHealthReport,
+    isPlaywrightAvailable,
+    runPageHealthCheck,
+    toScanResult,
+    uploadPageHealthResult,
+} from "./page-health.js";
+export { _playwrightIntegration as playwrightIntegration };
 export const allExternalTools = [
     _eslintIntegration,
     _typescriptIntegration,
@@ -63,6 +70,6 @@ export const allExternalTools = [
     _playwrightIntegration,
 ];
 
+export type { FormatResult, FormatterTool } from "./formatter.js";
 // Phase 5+6: 格式化器集成
 export { detectFormatter, runFormat } from "./formatter.js";
-export type { FormatResult, FormatterTool } from "./formatter.js";

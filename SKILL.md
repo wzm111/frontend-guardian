@@ -175,6 +175,12 @@ fg-server --port 3456 --cors "*"
 /frontend-guardian --page-health --base-url http://localhost:3000 --max-diff-pixels 50 --mask-selectors ".clock"
 # Lighthouse Core Web Vitals + 运行时无障碍检测
 /frontend-guardian --page-health --base-url http://localhost:3000 --page-health-metrics --a11y
+# 跨浏览器基线对比（Chromium / Firefox / WebKit）
+/frontend-guardian --page-health --base-url http://localhost:3000 --browser all --update-baseline
+# 移动端视口模拟
+/frontend-guardian --page-health --base-url http://localhost:3000 --device "iPhone 14 Pro"
+# 自定义视口
+/frontend-guardian --page-health --base-url http://localhost:3000 --viewport 390x844
 
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
@@ -198,7 +204,7 @@ fg-server --port 3456 --cors "*"
 | `e2e-detect-gaps` | 检测 E2E 覆盖缺口 |
 | `list-rules` | 列出可用规则 |
 | `scan-file` | 单文件快速扫描 |
-| `page-health` | 页面健康检查：白屏/控制台/资源/视觉回归/Lighthouse/无障碍（需 Playwright） |
+| `page-health` | 页面健康检查：白屏/控制台/资源/视觉回归/Lighthouse/无障碍/跨浏览器/移动端视口（需 Playwright） |
 | `ai-fix` | 为无自动修复的问题生成 AI 建议 |
 | `get-project-meta` | 获取检测到的项目元数据 |
 | `index-project` | 查询/构建项目索引 |

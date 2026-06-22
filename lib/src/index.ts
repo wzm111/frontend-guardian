@@ -40,6 +40,7 @@ export { createIncrementalDiagnostic, IncrementalDiagnostic } from "./ide/increm
 export type { LSPServerOptions } from "./ide/lsp-server.js";
 export { runLSPServer } from "./ide/lsp-server.js";
 export type {
+    BrowserName,
     CheckedRoute,
     CoreWebVitalsResult,
     CWVThresholds,
@@ -54,6 +55,7 @@ export type {
 export {
     allExternalTools,
     axeViolationsToIssues,
+    buildProfileKey,
     checkCWVThresholds,
     compareScreenshotsPixel,
     eslintIntegration,
@@ -70,6 +72,7 @@ export {
     isPlaywrightAvailable,
     isPngjsAvailable,
     playwrightIntegration,
+    resolveBrowserTypes,
     runAllExternalTools,
     runLighthouseForUrl,
     runPageHealthCheck,

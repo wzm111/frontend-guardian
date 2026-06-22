@@ -11,25 +11,27 @@
  * 设计哲学：Playwright 是可选依赖，未安装时给出友好提示，不强制引入。
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { createHash } from "node:crypto";
-import type { Issue, ScanResult } from "@/types.js";
 import { ProjectIndexer } from "@/engine/indexer.js";
+import type { Issue, ScanResult } from "@/types.js";
 import {
+    type CoreWebVitalsResult,
     checkCWVThresholds,
     extractCoreWebVitals,
     isLighthouseAvailable,
     runLighthouseForUrl,
-    type CoreWebVitalsResult,
 } from "@/utils/lighthouse-metrics.js";
 import {
-    axeViolationsToIssues,
-    isAxeCoreAvailable,
-    runAxeOnPage,
-    type AxeViolation,
-} from "@/utils/runtime-a11y.js";
+    type BrowserName,
+    buildProfileKey,
+    DEFAULT_MOBILE_DEVICE,
+    parseViewport,
+    resolveBrowserTypes,
+} from "@/utils/page-health-profile.js";
+import { type AxeViolation, axeViolationsToIssues, isAxeCoreAvailable, runAxeOnPage } from "@/utils/runtime-a11y.js";
 import {
     compareScreenshotsPixel,
     getBaselinePath,
@@ -39,12 +41,14 @@ import {
     isPngjsAvailable,
     type VisualRegressionResult,
 } from "@/utils/visual-regression.js";
+
+export type { BrowserName } from "@/utils/page-health-profile.js";
+
 import {
-    uploadToDashboardServer,
     type DashboardClientConfig,
     type DashboardUploadResult,
+    uploadToDashboardServer,
 } from "@/utils/dashboard-client.js";
-
 
 // ── 类型 ───────────────────────────────────────────────────────────────────
 
@@ -109,6 +113,16 @@ export interface PageHealthOptions {
     a11y?: boolean;
     /** axe-core 过滤标签 */
     a11yTags?: string[];
+
+    // ── v3.10.1 跨浏览器与移动端视口 ──
+    /** 浏览器引擎，默认 chromium；all 会依次跑 chromium/firefox/webkit */
+    browser?: BrowserName | "all";
+    /** Playwright 设备名称，如 "iPhone 14 Pro" */
+    device?: string;
+    /** 自定义视口尺寸，如 "390x844" */
+    viewport?: string;
+    /** 使用移动端预设视口（iPhone 14 Pro） */
+    viewportMobile?: boolean;
 }
 
 export interface CheckedRoute {
@@ -148,6 +162,10 @@ export interface CheckedRoute {
     metrics?: CoreWebVitalsResult;
     /** v3.10.0: axe-core 运行时无障碍问题 */
     a11yViolations?: AxeViolation[];
+    /** v3.10.1: 浏览器引擎 */
+    browser?: BrowserName;
+    /** v3.10.1: 视口/设备标识 */
+    viewport?: string;
 }
 
 export interface PageHealthResult {
@@ -163,6 +181,12 @@ export interface PageHealthResult {
     baseUrl: string;
 }
 
+interface ProfileResult {
+    issues: Issue[];
+    checkedRoutes: CheckedRoute[];
+    screenshots: string[];
+}
+
 // ── 常量 ───────────────────────────────────────────────────────────────────
 
 const DEFAULT_TIMEOUT = 30000;
@@ -175,7 +199,7 @@ const BUILT_IN_MASK_SELECTORS = [
     '[data-testid="date"]',
     ".ad-banner",
     ".live-clock",
-    '[data-random]',
+    "[data-random]",
     ".dynamic-time",
 ];
 
@@ -227,7 +251,6 @@ async function applyMasking(
     }
 }
 
-
 // ── 核心函数 ───────────────────────────────────────────────────────────────
 
 /**
@@ -246,11 +269,7 @@ export function isPlaywrightAvailable(): boolean {
 /**
  * 启动 dev server 并等待端口就绪
  */
-export async function startDevServer(
-    command: string,
-    port: number,
-    projectDir: string
-): Promise<ChildProcess> {
+export async function startDevServer(command: string, port: number, projectDir: string): Promise<ChildProcess> {
     const parts = command.split(" ");
     const [cmd, ...args] = parts;
 
@@ -301,11 +320,7 @@ function sleep(ms: number): Promise<void> {
 /**
  * 并发控制辅助函数 —— 限制同时运行的异步任务数量
  */
-async function runWithConcurrency<T>(
-    items: T[],
-    concurrency: number,
-    fn: (item: T) => Promise<void>
-): Promise<void> {
+async function runWithConcurrency<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>): Promise<void> {
     const queue = [...items];
     const workers = Array.from({ length: concurrency }, async () => {
         while (true) {
@@ -321,95 +336,81 @@ async function runWithConcurrency<T>(
     await Promise.all(workers);
 }
 
-/**
- * 运行页面健康检查
- *
- * @returns 检查结果（Issue 列表 + 路由详情）
- */
-export async function runPageHealthCheck(options: PageHealthOptions): Promise<PageHealthResult> {
-    const start = Date.now();
-    const projectDir = resolve(options.projectDir);
+/** 当显式指定 browser/device/viewport/viewportMobile 时，需要按 profile 隔离基线 */
+function shouldIsolateProfiles(options: PageHealthOptions): boolean {
+    return !!(options.browser || options.device || options.viewport || options.viewportMobile);
+}
 
-    // 1. 检测 Playwright
-    if (!isPlaywrightAvailable()) {
-        throw new Error(
-            "未检测到 Playwright。请安装: npm install -D playwright\n" +
-                "然后安装浏览器: npx playwright install chromium"
-        );
+/** 根据 device / viewport / viewportMobile 构造 Playwright context options */
+function buildContextOptions(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pw: any,
+    options: PageHealthOptions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+    const deviceName = options.device || (options.viewportMobile ? DEFAULT_MOBILE_DEVICE : undefined);
+
+    if (deviceName) {
+        const device = pw.devices?.[deviceName];
+        if (!device) {
+            const available = Object.keys(pw.devices || {})
+                .slice(0, 10)
+                .join(", ");
+            throw new Error(`未找到 Playwright 设备: ${deviceName}。可用示例: ${available}...`);
+        }
+        if (options.viewport) {
+            const viewport = parseViewport(options.viewport);
+            return { ...device, viewport };
+        }
+        return { ...device };
     }
 
+    if (options.viewport) {
+        const viewport = parseViewport(options.viewport);
+        return { viewport };
+    }
+
+    return { viewport: { width: 1280, height: 720 } };
+}
+
+async function runPageHealthProfile(
+    browserType: BrowserName,
+    routes: string[],
+    options: PageHealthOptions,
+    baseUrl: string,
+    screenshotDir: string,
+    baselineDir: string,
+    diffDir: string
+): Promise<ProfileResult> {
     // 动态导入 Playwright（避免在模块加载时失败）
-    // @ts-ignore — playwright 是可选依赖，运行时检测
+    // @ts-expect-error — playwright 是可选依赖，运行时检测
     const pw = await import("playwright");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chromium = (pw as any).chromium;
+    const browserLauncher = (pw as any)[browserType];
 
-    // 2. 确定要检查的路由
-    let routes = options.routes || [];
-    if (routes.length === 0) {
-        const indexer = new ProjectIndexer(projectDir);
-        if (indexer.isValid()) {
-            const indexedRoutes = indexer.getRoutes();
-            routes = indexedRoutes.map((r) => r.path);
-        }
-    }
-
-    if (routes.length === 0) {
-        throw new Error(
-            "未检测到路由。请先运行 `fg-core . --build-index` 建立索引，" +
-                "或通过 --routes 指定要检查的路由"
-        );
-    }
-
-    // 3. 确定 baseUrl
-    let baseUrl = options.baseUrl;
-    let serverProcess: ChildProcess | null = null;
-
-    if (!baseUrl && options.serveCommand) {
-        const port = options.servePort || DEFAULT_SERVE_PORT;
-        serverProcess = await startDevServer(options.serveCommand, port, projectDir);
-        baseUrl = `http://localhost:${port}`;
-    }
-
-    if (!baseUrl) {
-        throw new Error(
-            "必须指定 --base-url 或 --serve（自动启动 dev server）"
-        );
-    }
-
-    // 4. 准备截图目录
-    const screenshotDir = options.screenshotDir
-        ? resolve(projectDir, options.screenshotDir)
-        : resolve(projectDir, SCREENSHOT_DIR);
-
-    const baselineDir = options.baselineDir
-        ? resolve(projectDir, options.baselineDir)
-        : join(screenshotDir, "baseline");
-    const diffDir = join(screenshotDir, "diff");
-
-    if (options.screenshot !== false) {
-        if (!existsSync(screenshotDir)) {
-            mkdirSync(screenshotDir, { recursive: true });
-        }
-    }
-
-    // 5. 启动浏览器
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-        viewport: { width: 1280, height: 720 },
-    });
+    const browser = await browserLauncher.launch({ headless: true });
+    const contextOptions = buildContextOptions(pw, options);
+    const context = await browser.newContext(contextOptions);
 
     const checkedRoutes: CheckedRoute[] = [];
     const issues: Issue[] = [];
     const screenshots: string[] = [];
 
+    const profileKey = shouldIsolateProfiles(options)
+        ? buildProfileKey(browserType, {
+              device: options.device,
+              viewport: options.viewport,
+              viewportMobile: options.viewportMobile,
+          })
+        : undefined;
+
+    const viewportKey = profileKey ? profileKey.split("/")[1] : undefined;
+
     const checkConsole = options.checkConsole !== false;
     const checkWhiteScreen = options.checkWhiteScreen !== false;
     const checkResources = options.checkResources !== false;
     const timeout = options.timeout || DEFAULT_TIMEOUT;
-
     const concurrency = options.concurrency || 3;
-    let completed = 0;
 
     const checkRoute = async (route: string) => {
         const pageStart = Date.now();
@@ -438,9 +439,7 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             page.on("requestfailed", (request: any) => {
                 const failure = request.failure();
-                resourceErrors.push(
-                    `${request.url()} — ${failure?.errorText || "unknown"}`
-                );
+                resourceErrors.push(`${request.url()} — ${failure?.errorText || "unknown"}`);
             });
         }
 
@@ -489,7 +488,8 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const interactive = await (page as any).evaluate(() => {
                     const doc = (globalThis as any).document;
-                    const selectors = 'button, a[href], input:not([type="hidden"]), textarea, select, [role="button"], [role="link"], [role="checkbox"], [role="radio"]';
+                    const selectors =
+                        'button, a[href], input:not([type="hidden"]), textarea, select, [role="button"], [role="link"], [role="checkbox"], [role="radio"]';
                     const elements = doc.querySelectorAll(selectors);
                     let total = 0;
                     let visible = 0;
@@ -502,9 +502,13 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
                         if (rect.width === 0 || rect.height === 0) continue;
                         total++;
                         const style = (globalThis as any).getComputedStyle(htmlEl);
-                        const isVisible = style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+                        const isVisible =
+                            style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const isDisabled = (htmlEl as any).disabled || htmlEl.getAttribute("aria-disabled") === "true" || htmlEl.getAttribute("disabled") !== null;
+                        const isDisabled =
+                            (htmlEl as any).disabled ||
+                            htmlEl.getAttribute("aria-disabled") === "true" ||
+                            htmlEl.getAttribute("disabled") !== null;
                         if (isVisible) visible++;
                         if (isDisabled) disabled++;
                     }
@@ -566,10 +570,16 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
         let visualRegression: VisualRegressionResult | null | undefined;
         if (options.screenshot !== false) {
             const screenshotSelector = options.screenshotSelector;
-            const screenshotPath = getCurrentScreenshotPath(screenshotDir, route, screenshotSelector);
-            baselinePath = getBaselinePath(baselineDir, route, screenshotSelector);
+            const screenshotPath = getCurrentScreenshotPath(screenshotDir, route, screenshotSelector, profileKey);
+            baselinePath = getBaselinePath(baselineDir, route, screenshotSelector, profileKey);
 
             try {
+                // 确保 profile 子目录存在
+                const screenshotParent = dirname(screenshotPath);
+                if (screenshotParent && !existsSync(screenshotParent)) {
+                    mkdirSync(screenshotParent, { recursive: true });
+                }
+
                 if (screenshotSelector) {
                     // 元素级截图
                     await page.locator(screenshotSelector).screenshot({ path: screenshotPath });
@@ -590,16 +600,11 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
                 } else if (existsSync(baselinePath)) {
                     // 优先使用像素级对比
                     if (isPixelmatchAvailable() && isPngjsAvailable()) {
-                        const diffImagePath = getDiffImagePath(diffDir, route, screenshotSelector);
-                        visualRegression = await compareScreenshotsPixel(
-                            screenshotPath,
-                            baselinePath,
-                            diffImagePath,
-                            {
-                                maxDiffPixels: options.maxDiffPixels,
-                                maxDiffPixelRatio: options.maxDiffPixelRatio,
-                            }
-                        );
+                        const diffImagePath = getDiffImagePath(diffDir, route, screenshotSelector, profileKey);
+                        visualRegression = await compareScreenshotsPixel(screenshotPath, baselinePath, diffImagePath, {
+                            maxDiffPixels: options.maxDiffPixels,
+                            maxDiffPixelRatio: options.maxDiffPixelRatio,
+                        });
                         if (
                             visualRegression &&
                             (visualRegression.diffPixels > visualRegression.thresholdPixels ||
@@ -627,7 +632,6 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
         await page.close();
 
         const pageDuration = Date.now() - pageStart;
-        completed++;
 
         const checkedRoute: CheckedRoute = {
             path: route,
@@ -645,56 +649,148 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
             interactiveDisabled,
             screenshotChanged,
             baselinePath,
-            visualRegression: visualRegression ?? undefined,            a11yViolations,
+            visualRegression: visualRegression ?? undefined,
+            a11yViolations,
+            browser: browserType,
+            viewport: viewportKey,
         };
 
         checkedRoutes.push(checkedRoute);
 
         // 生成 Issue
         if (status !== "ok") {
-            issues.push(...routeToIssues(checkedRoute, projectDir, consoleErrors, resourceErrors));
+            issues.push(...routeToIssues(checkedRoute, options.projectDir, consoleErrors, resourceErrors));
         }
     };
 
     try {
         await runWithConcurrency(routes, concurrency, checkRoute);
 
-        // v3.10.0: Lighthouse Core Web Vitals 采集
-        if (options.metrics && isLighthouseAvailable() && checkedRoutes.length > 0) {
+        // v3.10.0: Lighthouse Core Web Vitals 采集（仅 Chromium 支持）
+        if (options.metrics && browserType === "chromium" && isLighthouseAvailable() && checkedRoutes.length > 0) {
             const wsEndpoint = browser.wsEndpoint?.() as string | undefined;
             const port = wsEndpoint ? Number(new URL(wsEndpoint).port) : 0;
             if (port > 0) {
-                for (const checkedRoute of checkedRoutes) {
-                    const route = checkedRoute.path;
-                    const url = baseUrl + (route.startsWith("/") ? route : "/" + route);
-                    const contextLh = await browser.newContext({
-                        viewport: { width: 1280, height: 720 },
-                    });
-                    try {
-                        const runnerResult = await runLighthouseForUrl(url, port);
-                        const cwv = extractCoreWebVitals(runnerResult);
-                        checkedRoute.metrics = cwv;
-                        const cwvIssues = checkCWVThresholds(cwv, options.cwvThresholds, route, url);
-                        issues.push(...cwvIssues);
-                    } catch {
-                        // Lighthouse 单路由失败不阻断
-                    } finally {
-                        await contextLh.close();
+                const contextLh = await browser.newContext(contextOptions);
+                try {
+                    for (const checkedRoute of checkedRoutes) {
+                        const route = checkedRoute.path;
+                        const url = baseUrl + (route.startsWith("/") ? route : "/" + route);
+                        try {
+                            const runnerResult = await runLighthouseForUrl(url, port);
+                            const cwv = extractCoreWebVitals(runnerResult);
+                            checkedRoute.metrics = cwv;
+                            const cwvIssues = checkCWVThresholds(cwv, options.cwvThresholds, route, url);
+                            issues.push(...cwvIssues);
+                        } catch {
+                            // Lighthouse 单路由失败不阻断
+                        }
                     }
+                } finally {
+                    await contextLh.close();
                 }
             }
         }
     } finally {
+        await context.close();
         await browser.close();
-        if (serverProcess) {
-            serverProcess.kill();
+    }
+
+    return { issues, checkedRoutes, screenshots };
+}
+
+/**
+ * 运行页面健康检查
+ *
+ * @returns 检查结果（Issue 列表 + 路由详情）
+ */
+export async function runPageHealthCheck(options: PageHealthOptions): Promise<PageHealthResult> {
+    const start = Date.now();
+    const projectDir = resolve(options.projectDir);
+
+    // 1. 检测 Playwright
+    if (!isPlaywrightAvailable()) {
+        throw new Error(
+            "未检测到 Playwright。请安装: npm install -D playwright\n" +
+                "然后安装浏览器: npx playwright install chromium"
+        );
+    }
+
+    // 2. 确定要检查的路由
+    let routes = options.routes || [];
+    if (routes.length === 0) {
+        const indexer = new ProjectIndexer(projectDir);
+        if (indexer.isValid()) {
+            const indexedRoutes = indexer.getRoutes();
+            routes = indexedRoutes.map((r) => r.path);
         }
     }
 
+    if (routes.length === 0) {
+        throw new Error(
+            "未检测到路由。请先运行 `fg-core . --build-index` 建立索引，" + "或通过 --routes 指定要检查的路由"
+        );
+    }
+
+    // 3. 确定 baseUrl
+    let baseUrl = options.baseUrl;
+    let serverProcess: ChildProcess | null = null;
+
+    if (!baseUrl && options.serveCommand) {
+        const port = options.servePort || DEFAULT_SERVE_PORT;
+        serverProcess = await startDevServer(options.serveCommand, port, projectDir);
+        baseUrl = `http://localhost:${port}`;
+    }
+
+    if (!baseUrl) {
+        throw new Error("必须指定 --base-url 或 --serve（自动启动 dev server）");
+    }
+
+    // 4. 准备截图目录
+    const screenshotDir = options.screenshotDir
+        ? resolve(projectDir, options.screenshotDir)
+        : resolve(projectDir, SCREENSHOT_DIR);
+
+    const baselineDir = options.baselineDir
+        ? resolve(projectDir, options.baselineDir)
+        : join(screenshotDir, "baseline");
+    const diffDir = join(screenshotDir, "diff");
+
+    if (options.screenshot !== false) {
+        if (!existsSync(screenshotDir)) {
+            mkdirSync(screenshotDir, { recursive: true });
+        }
+    }
+
+    // 5. 依次跑每个浏览器 profile
+    const browserTypes = resolveBrowserTypes(options.browser);
+    const allIssues: Issue[] = [];
+    const allCheckedRoutes: CheckedRoute[] = [];
+    const allScreenshots: string[] = [];
+
+    for (const browserType of browserTypes) {
+        const profileResult = await runPageHealthProfile(
+            browserType,
+            routes,
+            options,
+            baseUrl,
+            screenshotDir,
+            baselineDir,
+            diffDir
+        );
+        allIssues.push(...profileResult.issues);
+        allCheckedRoutes.push(...profileResult.checkedRoutes);
+        allScreenshots.push(...profileResult.screenshots);
+    }
+
+    if (serverProcess) {
+        serverProcess.kill();
+    }
+
     return {
-        issues,
-        checkedRoutes,
-        screenshots,
+        issues: allIssues,
+        checkedRoutes: allCheckedRoutes,
+        screenshots: allScreenshots,
         duration: Date.now() - start,
         baseUrl,
     };
@@ -710,6 +806,11 @@ function routeToIssues(
     resourceErrors: string[]
 ): Issue[] {
     const issues: Issue[] = [];
+    const baseMeta = {
+        url: route.url,
+        ...(route.browser !== undefined ? { browser: route.browser } : {}),
+        ...(route.viewport !== undefined ? { viewport: route.viewport } : {}),
+    };
 
     // HTTP 错误
     if (route.httpStatus && route.httpStatus >= 400) {
@@ -722,7 +823,7 @@ function routeToIssues(
             line: 1,
             column: 1,
             meta: {
-                url: route.url,
+                ...baseMeta,
                 httpStatus: route.httpStatus,
             },
         });
@@ -738,9 +839,7 @@ function routeToIssues(
             file: route.path,
             line: 1,
             column: 1,
-            meta: {
-                url: route.url,
-            },
+            meta: baseMeta,
         });
     }
 
@@ -758,7 +857,7 @@ function routeToIssues(
             line: 1,
             column: 1,
             meta: {
-                url: route.url,
+                ...baseMeta,
                 errorCount: consoleErrors.length,
                 errors: uniqueErrors,
             },
@@ -779,7 +878,7 @@ function routeToIssues(
             line: 1,
             column: 1,
             meta: {
-                url: route.url,
+                ...baseMeta,
                 resourceCount: resourceErrors.length,
                 resources: uniqueResources,
             },
@@ -799,7 +898,7 @@ function routeToIssues(
             line: 1,
             column: 1,
             meta: {
-                url: route.url,
+                ...baseMeta,
                 interactiveTotal: route.interactiveTotal,
                 interactiveVisible: route.interactiveVisible,
                 interactiveDisabled: route.interactiveDisabled,
@@ -821,7 +920,7 @@ function routeToIssues(
             line: 1,
             column: 1,
             meta: {
-                url: route.url,
+                ...baseMeta,
                 diffPixels: route.visualRegression.diffPixels,
                 diffPixelRatio: route.visualRegression.diffPixelRatio,
                 diffImagePath: route.visualRegression.diffImagePath,
@@ -845,7 +944,7 @@ function routeToIssues(
             line: 1,
             column: 1,
             meta: {
-                url: route.url,
+                ...baseMeta,
                 baselinePath: route.baselinePath,
             },
         });
@@ -853,7 +952,11 @@ function routeToIssues(
 
     // v3.10.0: 运行时无障碍问题
     if (route.a11yViolations && route.a11yViolations.length > 0) {
-        issues.push(...axeViolationsToIssues(route.a11yViolations, route.path, route.url));
+        const a11yIssues = axeViolationsToIssues(route.a11yViolations, route.path, route.url);
+        for (const issue of a11yIssues) {
+            issue.meta = { ...issue.meta, ...baseMeta };
+        }
+        issues.push(...a11yIssues);
     }
 
     // 导航失败（非 HTTP 错误，而是超时/连接失败等）
@@ -866,9 +969,7 @@ function routeToIssues(
             file: route.path,
             line: 1,
             column: 1,
-            meta: {
-                url: route.url,
-            },
+            meta: baseMeta,
         });
     }
 
@@ -893,11 +994,27 @@ export function formatPageHealthReport(result: PageHealthResult): string {
     const errorCount = result.checkedRoutes.filter((r) => r.status === "error").length;
 
     lines.push(`   ✅ 正常: ${okCount} | ⚠️  警告: ${warnCount} | ❌ 错误: ${errorCount}`);
+
+    // v3.10.1: 浏览器/视口汇总
+    const profiles = new Set<string>();
+    for (const route of result.checkedRoutes) {
+        if (route.browser) {
+            profiles.add(`${route.browser}/${route.viewport || "desktop"}`);
+        }
+    }
+    if (profiles.size > 0) {
+        lines.push(`   🖥️  浏览器/视口: ${Array.from(profiles).join(", ")}`);
+    }
+
     lines.push("");
 
     for (const route of result.checkedRoutes) {
         const icon = route.status === "ok" ? "✅" : route.status === "warning" ? "⚠️" : "❌";
-        lines.push(`   ${icon} ${route.path}`);
+        const browserPrefix = route.browser ? `[${route.browser}] ` : "";
+        lines.push(`   ${icon} ${browserPrefix}${route.path}`);
+        if (route.viewport) {
+            lines.push(`      视口: ${route.viewport}`);
+        }
         if (route.httpStatus) {
             lines.push(`      HTTP: ${route.httpStatus}`);
         }
