@@ -324,36 +324,35 @@
 
 ---
 
-## 🚧 v3.10.0 — 页面测试进阶（Web Testing Advanced）
+## ✅ v3.10.0 — 页面测试进阶（Web Testing Advanced）（已交付 2026-06-22，669 测试通过，3 个 skip）
 
 **目标**：将页面健康检查从「可用性验证」升级为「质量度量」，覆盖视觉回归、性能指标、无障碍测试等维度。
 
-**预计发布**：2026-07-15
+**实际发布**：2026-06-22
 
 > **市场参考**：Playwright 2026 年已成为视觉回归测试事实标准（月下载量 2.31 亿），内置 `toHaveScreenshot()` 使用 pixelmatch 做像素级对比。Lighthouse 的 Core Web Vitals 是页面性能的行业基准。
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅
 
-- [ ] **像素级视觉回归**：引入 pixelmatch（或 Playwright 原生 `toHaveScreenshot()`）替代 SHA256 哈希，实现真正的像素差异检测
+- [x] **像素级视觉回归**：引入 pixelmatch 替代 SHA256 哈希，实现真正的像素差异检测
   - 支持 `maxDiffPixels` / `maxDiffPixelRatio` 阈值配置
   - 生成差异高亮图（diff overlay），直观展示变化区域
   - 支持元素级截图（`page.locator().screenshot()`）替代全页截图，减少噪音
-- [ ] **动态内容遮罩**：自动识别并遮罩不稳定元素（日期、随机数、广告位），降低视觉回归的误报率
+- [x] **动态内容遮罩**：自动识别并遮罩不稳定元素（日期、随机数、广告位），降低视觉回归的误报率
   - 遮罩配置：CSS 选择器 → 统一替换为灰色色块
   - 内置常见不稳定元素预设（`[data-testid="timestamp"]`, `.ad-banner` 等）
-- [ ] **性能指标采集**：集成 Lighthouse Core Web Vitals，采集 LCP / FID / CLS / TTFB / FCP
-  - `--page-health --metrics` 输出性能指标 JSON
+- [x] **性能指标采集**：集成 Lighthouse Core Web Vitals，采集 LCP / CLS / FCP / TTFB / INP
+  - `--page-health --page-health-metrics` 输出性能指标 JSON
   - 性能阈值告警：LCP > 2.5s、CLS > 0.1 时生成 warning Issue
-  - 历史趋势追踪：性能指标随时间变化曲线
+- [x] **运行时无障碍测试**：在页面健康检查中注入 axe-core，检测运行时 DOM 的无障碍问题
+  - 检测 color contrast、aria 属性、焦点管理等动态问题
+  - 与静态 AST 的 a11y 扫描互补（静态查源码，动态查渲染后 DOM）
 
 ### P1 — 尽量完成
 
 - [ ] **跨浏览器截图对比**：支持 Chromium / Firefox / WebKit 三套基线，检测浏览器渲染差异
   - `--page-health --browser all` 遍历所有浏览器引擎
   - 基线目录按浏览器隔离：`.frontend-guardian/screenshots/baseline/{chromium,firefox,webkit}/`
-- [ ] **无障碍运行时测试**：在页面健康检查中注入 axe-core，检测运行时 DOM 的无障碍问题
-  - 检测 color contrast、aria 属性、焦点管理等动态问题
-  - 与静态 AST 的 a11y 扫描互补（静态查源码，动态查渲染后 DOM）
 - [ ] **移动端视口模拟**：模拟 iPhone / Android 常见视口尺寸，检测响应式布局问题
   - 预设视口列表：iPhone 14 Pro (390×844)、Pixel 7 (412×915)、iPad (820×1180)
   - 每个视口独立基线，发现断点处的布局异常

@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.9.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.10.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -12,7 +12,10 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | ------ | ------ | ---------- |
 | **🔍 代码扫描** | 9 大模块、50+ 条规则，检测 i18n、性能、安全、可访问性、命名规范、Hooks 等问题 | `fg-core . --scan` |
 | **🧪 页面健康检查** | 启动真实浏览器遍历路由，发现白屏、控制台报错、资源加载失败、交互元素异常 | `fg-core . --page-health` |
-| **📸 截图基线对比** | 保存基线截图，后续检查自动对比发现 UI 变化（视觉回归） | `fg-core . --page-health --update-baseline` |
+| **📸 像素级视觉回归** | 像素级对比截图基线，生成差异高亮图，支持元素级截图 | `fg-core . --page-health --max-diff-pixels 50` |
+| **🎭 动态内容遮罩** | 自动遮罩时间戳/广告等不稳定元素，降低视觉回归误报 | `fg-core . --page-health --mask-selectors ".clock"` |
+| **⚡ Lighthouse CWV** | 集成 Lighthouse 采集 LCP/CLS/FCP/TTFB/INP 性能指标 | `fg-core . --page-health --page-health-metrics` |
+| **♿ 运行时无障碍检测** | 注入 axe-core 检测渲染后 DOM 的可访问性问题 | `fg-core . --page-health --a11y` |
 | **🛠️ 自动修复** | 8 类问题支持一键自动修复，含修复预览（dry-run）和交互式确认 | `fg-core . --scan --fix` |
 | **📊 治理看板** | 扫描结果上报到 Web 看板，团队维度追踪代码质量趋势 | `fg-core . --scan --server <url>` |
 | **🧠 AI 修复建议** | 为无自动修复方案的问题调用 LLM 生成修复建议 | `fg-core . --scan --ai-fix` |
@@ -904,6 +907,27 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.10.0 — 页面测试进阶（开发中，预计 650+ 测试）
+
+- **像素级视觉回归**：`--page-health` 支持真实像素差异对比，替代原有 SHA256 哈希对比
+  - 依赖 `pixelmatch` + `pngjs`（可选安装），未安装时自动回退到 SHA256
+  - 生成差异高亮图保存到 `.frontend-guardian/screenshots/diff/`
+  - 支持 `--screenshot-selector <selector>` 对特定元素截图，减少全页噪音
+  - 支持 `--max-diff-pixels` / `--max-diff-pixel-ratio` 阈值配置
+  - 新增 Issue 规则 `page-health-visual-regression`
+- **动态内容遮罩**：截图前自动遮罩时间戳、广告位等不稳定元素
+  - 内置遮罩选择器：`[data-testid="timestamp"]`, `.ad-banner`, `.live-clock`, `[data-random]` 等
+  - 支持 `--mask-selectors` 追加自定义选择器，`--no-mask` 关闭遮罩
+- **Lighthouse Core Web Vitals**：`--page-health --page-health-metrics` 采集性能指标
+  - 采集 LCP / CLS / FCP / TTFB / INP
+  - 阈值超标时生成 `page-health-lighthouse-*` warning Issue
+  - 阈值可通过 `--cwv-thresholds` 或配置文件覆盖
+- **运行时无障碍检测**：`--page-health --a11y` 注入 axe-core
+  - 检测 color contrast、ARIA、焦点管理等动态问题
+  - 支持 `--a11y-tags` 过滤标签（如 `wcag2a,wcag2aa`）
+  - 新增 `page-health-a11y-runtime-<axeRuleId>` Issue
+- **测试覆盖**：新增 `lib/tests/visual-regression.test.ts`、`lighthouse-metrics.test.ts`、`runtime-a11y.test.ts` 单元测试，扩展 `page-health.test.ts` 格式化测试
 
 ### v3.9.0 — 智能测试推荐（已交付，642 测试通过）
 

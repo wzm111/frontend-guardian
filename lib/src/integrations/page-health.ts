@@ -13,10 +13,32 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import type { Issue, ScanResult } from "@/types.js";
 import { ProjectIndexer } from "@/engine/indexer.js";
+import {
+    checkCWVThresholds,
+    extractCoreWebVitals,
+    isLighthouseAvailable,
+    runLighthouseForUrl,
+    type CoreWebVitalsResult,
+} from "@/utils/lighthouse-metrics.js";
+import {
+    axeViolationsToIssues,
+    isAxeCoreAvailable,
+    runAxeOnPage,
+    type AxeViolation,
+} from "@/utils/runtime-a11y.js";
+import {
+    compareScreenshotsPixel,
+    getBaselinePath,
+    getCurrentScreenshotPath,
+    getDiffImagePath,
+    isPixelmatchAvailable,
+    isPngjsAvailable,
+    type VisualRegressionResult,
+} from "@/utils/visual-regression.js";
 import {
     uploadToDashboardServer,
     type DashboardClientConfig,
@@ -61,6 +83,32 @@ export interface PageHealthOptions {
     updateBaseline?: boolean;
     /** 基线截图目录 */
     baselineDir?: string;
+
+    // ── v3.10.0 页面测试进阶 ──
+    /** 元素级截图选择器（默认全页截图） */
+    screenshotSelector?: string;
+    /** 视觉回归最大差异像素数（默认 100） */
+    maxDiffPixels?: number;
+    /** 视觉回归最大差异像素比例（默认 0.01） */
+    maxDiffPixelRatio?: number;
+    /** 禁用动态内容遮罩 */
+    noMask?: boolean;
+    /** 额外遮罩选择器 */
+    maskSelectors?: string[];
+    /** 启用 Lighthouse Core Web Vitals */
+    metrics?: boolean;
+    /** CWV 阈值覆盖 */
+    cwvThresholds?: {
+        lcp?: number;
+        cls?: number;
+        fcp?: number;
+        ttfb?: number;
+        inp?: number;
+    };
+    /** 启用运行时无障碍检测 */
+    a11y?: boolean;
+    /** axe-core 过滤标签 */
+    a11yTags?: string[];
 }
 
 export interface CheckedRoute {
@@ -94,6 +142,12 @@ export interface CheckedRoute {
     screenshotChanged?: boolean;
     /** 基线截图路径 */
     baselinePath?: string;
+    /** v3.10.0: 像素级视觉回归结果 */
+    visualRegression?: VisualRegressionResult;
+    /** v3.10.0: Lighthouse Core Web Vitals */
+    metrics?: CoreWebVitalsResult;
+    /** v3.10.0: axe-core 运行时无障碍问题 */
+    a11yViolations?: AxeViolation[];
 }
 
 export interface PageHealthResult {
@@ -114,7 +168,16 @@ export interface PageHealthResult {
 const DEFAULT_TIMEOUT = 30000;
 const DEFAULT_SERVE_PORT = 5173;
 const SCREENSHOT_DIR = ".frontend-guardian/screenshots";
-const BASELINE_DIR = ".frontend-guardian/screenshots/baseline";
+
+/** v3.10.0: 内置不稳定元素遮罩选择器 */
+const BUILT_IN_MASK_SELECTORS = [
+    '[data-testid="timestamp"]',
+    '[data-testid="date"]',
+    ".ad-banner",
+    ".live-clock",
+    '[data-random]',
+    ".dynamic-time",
+];
 
 // ── 截图对比辅助 ───────────────────────────────────────────────────────────
 
@@ -131,6 +194,39 @@ function compareScreenshotHash(currentPath: string, baselinePath: string): boole
         return false;
     }
 }
+
+// ── v3.10.0 动态内容遮罩 ───────────────────────────────────────────────────
+
+/**
+ * 在页面上对不稳定元素应用统一灰色遮罩
+ */
+async function applyMasking(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    page: any,
+    extraSelectors?: string[]
+): Promise<void> {
+    const selectors = [...BUILT_IN_MASK_SELECTORS, ...(extraSelectors || [])];
+    if (selectors.length === 0) return;
+
+    const css = `
+        ${selectors.join(", ")} {
+            background-color: #c0c0c0 !important;
+            background-image: none !important;
+            color: #c0c0c0 !important;
+            border-color: #c0c0c0 !important;
+            text-shadow: none !important;
+            box-shadow: none !important;
+            opacity: 1 !important;
+        }
+    `;
+
+    try {
+        await page.addStyleTag({ content: css });
+    } catch {
+        // 遮罩失败不阻断后续检查
+    }
+}
+
 
 // ── 核心函数 ───────────────────────────────────────────────────────────────
 
@@ -286,6 +382,11 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
         ? resolve(projectDir, options.screenshotDir)
         : resolve(projectDir, SCREENSHOT_DIR);
 
+    const baselineDir = options.baselineDir
+        ? resolve(projectDir, options.baselineDir)
+        : join(screenshotDir, "baseline");
+    const diffDir = join(screenshotDir, "diff");
+
     if (options.screenshot !== false) {
         if (!existsSync(screenshotDir)) {
             mkdirSync(screenshotDir, { recursive: true });
@@ -350,6 +451,7 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
         let interactiveTotal = 0;
         let interactiveVisible = 0;
         let interactiveDisabled = 0;
+        let a11yViolations: AxeViolation[] | undefined;
 
         try {
             // 导航到页面并等待加载
@@ -434,6 +536,25 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
                 if (status === "ok") status = "warning";
                 messages.push(`${consoleWarns.length} 个控制台 Warning`);
             }
+
+            // v3.10.0: 动态内容遮罩
+            if (!options.noMask) {
+                await applyMasking(page, options.maskSelectors);
+            }
+
+            // v3.10.0: 运行时无障碍检测
+            if (options.a11y && isAxeCoreAvailable()) {
+                try {
+                    const axeResult = await runAxeOnPage(page, options.a11yTags);
+                    a11yViolations = axeResult.violations;
+                    if (a11yViolations.length > 0) {
+                        status = status === "error" ? "error" : "warning";
+                        messages.push(`${a11yViolations.length} 个运行时无障碍问题`);
+                    }
+                } catch {
+                    // axe 运行失败不阻断
+                }
+            }
         } catch (err) {
             status = "error";
             messages.push(`导航失败: ${err instanceof Error ? err.message : String(err)}`);
@@ -442,30 +563,60 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
         // 截图 + 基线对比
         let screenshotChanged = false;
         let baselinePath: string | undefined;
+        let visualRegression: VisualRegressionResult | null | undefined;
         if (options.screenshot !== false) {
-            const safeName = route.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
-            const screenshotPath = join(screenshotDir, `${safeName}.png`);
-            baselinePath = options.baselineDir
-                ? resolve(projectDir, options.baselineDir, `${safeName}.png`)
-                : resolve(projectDir, BASELINE_DIR, `${safeName}.png`);
+            const screenshotSelector = options.screenshotSelector;
+            const screenshotPath = getCurrentScreenshotPath(screenshotDir, route, screenshotSelector);
+            baselinePath = getBaselinePath(baselineDir, route, screenshotSelector);
+
             try {
-                await page.screenshot({ path: screenshotPath, fullPage: true });
+                if (screenshotSelector) {
+                    // 元素级截图
+                    await page.locator(screenshotSelector).screenshot({ path: screenshotPath });
+                } else {
+                    await page.screenshot({ path: screenshotPath, fullPage: true });
+                }
                 screenshots.push(screenshotPath);
 
-                // 基线对比
+                // 基线目录
+                const baselineParent = dirname(baselinePath);
+                if (baselineParent && !existsSync(baselineParent)) {
+                    mkdirSync(baselineParent, { recursive: true });
+                }
+
                 if (options.updateBaseline) {
-                    if (!existsSync(options.baselineDir ? resolve(projectDir, options.baselineDir) : resolve(projectDir, BASELINE_DIR))) {
-                        mkdirSync(options.baselineDir ? resolve(projectDir, options.baselineDir) : resolve(projectDir, BASELINE_DIR), { recursive: true });
-                    }
-                    // 复制当前截图到基线
                     const { copyFileSync } = await import("node:fs");
                     copyFileSync(screenshotPath, baselinePath);
                 } else if (existsSync(baselinePath)) {
-                    const same = compareScreenshotHash(screenshotPath, baselinePath);
-                    if (!same) {
-                        screenshotChanged = true;
-                        status = status === "error" ? "error" : "warning";
-                        messages.push("截图与基线不同（UI 可能发生变化）");
+                    // 优先使用像素级对比
+                    if (isPixelmatchAvailable() && isPngjsAvailable()) {
+                        const diffImagePath = getDiffImagePath(diffDir, route, screenshotSelector);
+                        visualRegression = await compareScreenshotsPixel(
+                            screenshotPath,
+                            baselinePath,
+                            diffImagePath,
+                            {
+                                maxDiffPixels: options.maxDiffPixels,
+                                maxDiffPixelRatio: options.maxDiffPixelRatio,
+                            }
+                        );
+                        if (
+                            visualRegression &&
+                            (visualRegression.diffPixels > visualRegression.thresholdPixels ||
+                                visualRegression.diffPixelRatio > visualRegression.thresholdRatio)
+                        ) {
+                            screenshotChanged = true;
+                            status = status === "error" ? "error" : "warning";
+                            messages.push("截图与基线存在像素级差异（UI 可能发生变化）");
+                        }
+                    } else {
+                        // 回退到 SHA256 哈希比对
+                        const same = compareScreenshotHash(screenshotPath, baselinePath);
+                        if (!same) {
+                            screenshotChanged = true;
+                            status = status === "error" ? "error" : "warning";
+                            messages.push("截图与基线不同（UI 可能发生变化）");
+                        }
                     }
                 }
             } catch {
@@ -494,6 +645,7 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
             interactiveDisabled,
             screenshotChanged,
             baselinePath,
+            visualRegression: visualRegression ?? undefined,            a11yViolations,
         };
 
         checkedRoutes.push(checkedRoute);
@@ -506,6 +658,32 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
 
     try {
         await runWithConcurrency(routes, concurrency, checkRoute);
+
+        // v3.10.0: Lighthouse Core Web Vitals 采集
+        if (options.metrics && isLighthouseAvailable() && checkedRoutes.length > 0) {
+            const wsEndpoint = browser.wsEndpoint?.() as string | undefined;
+            const port = wsEndpoint ? Number(new URL(wsEndpoint).port) : 0;
+            if (port > 0) {
+                for (const checkedRoute of checkedRoutes) {
+                    const route = checkedRoute.path;
+                    const url = baseUrl + (route.startsWith("/") ? route : "/" + route);
+                    const contextLh = await browser.newContext({
+                        viewport: { width: 1280, height: 720 },
+                    });
+                    try {
+                        const runnerResult = await runLighthouseForUrl(url, port);
+                        const cwv = extractCoreWebVitals(runnerResult);
+                        checkedRoute.metrics = cwv;
+                        const cwvIssues = checkCWVThresholds(cwv, options.cwvThresholds, route, url);
+                        issues.push(...cwvIssues);
+                    } catch {
+                        // Lighthouse 单路由失败不阻断
+                    } finally {
+                        await contextLh.close();
+                    }
+                }
+            }
+        }
     } finally {
         await browser.close();
         if (serverProcess) {
@@ -629,8 +807,33 @@ function routeToIssues(
         });
     }
 
-    // 截图与基线不同
-    if (route.screenshotChanged) {
+    // v3.10.0: 像素级视觉回归
+    if (route.visualRegression) {
+        issues.push({
+            ruleId: "page-health-visual-regression",
+            title: "截图与基线存在像素级差异",
+            description:
+                `路由 ${route.path} 的当前截图与基线截图存在像素级差异。` +
+                `差异像素: ${route.visualRegression.diffPixels} ` +
+                `(${Math.round(route.visualRegression.diffPixelRatio * 10000) / 100}%)。`,
+            severity: "warning",
+            file: route.path,
+            line: 1,
+            column: 1,
+            meta: {
+                url: route.url,
+                diffPixels: route.visualRegression.diffPixels,
+                diffPixelRatio: route.visualRegression.diffPixelRatio,
+                diffImagePath: route.visualRegression.diffImagePath,
+                baselinePath: route.baselinePath,
+                thresholdPixels: route.visualRegression.thresholdPixels,
+                thresholdRatio: route.visualRegression.thresholdRatio,
+            },
+        });
+    }
+
+    // 截图与基线不同（SHA256 回退场景）
+    if (route.screenshotChanged && !route.visualRegression) {
         issues.push({
             ruleId: "page-health-screenshot-changed",
             title: "截图与基线不同",
@@ -646,6 +849,11 @@ function routeToIssues(
                 baselinePath: route.baselinePath,
             },
         });
+    }
+
+    // v3.10.0: 运行时无障碍问题
+    if (route.a11yViolations && route.a11yViolations.length > 0) {
+        issues.push(...axeViolationsToIssues(route.a11yViolations, route.path, route.url));
     }
 
     // 导航失败（非 HTTP 错误，而是超时/连接失败等）
@@ -710,6 +918,26 @@ export function formatPageHealthReport(result: PageHealthResult): string {
         }
         if (route.screenshotChanged) {
             lines.push(`      🖼️  截图与基线不同`);
+        }
+        if (route.visualRegression) {
+            lines.push(
+                `      🖼️  像素差异: ${route.visualRegression.diffPixels} (${Math.round(route.visualRegression.diffPixelRatio * 10000) / 100}%)`
+            );
+        }
+        if (route.a11yViolations && route.a11yViolations.length > 0) {
+            lines.push(`      ♿ 无障碍问题: ${route.a11yViolations.length} 个`);
+        }
+        if (route.metrics) {
+            const m = route.metrics;
+            const parts: string[] = [];
+            if (m.lcp !== undefined) parts.push(`LCP ${m.lcp}ms`);
+            if (m.cls !== undefined) parts.push(`CLS ${m.cls}`);
+            if (m.fcp !== undefined) parts.push(`FCP ${m.fcp}ms`);
+            if (m.ttfb !== undefined) parts.push(`TTFB ${m.ttfb}ms`);
+            if (m.inp !== undefined) parts.push(`INP ${m.inp}ms`);
+            if (parts.length > 0) {
+                lines.push(`      ⚡ ${parts.join(" | ")}`);
+            }
         }
         if (route.duration > 5000) {
             lines.push(`      ⏱️  加载耗时: ${route.duration}ms`);

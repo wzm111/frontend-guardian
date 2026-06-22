@@ -33,6 +33,28 @@ export type {
     CheckedRoute,
 } from "./page-health.js";
 
+// v3.10.0: 页面测试进阶工具
+export {
+    compareScreenshotsPixel,
+    getBaselinePath,
+    getCurrentScreenshotPath,
+    getDiffImagePath,
+    isPixelmatchAvailable,
+    isPngjsAvailable,
+    safeRouteName,
+} from "../utils/visual-regression.js";
+export type { VisualRegressionOptions, VisualRegressionResult } from "../utils/visual-regression.js";
+export {
+    checkCWVThresholds,
+    extractCoreWebVitals,
+    formatCoreWebVitals,
+    isLighthouseAvailable,
+    runLighthouseForUrl,
+} from "../utils/lighthouse-metrics.js";
+export type { CoreWebVitalsResult, CWVThresholds } from "../utils/lighthouse-metrics.js";
+export { axeViolationsToIssues, isAxeCoreAvailable, mapAxeImpact, runAxeOnPage } from "../utils/runtime-a11y.js";
+export type { AxeRunResult, AxeViolation } from "../utils/runtime-a11y.js";
+
 /** 所有可用的外部工具列表 */
 export const allExternalTools = [
     _eslintIntegration,

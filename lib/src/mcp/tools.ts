@@ -291,7 +291,8 @@ export function getToolDefinitions(): Tool[] {
             name: "page-health",
             description:
                 "Run a page health check by launching a browser and traversing routes. " +
-                "Detects white screens, console errors, HTTP errors, and resource loading failures. " +
+                "Detects white screens, console errors, HTTP errors, resource loading failures, " +
+                "visual regressions, Core Web Vitals, and runtime accessibility issues. " +
                 "Requires Playwright to be installed in the project.",
             inputSchema: {
                 type: "object",
@@ -314,6 +315,37 @@ export function getToolDefinitions(): Tool[] {
                         default: 3,
                     },
                     json: { type: "boolean", description: "Return JSON output." },
+                    screenshotSelector: {
+                        type: "string",
+                        description: "CSS selector for element-level screenshot instead of full page.",
+                    },
+                    maxDiffPixels: {
+                        type: "number",
+                        description: "Visual regression max absolute diff pixels. Default 100.",
+                    },
+                    maxDiffPixelRatio: {
+                        type: "number",
+                        description: "Visual regression max diff pixel ratio. Default 0.01.",
+                    },
+                    noMask: { type: "boolean", description: "Disable dynamic content masking." },
+                    maskSelectors: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Additional CSS selectors to mask before screenshot.",
+                    },
+                    metrics: {
+                        type: "boolean",
+                        description: "Enable Lighthouse Core Web Vitals collection.",
+                    },
+                    a11y: {
+                        type: "boolean",
+                        description: "Enable axe-core runtime accessibility checks.",
+                    },
+                    a11yTags: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Axe tags to filter, e.g. ['wcag2a', 'wcag2aa'].",
+                    },
                 },
             },
         },
@@ -645,6 +677,16 @@ async function handlePageHealth(
         routes: args.routes,
         screenshot: args.screenshot,
         concurrency: args.concurrency,
+        // v3.10.0
+        screenshotSelector: args.screenshotSelector,
+        maxDiffPixels: args.maxDiffPixels,
+        maxDiffPixelRatio: args.maxDiffPixelRatio,
+        noMask: args.noMask,
+        maskSelectors: args.maskSelectors,
+        metrics: args.metrics,
+        cwvThresholds: args.cwvThresholds,
+        a11y: args.a11y,
+        a11yTags: args.a11yTags,
     });
     if (args.json) {
         return textResult(JSON.stringify(formatPageHealthJson(result), null, 2));

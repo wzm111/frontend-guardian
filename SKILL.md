@@ -171,6 +171,10 @@ fg-server --port 3456 --cors "*"
 /frontend-guardian --page-health --base-url http://localhost:3000 --routes /login,/dashboard
 # 调整并发数（默认 3 个 page 并行）
 /frontend-guardian --page-health --base-url http://localhost:3000 --page-health-concurrency 5
+# 像素级视觉回归 + 动态遮罩
+/frontend-guardian --page-health --base-url http://localhost:3000 --max-diff-pixels 50 --mask-selectors ".clock"
+# Lighthouse Core Web Vitals + 运行时无障碍检测
+/frontend-guardian --page-health --base-url http://localhost:3000 --page-health-metrics --a11y
 
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
@@ -194,7 +198,7 @@ fg-server --port 3456 --cors "*"
 | `e2e-detect-gaps` | 检测 E2E 覆盖缺口 |
 | `list-rules` | 列出可用规则 |
 | `scan-file` | 单文件快速扫描 |
-| `page-health` | 页面健康检查（需 Playwright） |
+| `page-health` | 页面健康检查：白屏/控制台/资源/视觉回归/Lighthouse/无障碍（需 Playwright） |
 | `ai-fix` | 为无自动修复的问题生成 AI 建议 |
 | `get-project-meta` | 获取检测到的项目元数据 |
 | `index-project` | 查询/构建项目索引 |

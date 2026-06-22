@@ -463,4 +463,121 @@ describe("v3.7.1 — 页面健康检查", () => {
         });
     });
 
+    describe("v3.10.0 — 页面测试进阶", () => {
+        it("should accept new PageHealthOptions fields", () => {
+            const opts: PageHealthOptions = {
+                projectDir: "/tmp/test",
+                baseUrl: "http://localhost:3000",
+                screenshotSelector: "#main",
+                maxDiffPixels: 50,
+                maxDiffPixelRatio: 0.005,
+                noMask: true,
+                maskSelectors: [".clock"],
+                metrics: true,
+                cwvThresholds: { lcp: 2000 },
+                a11y: true,
+                a11yTags: ["wcag2a"],
+            };
+            expect(opts.screenshotSelector).toBe("#main");
+            expect(opts.metrics).toBe(true);
+        });
+
+        it("formatPageHealthReport shows visual regression", () => {
+            const result: PageHealthResult = {
+                issues: [],
+                checkedRoutes: [
+                    {
+                        path: "/",
+                        url: "http://localhost:3000/",
+                        status: "warning",
+                        httpStatus: 200,
+                        consoleErrors: 0,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: true,
+                        duration: 100,
+                        messages: [],
+                        visualRegression: {
+                            diffPixels: 42,
+                            diffPixelRatio: 0.002,
+                            diffImagePath: "/tmp/diff.png",
+                            thresholdPixels: 100,
+                            thresholdRatio: 0.01,
+                        },
+                    },
+                ],
+                screenshots: [],
+                duration: 100,
+                baseUrl: "http://localhost:3000",
+            };
+
+            const report = formatPageHealthReport(result);
+            expect(report).toContain("像素差异: 42");
+        });
+
+        it("formatPageHealthReport shows a11y violations", () => {
+            const result: PageHealthResult = {
+                issues: [],
+                checkedRoutes: [
+                    {
+                        path: "/",
+                        url: "http://localhost:3000/",
+                        status: "warning",
+                        httpStatus: 200,
+                        consoleErrors: 0,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: true,
+                        duration: 100,
+                        messages: [],
+                        a11yViolations: [
+                            {
+                                id: "image-alt",
+                                impact: "critical",
+                                tags: ["wcag2a"],
+                                help: "Images must have alternate text",
+                                helpUrl: "",
+                                nodes: [{ target: ["img"] }],
+                            },
+                        ],
+                    },
+                ],
+                screenshots: [],
+                duration: 100,
+                baseUrl: "http://localhost:3000",
+            };
+
+            const report = formatPageHealthReport(result);
+            expect(report).toContain("无障碍问题: 1 个");
+        });
+
+        it("formatPageHealthReport shows CWV metrics", () => {
+            const result: PageHealthResult = {
+                issues: [],
+                checkedRoutes: [
+                    {
+                        path: "/",
+                        url: "http://localhost:3000/",
+                        status: "ok",
+                        httpStatus: 200,
+                        consoleErrors: 0,
+                        consoleWarns: 0,
+                        resourceErrors: 0,
+                        hasContent: true,
+                        duration: 100,
+                        messages: [],
+                        metrics: { lcp: 1200, cls: 0.05, fcp: 900, ttfb: 200 },
+                    },
+                ],
+                screenshots: [],
+                duration: 100,
+                baseUrl: "http://localhost:3000",
+            };
+
+            const report = formatPageHealthReport(result);
+            expect(report).toContain("LCP 1200ms");
+            expect(report).toContain("CLS 0.05");
+        });
+    });
+
 });

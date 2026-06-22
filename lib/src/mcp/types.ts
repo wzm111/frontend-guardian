@@ -76,6 +76,22 @@ export interface PageHealthToolArgs {
     screenshot?: boolean;
     concurrency?: number;
     json?: boolean;
+    // v3.10.0
+    screenshotSelector?: string;
+    maxDiffPixels?: number;
+    maxDiffPixelRatio?: number;
+    noMask?: boolean;
+    maskSelectors?: string[];
+    metrics?: boolean;
+    cwvThresholds?: {
+        lcp?: number;
+        cls?: number;
+        fcp?: number;
+        ttfb?: number;
+        inp?: number;
+    };
+    a11y?: boolean;
+    a11yTags?: string[];
 }
 
 /** ai-fix 工具参数 */
