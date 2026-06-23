@@ -30,6 +30,8 @@ export interface MiniProgramCliConfig {
     previewArgs: string[];
     /** 截图命令参数构造 */
     screenshotArgs: (outputPath: string) => string[];
+    /** 性能采集命令参数（可选；平台 CLI 不一定支持） */
+    performanceArgs?: string[];
 }
 
 export interface MiniProgramDevToolsRunOptions {
@@ -107,9 +109,9 @@ export function runDevTools(options: MiniProgramDevToolsRunOptions, config: Mini
             timeout: options.timeoutMs ?? 120000,
             stdio: ["pipe", "pipe", "pipe"],
         });
-    } catch (err: any) {
-        if (err.stdout) {
-            return err.stdout as string;
+    } catch (err: unknown) {
+        if (err instanceof Error && "stdout" in err && typeof (err as { stdout?: string }).stdout === "string") {
+            return (err as { stdout: string }).stdout;
         }
         return null;
     }
@@ -133,6 +135,14 @@ export function runScreenshot(
     timeoutMs = 60000
 ): string | null {
     return runDevTools({ projectDir, args: config.screenshotArgs(outputPath), timeoutMs }, config);
+}
+
+/** 性能采集；平台未配置 performanceArgs 时返回 null */
+export function runPerformance(config: MiniProgramCliConfig, projectDir: string, timeoutMs = 120000): string | null {
+    if (!config.performanceArgs || config.performanceArgs.length === 0) {
+        return null;
+    }
+    return runDevTools({ projectDir, args: config.performanceArgs, timeoutMs }, config);
 }
 
 /** 从编译输出中粗略统计 error / warning 数量 */

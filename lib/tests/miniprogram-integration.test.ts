@@ -2,13 +2,14 @@
  * v3.11.1: 小程序自动化测试多平台集成测试
  */
 
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     formatMiniProgramJson,
     formatMiniProgramReport,
+    type MiniProgramPerformanceData,
     runMiniProgramTest,
     toScanResult,
 } from "../src/integrations/miniprogram.js";
@@ -17,6 +18,7 @@ vi.mock("../src/utils/miniprogram-cli.js", () => ({
     isDevToolsAvailable: vi.fn(),
     runAutoCompile: vi.fn(),
     runScreenshot: vi.fn(),
+    runPerformance: vi.fn(),
     parseCompileOutput: vi.fn((output: string) => {
         const errors = output.split("\n").filter((l) => l.startsWith("error:"));
         const warnings = output.split("\n").filter((l) => l.startsWith("warn:"));
@@ -24,7 +26,7 @@ vi.mock("../src/utils/miniprogram-cli.js", () => ({
     }),
 }));
 
-import { isDevToolsAvailable, runAutoCompile, runScreenshot } from "../src/utils/miniprogram-cli.js";
+import { isDevToolsAvailable, runAutoCompile, runPerformance, runScreenshot } from "../src/utils/miniprogram-cli.js";
 
 const PLATFORMS = ["wechat", "alipay", "douyin"] as const;
 
@@ -36,6 +38,7 @@ describe("miniprogram integration", () => {
         vi.mocked(isDevToolsAvailable).mockReturnValue(false);
         vi.mocked(runAutoCompile).mockReturnValue(null);
         vi.mocked(runScreenshot).mockReturnValue(null);
+        vi.mocked(runPerformance).mockReturnValue(null);
     });
 
     afterEach(() => {
@@ -160,7 +163,7 @@ describe("miniprogram integration", () => {
         createWechatProject(["pages/index/index"]);
         const result = await runMiniProgramTest({ projectDir: tempDir });
 
-        const json = formatMiniProgramJson(result) as any;
+        const json = formatMiniProgramJson(result) as Record<string, unknown>;
         expect(json.summary.platform).toBe("wechat");
         expect(json.summary.totalPages).toBe(1);
         expect(Array.isArray(json.pages)).toBe(true);
@@ -188,5 +191,54 @@ describe("miniprogram integration", () => {
         const missing = result.checkedPages.find((p) => p.path === "pages/missing/missing");
         expect(missing?.status).toBe("error");
         expect(result.issues.some((i) => i.ruleId === "miniprogram-page-missing")).toBe(true);
+    });
+
+    it("启用 performance 后返回性能数据", async () => {
+        createWechatProject(["pages/index/index"]);
+        mkdirSync(join(tempDir, "pages/index"), { recursive: true });
+        writeFileSync(join(tempDir, "pages/index/index.js"), "Page({data:{},onLoad(){this.setData({a:1});}})");
+
+        const result = await runMiniProgramTest({ projectDir: tempDir, performance: true });
+
+        expect(result.performanceData).toBeDefined();
+        const data = result.performanceData as MiniProgramPerformanceData;
+        expect(data.platform).toBe("wechat");
+        expect(data.mainPackageSizeBytes).toBeGreaterThan(0);
+        expect(data.pages).toHaveLength(1);
+        expect(data.setDataMetrics).toHaveLength(1);
+        expect(data.setDataMetrics[0].callCount).toBe(1);
+    });
+
+    it("performance 阈值触发 issue", async () => {
+        createWechatProject(["pages/index/index"]);
+        writeFileSync(join(tempDir, "big.js"), "x".repeat(100));
+
+        const result = await runMiniProgramTest({
+            projectDir: tempDir,
+            performance: true,
+            performanceThresholds: { packageSize: 50 },
+        });
+
+        expect(result.issues.some((i) => i.ruleId === "miniprogram-perf-main-package-size")).toBe(true);
+    });
+
+    it("多平台 performance 数据合并为数组", async () => {
+        createMultiPlatformProject(["pages/index/index"]);
+
+        const result = await runMiniProgramTest({ projectDir: tempDir, platform: "all", performance: true });
+
+        expect(result.platform).toBe("multi");
+        expect(Array.isArray(result.performanceData)).toBe(true);
+        expect((result.performanceData as MiniProgramPerformanceData[]).length).toBe(3);
+    });
+
+    it("formatMiniProgramJson 包含 performanceData", async () => {
+        createWechatProject(["pages/index/index"]);
+
+        const result = await runMiniProgramTest({ projectDir: tempDir, performance: true });
+        const json = formatMiniProgramJson(result) as Record<string, unknown>;
+
+        expect(json.performanceData).toBeDefined();
+        expect(json.performanceData.platform).toBe("wechat");
     });
 });

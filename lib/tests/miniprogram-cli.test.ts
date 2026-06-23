@@ -2,7 +2,7 @@
  * v3.11.1: 通用小程序开发者工具 CLI 封装测试
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:fs", () => ({
     existsSync: vi.fn(),
@@ -20,6 +20,7 @@ import {
     parseCompileOutput,
     runAutoCompile,
     runDevTools,
+    runPerformance,
     runScreenshot,
 } from "../src/utils/miniprogram-cli.js";
 import { alipayCliConfig, douyinCliConfig, wechatCliConfig } from "../src/utils/miniprogram-cli-configs.js";
@@ -91,6 +92,27 @@ describe("miniprogram-cli", () => {
 
         const output = runScreenshot(douyinCliConfig, "/project", "/tmp/s.png");
         expect(output).toBe("screenshot ok");
+    });
+
+    it("未配置 performanceArgs 时 runPerformance 返回 null", () => {
+        process.env.WECHAT_DEVTOOLS_CLI = "/custom/cli";
+        vi.mocked(existsSync).mockImplementation((p) => p === "/custom/cli");
+        vi.mocked(execSync).mockReturnValue("{}");
+
+        const output = runPerformance(wechatCliConfig, "/project");
+        expect(output).toBeNull();
+        expect(execSync).not.toHaveBeenCalled();
+    });
+
+    it("配置 performanceArgs 时按配置执行性能采集命令", () => {
+        const perfConfig = { ...wechatCliConfig, performanceArgs: ["--performance"] };
+        process.env.WECHAT_DEVTOOLS_CLI = "/custom/cli";
+        vi.mocked(existsSync).mockImplementation((p) => p === "/custom/cli");
+        vi.mocked(execSync).mockReturnValue('{"startupTimeMs": 1200, "fps": 60}');
+
+        const output = runPerformance(perfConfig, "/project");
+        expect(output).toBe('{"startupTimeMs": 1200, "fps": 60}');
+        expect(execSync).toHaveBeenCalled();
     });
 
     it("解析编译输出中的错误与警告", () => {

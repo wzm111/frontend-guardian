@@ -70,11 +70,19 @@ export const allExternalTools = [
     _playwrightIntegration,
 ];
 
+export type { FormatResult, FormatterTool } from "./formatter.js";
+// Phase 5+6: 格式化器集成
+export { detectFormatter, runFormat } from "./formatter.js";
 // v3.11.1: 小程序自动化测试（微信/支付宝/抖音）
+// v3.11.2: 小程序性能采集类型
 export type {
     CheckedMiniProgramPage,
     MiniProgramOptions,
+    MiniProgramPagePerformance,
+    MiniProgramPerformanceData,
+    MiniProgramPerformanceThresholds,
     MiniProgramResult,
+    SetDataMetric,
 } from "./miniprogram.js";
 export {
     formatMiniProgramJson,
@@ -83,6 +91,3 @@ export {
     toScanResult as toMiniProgramScanResult,
     uploadMiniProgramResult,
 } from "./miniprogram.js";
-export type { FormatResult, FormatterTool } from "./formatter.js";
-// Phase 5+6: 格式化器集成
-export { detectFormatter, runFormat } from "./formatter.js";

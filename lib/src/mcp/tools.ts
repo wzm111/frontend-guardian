@@ -20,7 +20,7 @@ import { performanceRules } from "@/scanners/performance-scanner.js";
 import { platformRules } from "@/scanners/platform-scanner.js";
 import { securityRules } from "@/scanners/security-scanner.js";
 import { svelteRules } from "@/scanners/svelte-scanner.js";
-import type { Issue, Rule, ScanResult, Severity } from "@/types.js";
+import type { ComponentLib, Framework, Issue, Platform, Rule, ScanResult, Severity } from "@/types.js";
 import { generateAIFixSuggestions } from "@/utils/ai-fix-suggester.js";
 import { detectE2EGaps, formatE2EGapJson } from "@/utils/e2e-gap-detector.js";
 import { detectProjectMeta } from "@/utils/project-detector.js";
@@ -390,6 +390,26 @@ export function getToolDefinitions(): Tool[] {
                         description: "Update the screenshot baseline.",
                     },
                     json: { type: "boolean", description: "Return JSON output instead of Markdown." },
+                    performance: {
+                        type: "boolean",
+                        description:
+                            "Enable mini-program performance collection (build metrics, setData analysis, runtime thresholds).",
+                    },
+                    performanceThresholds: {
+                        type: "object",
+                        description: "Optional thresholds for performance issues.",
+                        properties: {
+                            startup: { type: "number", description: "Startup time threshold in milliseconds." },
+                            fps: { type: "number", description: "Minimum acceptable FPS." },
+                            setDataCount: { type: "number", description: "Max setData calls per page." },
+                            setDataPayloadBytes: {
+                                type: "number",
+                                description: "Max average setData payload in bytes.",
+                            },
+                            packageSize: { type: "number", description: "Max package size in bytes." },
+                            pageSize: { type: "number", description: "Max page size in bytes." },
+                        },
+                    },
                 },
             },
         },
@@ -682,9 +702,10 @@ async function handleListRules(
     registerModuleRules(engine, args.module);
     const rules = engine.getRules();
     const filtered = rules.filter((r) => {
-        if (args.framework && r.frameworks && !r.frameworks.includes(args.framework as any)) return false;
-        if (args.platform && r.platforms && !r.platforms.includes(args.platform as any)) return false;
-        if (args.componentLib && r.componentLibs && !r.componentLibs.includes(args.componentLib as any)) return false;
+        if (args.framework && r.frameworks && !r.frameworks.includes(args.framework as Framework)) return false;
+        if (args.platform && r.platforms && !r.platforms.includes(args.platform as Platform)) return false;
+        if (args.componentLib && r.componentLibs && !r.componentLibs.includes(args.componentLib as ComponentLib))
+            return false;
         return true;
     });
     const list = filtered.map((r) => ({
@@ -773,6 +794,8 @@ async function handleMiniProgram(
         platform: args.platform || "auto",
         screenshot: args.screenshot,
         updateBaseline: args.updateBaseline,
+        performance: args.performance,
+        performanceThresholds: args.performanceThresholds,
     });
     if (args.json) {
         return textResult(JSON.stringify(formatMiniProgramJson(result), null, 2));

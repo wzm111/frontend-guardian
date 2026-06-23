@@ -418,14 +418,38 @@
 
 ### P2 — 排期实现
 
-- [ ] **小程序性能采集**：通过开发者工具性能面板采集启动时间、setData 耗时、渲染帧率
+- [x] **小程序性能采集**：通过开发者工具性能面板或静态分析采集启动时间、setData 耗时、渲染帧率（v3.11.2 交付）
   - 启动时间 > 2s 时生成 warning Issue
-  - setData 数据量 > 100KB 时生成 warning Issue
+  - setData 数据量 > 10KB 时生成 warning Issue
 - [x] **多平台并行测试**：同时测试微信 + 支付宝 + 抖音三个平台，发现平台差异（v3.11.1 交付）
   - `--mini-program all` 与 `--mini-program wechat,alipay` 支持
   - 同一份代码编译到不同平台，分别输出各平台报告
 - [ ] **多平台截图差异对比**：同一份代码编译到不同平台后对比截图差异
   - 输出平台兼容性报告
+
+---
+
+## ✅ v3.11.2 — 小程序性能采集
+
+**目标**：在 v3.11.1 多平台小程序自动化测试基础上，增加小程序性能数据采集与阈值告警。
+
+**预计发布**：2026-06-30 · **实际交付**：2026-06-23 · **748 测试全部通过，3 个 skip**
+
+### 已实现
+
+- [x] 通用 CLI 性能采集入口：`MiniProgramCliConfig.performanceArgs` + `runPerformance()`
+- [x] 构建指标采集：编译耗时、主包/分包/页面体积
+- [x] setData 静态分析：调用次数与负载估算
+- [x] 运行时指标解析：`parsePerformanceOutput()` 支持 JSON / 文本输出
+- [x] 性能阈值检查：启动时间、FPS、setData、包体积、页面复杂度
+- [x] CLI 参数：`--miniprogram-performance` 与 6 个 `--miniprogram-performance-threshold-*`
+- [x] MCP `mini-program` 工具支持 `performance` 与 `performanceThresholds`
+- [x] 多平台性能数据合并为数组
+
+### 明确不做
+
+- [ ] 多平台截图差异对比（v3.12.0）
+- [ ] 真机运行时 SDK 深度性能埋点（v3.13.0+）
 
 ---
 

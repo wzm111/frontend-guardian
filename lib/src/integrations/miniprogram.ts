@@ -8,8 +8,8 @@
  * 并给出对应平台的下载链接提示。
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Issue, ScanResult } from "@/types.js";
 import {
     type DashboardClientConfig,
@@ -17,15 +17,33 @@ import {
     uploadToDashboardServer,
 } from "@/utils/dashboard-client.js";
 import {
-    type MiniProgramPlatform,
-    type MiniProgramProjectInfo,
+    isDevToolsAvailable,
+    parseCompileOutput,
+    runAutoCompile,
+    runPerformance,
+    runScreenshot,
+} from "@/utils/miniprogram-cli.js";
+import { getCliConfig } from "@/utils/miniprogram-cli-configs.js";
+import {
     detectMiniProgramPlatform,
     detectMiniProgramPlatforms,
     getMiniProgramPlatformLabel,
+    type MiniProgramPlatform,
+    type MiniProgramProjectInfo,
     resolveMiniProgramProject,
 } from "@/utils/miniprogram-detect.js";
-import { isDevToolsAvailable, parseCompileOutput, runAutoCompile, runScreenshot } from "@/utils/miniprogram-cli.js";
-import { getCliConfig } from "@/utils/miniprogram-cli-configs.js";
+import { findPageSourceFile, getDirectorySize, getSubPackageSize } from "@/utils/miniprogram-fs.js";
+import {
+    checkPerformanceThresholds,
+    collectBuildMetrics,
+    collectSetDataMetrics,
+    DEFAULT_MINIPROGRAM_PERFORMANCE_THRESHOLDS,
+    formatPerformanceMetrics,
+    type MiniProgramPerformanceData,
+    type MiniProgramPerformanceThresholds,
+    mergeSetDataMetrics,
+    parsePerformanceOutput,
+} from "@/utils/miniprogram-performance.js";
 import {
     compareScreenshotsPixel,
     getBaselinePath,
@@ -35,6 +53,14 @@ import {
     isVisualRegressionFailed,
     safeRouteName,
 } from "@/utils/visual-regression.js";
+
+// 从性能工具库重导出类型，供 public API 使用
+export type {
+    MiniProgramPagePerformance,
+    MiniProgramPerformanceData,
+    MiniProgramPerformanceThresholds,
+    SetDataMetric,
+} from "@/utils/miniprogram-performance.js";
 
 // ── 类型 ───────────────────────────────────────────────────────────────────
 
@@ -63,6 +89,10 @@ export interface MiniProgramOptions {
     timeout?: number;
     /** 页面检查并发数（默认 3） */
     concurrency?: number;
+    /** 是否启用性能采集 */
+    performance?: boolean;
+    /** 性能阈值覆盖 */
+    performanceThresholds?: Partial<MiniProgramPerformanceThresholds>;
     /** 上报到的 dashboard server URL */
     server?: string;
     /** dashboard server auth token */
@@ -103,6 +133,8 @@ export interface MiniProgramResult {
     screenshots: string[];
     /** 总耗时（毫秒） */
     duration: number;
+    /** 性能数据（启用 --miniprogram-performance 时填充；多平台时为数组） */
+    performanceData?: MiniProgramPerformanceData | MiniProgramPerformanceData[];
 }
 
 /** 单平台运行时排除 platform/platforms 的选项 */
@@ -113,9 +145,6 @@ type SinglePlatformOptions = Omit<MiniProgramOptions, "platform" | "platforms">;
 const DEFAULT_MAX_MAIN_PACKAGE_SIZE = 2 * 1024 * 1024; // 2MB
 const DEFAULT_MAX_SUB_PACKAGE_SIZE = 2 * 1024 * 1024; // 2MB
 const DEFAULT_SCREENSHOT_DIR = ".frontend-guardian/screenshots/miniprogram";
-const PAGE_EXTENSIONS = [".vue", ".js", ".ts", ".wxml", ".axml", ".ttml", ".json"];
-
-const EXCLUDED_DIRS = new Set(["node_modules", ".git", ".frontend-guardian", "dist", "build", "unpackage", "coverage"]);
 
 // ── 工具函数 ─────────────────────────────────────────────────────────────────
 
@@ -127,50 +156,6 @@ function formatBytes(bytes: number): string {
 
 function getScreenshotProfile(platform: MiniProgramPlatform): string {
     return `miniprogram/${platform}`;
-}
-
-/** 递归计算目录大小（排除常见非源码目录） */
-export function getDirectorySize(dir: string): number {
-    let total = 0;
-
-    function walk(current: string) {
-        const entries = readdirSync(current, { withFileTypes: true });
-        for (const entry of entries) {
-            const fullPath = join(current, entry.name);
-            if (entry.isDirectory()) {
-                if (EXCLUDED_DIRS.has(entry.name)) continue;
-                walk(fullPath);
-            } else {
-                try {
-                    total += statSync(fullPath).size;
-                } catch {
-                    // ignore
-                }
-            }
-        }
-    }
-
-    walk(dir);
-    return total;
-}
-
-/** 计算单个子包目录大小 */
-export function getSubPackageSize(projectDir: string, root: string): number {
-    const subDir = resolve(projectDir, root);
-    if (!existsSync(subDir)) return 0;
-    return getDirectorySize(subDir);
-}
-
-/** 检查页面源码文件是否存在 */
-export function findPageSourceFile(projectDir: string, pagePath: string): string | undefined {
-    const base = resolve(projectDir, pagePath);
-    for (const ext of PAGE_EXTENSIONS) {
-        const candidate = base + ext;
-        if (existsSync(candidate)) {
-            return candidate;
-        }
-    }
-    return undefined;
 }
 
 /** 并发控制辅助 */
@@ -276,17 +261,19 @@ function runCompileCheck(
     projectInfo: MiniProgramProjectInfo,
     options: SinglePlatformOptions,
     baseMeta: Record<string, unknown>
-): { issues: Issue[]; output: string | null } {
+): { issues: Issue[]; output: string | null; durationMs: number } {
     const issues: Issue[] = [];
     const config = getCliConfig(projectInfo.platform);
 
     if (!isDevToolsAvailable(config)) {
-        return { issues, output: null };
+        return { issues, output: null, durationMs: 0 };
     }
 
+    const compileStart = Date.now();
     const output = runAutoCompile(config, projectInfo.projectDir, options.timeout ?? 120000);
+    const durationMs = Date.now() - compileStart;
     if (!output) {
-        return { issues, output: null };
+        return { issues, output: null, durationMs };
     }
 
     const { errors, warnings } = parseCompileOutput(output);
@@ -317,7 +304,62 @@ function runCompileCheck(
         });
     }
 
-    return { issues, output };
+    return { issues, output, durationMs };
+}
+
+/** 性能检查 */
+function runPerformanceCheck(
+    projectInfo: MiniProgramProjectInfo,
+    options: SinglePlatformOptions,
+    baseMeta: Record<string, unknown>,
+    compileDurationMs: number
+): { data: MiniProgramPerformanceData; issues: Issue[]; suggestion?: Issue } {
+    const config = getCliConfig(projectInfo.platform);
+
+    // 1. 构建指标 + setData 静态指标（不依赖开发者工具）
+    let data = collectBuildMetrics({
+        projectDir: projectInfo.projectDir,
+        projectInfo,
+        compileDurationMs,
+    });
+    const setDataMetrics = collectSetDataMetrics(projectInfo);
+    data = mergeSetDataMetrics(data, setDataMetrics);
+
+    // 2. 尝试通过 CLI 采集运行时指标
+    let runtimeParsed = false;
+    if (isDevToolsAvailable(config) && config.performanceArgs && config.performanceArgs.length > 0) {
+        const output = runPerformance(config, projectInfo.projectDir, options.timeout ?? 120000);
+        if (output) {
+            const runtime = parsePerformanceOutput(output);
+            if (runtime.startupTimeMs !== undefined) data.startupTimeMs = runtime.startupTimeMs;
+            if (runtime.fps !== undefined) data.fps = runtime.fps;
+            runtimeParsed = true;
+        }
+    }
+
+    // 3. 阈值检查
+    const thresholds = {
+        ...DEFAULT_MINIPROGRAM_PERFORMANCE_THRESHOLDS,
+        ...options.performanceThresholds,
+    };
+    const issues = checkPerformanceThresholds(data, thresholds, baseMeta);
+
+    // 4. 平台未配置性能参数时给出 suggestion
+    let suggestion: Issue | undefined;
+    if (!runtimeParsed && (!config.performanceArgs || config.performanceArgs.length === 0)) {
+        suggestion = {
+            ruleId: "miniprogram-performance-runtime-unavailable",
+            title: `${config.label}开发者工具 CLI 暂不支持运行时性能采集`,
+            description: `已返回构建指标与 setData 静态分析结果。如需运行时启动时间/FPS，请查阅${config.label}开发者工具官方文档确认 CLI 性能参数。`,
+            severity: "suggestion",
+            file: projectInfo.projectDir,
+            line: 1,
+            column: 1,
+            meta: baseMeta,
+        };
+    }
+
+    return { data, issues, suggestion };
 }
 
 /** 对首页进行截图冒烟测试 */
@@ -551,6 +593,17 @@ async function runSingleMiniProgramTest(
     const compileResult = runCompileCheck(projectInfo, options, baseMeta);
     issues.push(...compileResult.issues);
 
+    // 性能检查
+    let performanceData: MiniProgramPerformanceData | undefined;
+    if (options.performance) {
+        const perfResult = runPerformanceCheck(projectInfo, options, baseMeta, compileResult.durationMs);
+        performanceData = perfResult.data;
+        issues.push(...perfResult.issues);
+        if (perfResult.suggestion) {
+            issues.push(perfResult.suggestion);
+        }
+    }
+
     // 缺少开发者工具时给出建议
     if (!isDevToolsAvailable(config)) {
         issues.push({
@@ -589,6 +642,7 @@ async function runSingleMiniProgramTest(
         checkedPages,
         screenshots,
         duration: Date.now() - start,
+        performanceData,
     };
 }
 
@@ -620,6 +674,7 @@ export async function runMiniProgramTest(options: MiniProgramOptions): Promise<M
         checkedPages: [],
         screenshots: [],
         duration: 0,
+        performanceData: [],
     };
 
     for (const r of results) {
@@ -627,6 +682,14 @@ export async function runMiniProgramTest(options: MiniProgramOptions): Promise<M
         merged.checkedPages.push(...r.checkedPages.map((p) => ({ ...p, platform: r.platform as MiniProgramPlatform })));
         merged.screenshots.push(...r.screenshots);
         merged.duration += r.duration;
+        if (r.performanceData) {
+            const arr = Array.isArray(r.performanceData) ? r.performanceData : [r.performanceData];
+            (merged.performanceData as MiniProgramPerformanceData[]).push(...arr);
+        }
+    }
+
+    if ((merged.performanceData as MiniProgramPerformanceData[]).length === 0) {
+        delete merged.performanceData;
     }
 
     return merged;
@@ -687,6 +750,14 @@ export function formatMiniProgramReport(result: MiniProgramResult): string {
         lines.push(`   🖼️  截图已保存 (${result.screenshots.length} 张)`);
     }
 
+    if (result.performanceData) {
+        lines.push("");
+        const dataArr = Array.isArray(result.performanceData) ? result.performanceData : [result.performanceData];
+        for (const data of dataArr) {
+            lines.push(...formatPerformanceMetrics(data));
+        }
+    }
+
     return lines.join("\n");
 }
 
@@ -710,6 +781,7 @@ export function formatMiniProgramJson(result: MiniProgramResult): object {
         pages: result.checkedPages,
         issues: result.issues,
         screenshots: result.screenshots,
+        performanceData: result.performanceData,
     };
 }
 
@@ -754,6 +826,29 @@ export async function uploadMiniProgramResult(
             platform: result.platform,
             platforms: result.platforms,
             screenshotCount: result.screenshots.length,
+            performanceData: result.performanceData
+                ? Array.isArray(result.performanceData)
+                    ? result.performanceData.map((d) => ({
+                          platform: d.platform,
+                          compileDurationMs: d.compileDurationMs,
+                          mainPackageSizeBytes: d.mainPackageSizeBytes,
+                          subPackageCount: d.subPackages.length,
+                          pageCount: d.pages.length,
+                          startupTimeMs: d.startupTimeMs,
+                          fps: d.fps,
+                          setDataPageCount: d.setDataMetrics.length,
+                      }))
+                    : {
+                          platform: result.performanceData.platform,
+                          compileDurationMs: result.performanceData.compileDurationMs,
+                          mainPackageSizeBytes: result.performanceData.mainPackageSizeBytes,
+                          subPackageCount: result.performanceData.subPackages.length,
+                          pageCount: result.performanceData.pages.length,
+                          startupTimeMs: result.performanceData.startupTimeMs,
+                          fps: result.performanceData.fps,
+                          setDataPageCount: result.performanceData.setDataMetrics.length,
+                      }
+                : undefined,
         },
     };
 

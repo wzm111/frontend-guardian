@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.11.1** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.11.2** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -926,6 +926,21 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.11.2 — 小程序性能采集（已交付，748 测试通过，3 个 skip）
+
+- **性能采集入口**：`lib/src/utils/miniprogram-cli.ts` 新增 `performanceArgs` 与 `runPerformance`，为各平台开发者工具 CLI 性能参数预留统一入口
+- **性能工具库**：新增 `lib/src/utils/miniprogram-performance.ts`，提供 `collectBuildMetrics`、`collectSetDataMetrics`、`checkPerformanceThresholds`、`parsePerformanceOutput` 等函数
+- **构建指标**：自动采集编译耗时、主包/分包体积、页面文件体积（JS / 模板 / 样式 / 图片）
+- **setData 静态分析**：扫描页面 JS/TS 文件中的 `setData` 调用，统计次数与估算负载，识别大对象 setData
+- **运行时指标（可选）**：平台 CLI 支持性能参数时，解析启动时间、FPS 输出；不支持时优雅降级为构建指标 + suggestion 提示
+- **阈值告警**：新增 `miniprogram-perf-startup-time`、`miniprogram-perf-fps`、`miniprogram-perf-setdata-cost`、`miniprogram-perf-large-setdata`、`miniprogram-perf-main-package-size`、`miniprogram-perf-subpackage-size`、`miniprogram-perf-page-complexity` 等 issue 规则
+- **CLI 参数**：
+  - `--miniprogram-performance` 启用性能采集
+  - `--miniprogram-performance-threshold-startup`、`-fps`、`-setdata-count`、`-setdata-payload`、`-package-size`、`-page-size` 覆盖默认阈值
+- **MCP 增强**：`mini-program` 工具新增 `performance` 与 `performanceThresholds` 参数
+- **多平台性能合并**：`--mini-program all` 时各平台 `performanceData` 合并为数组上报
+- **文件系统解耦**：新增 `lib/src/utils/miniprogram-fs.ts`，抽离 `getDirectorySize`、`getSubPackageSize`、`findPageSourceFile` 供多模块复用
 
 ### v3.11.1 — 支付宝/抖音小程序 CLI 自动化与多平台并行测试（已交付，733 测试通过，3 个 skip）
 

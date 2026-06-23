@@ -5,7 +5,11 @@
 import type { MiniProgramCliConfig } from "./miniprogram-cli.js";
 import type { MiniProgramPlatform } from "./miniprogram-detect.js";
 
-/** 微信开发者工具 CLI 配置 */
+/** 微信开发者工具 CLI 配置
+ *
+ * 注：微信 CLI 暂未暴露稳定的性能剖析参数，performanceArgs 留空。
+ * v3.11.2 通过微信开发者工具预览/真机调试或构建耗时作为性能参考。
+ */
 export const wechatCliConfig: MiniProgramCliConfig = {
     platform: "wechat",
     envVar: "WECHAT_DEVTOOLS_CLI",
@@ -20,6 +24,7 @@ export const wechatCliConfig: MiniProgramCliConfig = {
     autoCompileArgs: ["--auto"],
     previewArgs: ["--preview"],
     screenshotArgs: (outputPath: string) => ["--screenshot", "--path", outputPath],
+    performanceArgs: [],
 };
 
 /** 支付宝小程序开发者工具 CLI 配置
@@ -41,6 +46,7 @@ export const alipayCliConfig: MiniProgramCliConfig = {
     autoCompileArgs: ["--build"],
     previewArgs: ["--preview"],
     screenshotArgs: (outputPath: string) => ["--screenshot", "--path", outputPath],
+    performanceArgs: [],
 };
 
 /** 抖音小程序开发者工具 CLI 配置
@@ -62,6 +68,7 @@ export const douyinCliConfig: MiniProgramCliConfig = {
     autoCompileArgs: ["--build"],
     previewArgs: ["--preview"],
     screenshotArgs: (outputPath: string) => ["--screenshot", "--path", outputPath],
+    performanceArgs: [],
 };
 
 /** 根据平台获取 CLI 配置 */

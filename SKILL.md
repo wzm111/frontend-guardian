@@ -192,6 +192,12 @@ fg-server --port 3456 --cors "*"
 /frontend-guardian --mini-program all --miniprogram-screenshot
 # 指定多个平台
 /frontend-guardian --mini-program wechat,alipay --miniprogram-screenshot
+# 启用性能采集（构建指标 + setData 静态分析 + 运行时阈值）
+/frontend-guardian --mini-program wechat --miniprogram-performance
+# 自定义性能阈值
+/frontend-guardian --mini-program wechat --miniprogram-performance \
+    --miniprogram-performance-threshold-startup 1500 \
+    --miniprogram-performance-threshold-package-size 1048576
 
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
@@ -216,7 +222,7 @@ fg-server --port 3456 --cors "*"
 | `list-rules` | 列出可用规则 |
 | `scan-file` | 单文件快速扫描 |
 | `page-health` | 页面健康检查：白屏/控制台/资源/视觉回归/Lighthouse/无障碍/跨浏览器/移动端视口（需 Playwright） |
-| `mini-program` | 小程序自动化测试：自动检测微信/支付宝/抖音小程序，检查页面、包体积、编译错误、首页截图基线；支持 `all` / 逗号分隔多平台 |
+| `mini-program` | 小程序自动化测试：自动检测微信/支付宝/抖音小程序，检查页面、包体积、编译错误、首页截图基线；支持 `all` / 逗号分隔多平台；支持 `--miniprogram-performance` 性能采集 |
 | `ai-fix` | 为无自动修复的问题生成 AI 建议 |
 | `get-project-meta` | 获取检测到的项目元数据 |
 | `index-project` | 查询/构建项目索引 |

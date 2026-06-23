@@ -106,6 +106,16 @@ export interface MiniProgramToolArgs {
     screenshot?: boolean;
     updateBaseline?: boolean;
     json?: boolean;
+    // v3.11.2
+    performance?: boolean;
+    performanceThresholds?: {
+        startup?: number;
+        fps?: number;
+        setDataCount?: number;
+        setDataPayloadBytes?: number;
+        packageSize?: number;
+        pageSize?: number;
+    };
 }
 
 /** ai-fix 工具参数 */
