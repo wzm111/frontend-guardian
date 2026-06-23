@@ -70,6 +70,19 @@ export const allExternalTools = [
     _playwrightIntegration,
 ];
 
+// v3.11.0: 微信小程序自动化测试
+export type {
+    CheckedMiniProgramPage,
+    MiniProgramOptions,
+    MiniProgramResult,
+} from "./miniprogram-wechat.js";
+export {
+    formatMiniProgramJson,
+    formatMiniProgramReport,
+    runMiniProgramTest,
+    toScanResult as toMiniProgramScanResult,
+    uploadMiniProgramResult,
+} from "./miniprogram-wechat.js";
 export type { FormatResult, FormatterTool } from "./formatter.js";
 // Phase 5+6: 格式化器集成
 export { detectFormatter, runFormat } from "./formatter.js";

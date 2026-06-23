@@ -13,6 +13,7 @@ export type MCPToolName =
     | "list-rules"
     | "scan-file"
     | "page-health"
+    | "mini-program"
     | "ai-fix"
     | "get-project-meta"
     | "index-project"
@@ -99,6 +100,14 @@ export interface PageHealthToolArgs {
     viewportMobile?: boolean;
 }
 
+/** mini-program 工具参数 */
+export interface MiniProgramToolArgs {
+    platform?: "wechat" | "alipay" | "douyin" | "auto";
+    screenshot?: boolean;
+    updateBaseline?: boolean;
+    json?: boolean;
+}
+
 /** ai-fix 工具参数 */
 export interface AIFixToolArgs {
     module?: string;
@@ -131,6 +140,7 @@ export type MCPToolArgs =
     | ListRulesToolArgs
     | ScanFileToolArgs
     | PageHealthToolArgs
+    | MiniProgramToolArgs
     | AIFixToolArgs
     | IndexProjectToolArgs
     | RecommendTestsToolArgs

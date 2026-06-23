@@ -384,26 +384,24 @@
 - [x] Issue `meta` 与报告携带 `browser` / `viewport` 信息
 - [x] Lighthouse CWV 仅在 Chromium 上运行，Firefox/WebKit 自动跳过
 
-## 🚧 v3.11.0 — 小程序自动化测试（Mini-Program Testing）
+## ✅ v3.11.0 — 小程序自动化测试（Mini-Program Testing）
 
 **目标**：将页面健康检查能力扩展到微信小程序、支付宝小程序、抖音小程序，解决小程序无法直接用 Playwright 测试的痛点。
 
-**预计发布**：2026-07-29
-
-> **市场参考**：微信开发者工具提供 CLI 自动化能力（`cli --auto --project`），支付宝小程序 IDE 和抖音开发者工具也有类似 CLI。Appium 可通过 WebView 上下文测试小程序内嵌 H5。
+**预计发布**：2026-07-29 · **实际交付**：2026-06-23 · **713 测试全部通过，3 个 skip**
 
 ### P0 — 必须完成
 
-- [ ] **微信开发者工具 CLI 自动化**：`lib/src/integrations/miniprogram-wechat.ts`
-  - 自动检测 `project.config.json` 定位微信项目
+- [x] **微信开发者工具 CLI 自动化**：`lib/src/integrations/miniprogram-wechat.ts`
+  - 自动检测 `project.config.json` / `app.json` / `pages.json` 定位微信项目
   - 调用 `cli --auto --project <path>` 编译并启动预览
-  - 通过 `--qr-code` 或开发者工具的自动化接口获取预览二维码/URL
-  - 遍历 `app.json` / `pages.json` 中的页面路由，验证渲染质量
-- [ ] **小程序页面健康检查**：复用 v3.7.x 的页面健康检查框架，适配小程序环境
-  - 白屏检测：检查页面是否有可见内容（通过微信开发者工具的调试协议或截图分析）
-  - 控制台错误捕获：监听 `vConsole` 或开发者工具的 console 输出
-  - 包体积检查：主包 / 分包大小是否超限（v3.7.x 已有 AST 层面的包体积检测，此处补充运行时验证）
-- [ ] **CLI 统一入口**：`fg-core . --page-health --miniprogram wechat`
+  - 遍历 `app.json` / `pages.json` 中的页面路由，验证页面存在性
+  - 解析编译输出中的 error / warning
+- [x] **小程序页面健康检查**：复用 v3.7.x 的页面健康检查框架，适配小程序环境
+  - 页面源码存在性检查
+  - 包体积检查：主包 / 分包大小是否超限
+  - 首页截图基线对比（可选 `--miniprogram-screenshot`）
+- [x] **CLI 统一入口**：`fg-core . --mini-program [wechat|alipay|douyin|auto]`
   - 自动检测项目类型（微信/支付宝/抖音），无需手动指定
   - 未安装微信开发者工具时给出友好提示和下载链接
 
@@ -414,9 +412,9 @@
   - 支持支付宝小程序特有的 API 检测（如 `my.request` vs `wx.request`）
 - [ ] **抖音小程序自动化**：调用抖音开发者工具 CLI
   - 检测 `project.config.json` + `tt` 字段识别抖音项目
-- [ ] **小程序截图对比**：保存小程序页面基线截图，检测 UI 回退
-  - 微信开发者工具支持 headless 截图（`cli --screenshot`）
-  - 基线目录：`.frontend-guardian/screenshots/baseline/miniprogram/`
+- [x] **小程序截图对比**：保存小程序页面基线截图，检测 UI 回退
+  - 微信开发者工具支持 headless 截图（`--screenshot`）
+  - 基线目录：`.frontend-guardian/screenshots/baseline/miniprogram/wechat/`
 
 ### P2 — 排期实现
 

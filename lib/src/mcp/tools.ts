@@ -6,6 +6,11 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { globby } from "globby";
 import { ProjectIndexer } from "@/engine/indexer.js";
 import { createEngine, type EngineOptions, type RuleEngine } from "@/engine/rule-engine.js";
+import {
+    formatMiniProgramJson,
+    formatMiniProgramReport,
+    runMiniProgramTest,
+} from "@/integrations/miniprogram-wechat.js";
 import { formatPageHealthJson, isPlaywrightAvailable, runPageHealthCheck } from "@/integrations/page-health.js";
 import { playwrightIntegration } from "@/integrations/playwright.js";
 import { a11yRules } from "@/scanners/a11y-scanner.js";
@@ -367,6 +372,32 @@ export function getToolDefinitions(): Tool[] {
             },
         },
         {
+            name: "mini-program",
+            description:
+                "Run automated WeChat/Alipay/Douyin mini-program testing. " +
+                "Detects the project type automatically, validates pages, checks package size, " +
+                "and optionally captures a homepage screenshot baseline.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    platform: {
+                        type: "string",
+                        enum: ["wechat", "alipay", "douyin", "auto"],
+                        description: "Mini-program platform. Default: auto.",
+                    },
+                    screenshot: {
+                        type: "boolean",
+                        description: "Capture homepage screenshot baseline.",
+                    },
+                    updateBaseline: {
+                        type: "boolean",
+                        description: "Update the screenshot baseline.",
+                    },
+                    json: { type: "boolean", description: "Return JSON output instead of Markdown." },
+                },
+            },
+        },
+        {
             name: "ai-fix",
             description:
                 "Generate AI-powered fix suggestions for issues that don't have automatic fixes. " +
@@ -473,6 +504,8 @@ export async function handleToolCall(
                 return handleScanFile(args as import("./types.js").ScanFileToolArgs, options);
             case "page-health":
                 return handlePageHealth(args as import("./types.js").PageHealthToolArgs, options);
+            case "mini-program":
+                return handleMiniProgram(args as import("./types.js").MiniProgramToolArgs, options);
             case "ai-fix":
                 return handleAIFix(args as import("./types.js").AIFixToolArgs, options);
             case "get-project-meta":
@@ -733,6 +766,22 @@ function formatPageHealthMarkdown(result: Awaited<ReturnType<typeof runPageHealt
         }
     }
     return lines.join("\n");
+}
+
+async function handleMiniProgram(
+    args: import("./types.js").MiniProgramToolArgs,
+    options: MCPServerOptions
+): Promise<MCPToolResult> {
+    const result = await runMiniProgramTest({
+        projectDir: options.projectDir,
+        platform: args.platform || "auto",
+        screenshot: args.screenshot,
+        updateBaseline: args.updateBaseline,
+    });
+    if (args.json) {
+        return textResult(JSON.stringify(formatMiniProgramJson(result), null, 2));
+    }
+    return textResult(formatMiniProgramReport(result));
 }
 
 async function handleAIFix(

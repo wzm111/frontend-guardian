@@ -41,11 +41,14 @@ export type { LSPServerOptions } from "./ide/lsp-server.js";
 export { runLSPServer } from "./ide/lsp-server.js";
 export type {
     BrowserName,
+    CheckedMiniProgramPage,
     CheckedRoute,
     CoreWebVitalsResult,
     CWVThresholds,
     ExternalTool,
     ExternalToolResult,
+    MiniProgramOptions,
+    MiniProgramResult,
     PageHealthOptions,
     PageHealthResult,
     VisualRegressionOptions,
@@ -61,6 +64,8 @@ export {
     eslintIntegration,
     extractCoreWebVitals,
     formatCoreWebVitals,
+    formatMiniProgramJson,
+    formatMiniProgramReport,
     formatPageHealthJson,
     formatPageHealthReport,
     getBaselinePath,
@@ -75,11 +80,14 @@ export {
     resolveBrowserTypes,
     runAllExternalTools,
     runLighthouseForUrl,
+    runMiniProgramTest,
     runPageHealthCheck,
     safeRouteName,
     stylelintIntegration,
+    toMiniProgramScanResult,
     toScanResult,
     typescriptIntegration,
+    uploadMiniProgramResult,
     uploadPageHealthResult,
 } from "./integrations/index.js";
 export type { MCPServerOptions } from "./mcp/mcp-server.js";

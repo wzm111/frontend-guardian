@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.10.1** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.11.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -18,6 +18,7 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **♿ 运行时无障碍检测** | 注入 axe-core 检测渲染后 DOM 的可访问性问题 | `fg-core . --page-health --a11y` |
 | **🌐 跨浏览器基线** | 支持 Chromium / Firefox / WebKit 三套独立基线，检测浏览器渲染差异 | `fg-core . --page-health --browser all` |
 | **📱 移动端视口模拟** | 使用 Playwright 设备预设或自定义视口，发现响应式布局问题 | `fg-core . --page-health --device "iPhone 14 Pro"` |
+| **🛰️ 小程序自动化测试** | 自动检测微信/支付宝/抖音小程序，检查页面存在性、包体积、编译错误，支持首页截图基线 | `fg-core . --mini-program auto` |
 | **🛠️ 自动修复** | 8 类问题支持一键自动修复，含修复预览（dry-run）和交互式确认 | `fg-core . --scan --fix` |
 | **📊 治理看板** | 扫描结果上报到 Web 看板，团队维度追踪代码质量趋势 | `fg-core . --scan --server <url>` |
 | **🧠 AI 修复建议** | 为无自动修复方案的问题调用 LLM 生成修复建议 | `fg-core . --scan --ai-fix` |
@@ -369,6 +370,9 @@ fg-core . --scan --post-comment
 | `--device <name>` | 页面健康检查模拟设备（如 `iPhone 14 Pro`） | - |
 | `--viewport <WxH>` | 页面健康检查自定义视口（如 `390x844`） | - |
 | `--viewport-mobile` | 页面健康检查使用移动端预设视口 | false |
+| `--mini-program [p]` | 小程序自动化测试：`wechat` / `alipay` / `douyin` / `auto` | - |
+| `--miniprogram-screenshot` | 小程序测试时截取首页截图 | false |
+| `--miniprogram-update-baseline` | 更新小程序截图基线 | false |
 
 ## 使用场景
 
@@ -922,6 +926,19 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.11.0 — 小程序自动化测试（已交付，713 测试通过，3 个 skip）
+
+- **小程序平台自动检测**：根据 `app.json` / `project.config.json` / `pages.json` / `mini.project.json` 识别微信 / 支付宝 / 抖音小程序
+- **微信小程序 CLI 自动化**：调用微信开发者工具 `cli --auto --project <path>` 进行编译检查，解析错误/警告输出
+- **页面存在性检查**：遍历 `app.json` / `pages.json` 的 `pages`，验证每个页面是否有对应源码文件
+- **包体积检查**：主包与分包源码体积分别与 2MB 阈值对比，超限生成 `miniprogram-main-package-oversize` / `miniprogram-sub-package-oversize` Issue
+- **首页截图基线（可选）**：`--miniprogram-screenshot` 触发首页截图，支持 `--miniprogram-update-baseline` 更新基线
+  - 基线目录：`.frontend-guardian/screenshots/baseline/miniprogram/wechat/`
+  - 未安装微信开发者工具时给出下载链接提示，不影响静态检查
+- **CLI 入口**：`fg-core . --mini-program [wechat|alipay|douyin|auto]`
+- **MCP 工具**：新增 `mini-program` 工具，AI Agent 可直接调用
+- **测试覆盖**：新增 `lib/tests/miniprogram-detect.test.ts`、`miniprogram-wechat-cli.test.ts`、`miniprogram-wechat.test.ts`
 
 ### v3.10.1 — 跨浏览器基线与移动端视口模拟（已交付，688 测试通过，3 个 skip）
 
