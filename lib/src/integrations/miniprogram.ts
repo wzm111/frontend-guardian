@@ -1,11 +1,11 @@
 /**
- * v3.11.0: 微信小程序自动化测试
+ * v3.11.1: 小程序自动化测试（多平台统一入口）
  *
- * 通过微信开发者工具 CLI 对小程序项目进行编译检查、页面存在性检查、
+ * 通过微信/支付宝/抖音开发者工具 CLI 对小程序项目进行编译检查、页面存在性检查、
  * 包体积检查与可选截图基线对比。
  *
- * 设计哲学：微信开发者工具为可选外部工具，未安装时仍可进行静态检查，
- * 并给出下载链接提示。
+ * 设计哲学：开发者工具为可选外部工具，未安装时仍可进行静态检查，
+ * 并给出对应平台的下载链接提示。
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -20,16 +20,12 @@ import {
     type MiniProgramPlatform,
     type MiniProgramProjectInfo,
     detectMiniProgramPlatform,
-    getMiniProgramDevToolsDownloadUrl,
+    detectMiniProgramPlatforms,
     getMiniProgramPlatformLabel,
     resolveMiniProgramProject,
 } from "@/utils/miniprogram-detect.js";
-import {
-    isWechatDevToolsAvailable,
-    parseWechatCompileOutput,
-    wechatAutoCompile,
-    wechatScreenshot,
-} from "@/utils/miniprogram-wechat-cli.js";
+import { isDevToolsAvailable, parseCompileOutput, runAutoCompile, runScreenshot } from "@/utils/miniprogram-cli.js";
+import { getCliConfig } from "@/utils/miniprogram-cli-configs.js";
 import {
     compareScreenshotsPixel,
     getBaselinePath,
@@ -45,8 +41,10 @@ import {
 export interface MiniProgramOptions {
     /** 项目根目录 */
     projectDir: string;
-    /** 小程序平台；auto 时自动检测 */
-    platform?: MiniProgramPlatform | "auto";
+    /** 小程序平台；auto 时自动检测，all 时检测所有已识别平台 */
+    platform?: MiniProgramPlatform | "auto" | "all";
+    /** 显式指定多个平台（优先级高于 platform） */
+    platforms?: MiniProgramPlatform[];
     /** 是否截图（需要开发者工具支持） */
     screenshot?: boolean;
     /** 是否更新基线截图 */
@@ -86,11 +84,15 @@ export interface CheckedMiniProgramPage {
     screenshotPath?: string;
     /** 基线截图路径 */
     baselinePath?: string;
+    /** 所属平台（多平台汇总时填充） */
+    platform?: MiniProgramPlatform;
 }
 
 export interface MiniProgramResult {
-    /** 测试的平台 */
-    platform: MiniProgramPlatform;
+    /** 测试的平台；多平台时为 "multi" */
+    platform: MiniProgramPlatform | "multi";
+    /** 多平台时包含所有平台 */
+    platforms?: MiniProgramPlatform[];
     /** 项目目录 */
     projectDir: string;
     /** 发现的 Issue */
@@ -103,23 +105,17 @@ export interface MiniProgramResult {
     duration: number;
 }
 
+/** 单平台运行时排除 platform/platforms 的选项 */
+type SinglePlatformOptions = Omit<MiniProgramOptions, "platform" | "platforms">;
+
 // ── 常量 ───────────────────────────────────────────────────────────────────
 
 const DEFAULT_MAX_MAIN_PACKAGE_SIZE = 2 * 1024 * 1024; // 2MB
 const DEFAULT_MAX_SUB_PACKAGE_SIZE = 2 * 1024 * 1024; // 2MB
 const DEFAULT_SCREENSHOT_DIR = ".frontend-guardian/screenshots/miniprogram";
-const SCREENSHOT_PROFILE = "miniprogram/wechat";
 const PAGE_EXTENSIONS = [".vue", ".js", ".ts", ".wxml", ".axml", ".ttml", ".json"];
 
-const EXCLUDED_DIRS = new Set([
-    "node_modules",
-    ".git",
-    ".frontend-guardian",
-    "dist",
-    "build",
-    "unpackage",
-    "coverage",
-]);
+const EXCLUDED_DIRS = new Set(["node_modules", ".git", ".frontend-guardian", "dist", "build", "unpackage", "coverage"]);
 
 // ── 工具函数 ─────────────────────────────────────────────────────────────────
 
@@ -127,6 +123,10 @@ function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function getScreenshotProfile(platform: MiniProgramPlatform): string {
+    return `miniprogram/${platform}`;
 }
 
 /** 递归计算目录大小（排除常见非源码目录） */
@@ -199,7 +199,7 @@ interface PackageSizeCheckResult {
 /** 检查主包与分包体积 */
 function checkPackageSizes(
     projectInfo: MiniProgramProjectInfo,
-    options: MiniProgramOptions,
+    options: SinglePlatformOptions,
     baseMeta: Record<string, unknown>
 ): PackageSizeCheckResult {
     const issues: Issue[] = [];
@@ -274,26 +274,22 @@ async function checkPages(
 /** 编译检查 */
 function runCompileCheck(
     projectInfo: MiniProgramProjectInfo,
-    options: MiniProgramOptions,
+    options: SinglePlatformOptions,
     baseMeta: Record<string, unknown>
 ): { issues: Issue[]; output: string | null } {
     const issues: Issue[] = [];
+    const config = getCliConfig(projectInfo.platform);
 
-    if (projectInfo.platform !== "wechat") {
-        // P0 仅微信实现编译检查；支付宝/抖音在 P1 扩展
+    if (!isDevToolsAvailable(config)) {
         return { issues, output: null };
     }
 
-    if (!isWechatDevToolsAvailable()) {
-        return { issues, output: null };
-    }
-
-    const output = wechatAutoCompile(projectInfo.projectDir, options.timeout ?? 120000);
+    const output = runAutoCompile(config, projectInfo.projectDir, options.timeout ?? 120000);
     if (!output) {
         return { issues, output: null };
     }
 
-    const { errors, warnings } = parseWechatCompileOutput(output);
+    const { errors, warnings } = parseCompileOutput(output);
 
     for (const error of errors) {
         issues.push({
@@ -327,19 +323,21 @@ function runCompileCheck(
 /** 对首页进行截图冒烟测试 */
 async function runScreenshotSmoke(
     projectInfo: MiniProgramProjectInfo,
-    options: MiniProgramOptions,
+    options: SinglePlatformOptions,
     baseMeta: Record<string, unknown>
 ): Promise<{ checkedPage?: CheckedMiniProgramPage; issue?: Issue; screenshotPath?: string }> {
-    if (!options.screenshot || projectInfo.platform !== "wechat") {
+    if (!options.screenshot) {
         return {};
     }
 
-    if (!isWechatDevToolsAvailable()) {
+    const config = getCliConfig(projectInfo.platform);
+
+    if (!isDevToolsAvailable(config)) {
         return {
             issue: {
                 ruleId: "miniprogram-screenshot-skipped",
-                title: "小程序截图因缺少微信开发者工具已跳过",
-                description: `未检测到微信开发者工具 CLI。如需截图，请安装并配置环境变量 ${process.env["WECHAT_DEVTOOLS_CLI"]} 或将其加入 PATH。下载地址：${getMiniProgramDevToolsDownloadUrl("wechat")}`,
+                title: `小程序截图因缺少${config.label}开发者工具已跳过`,
+                description: `未检测到${config.label}开发者工具 CLI。如需截图，请安装并配置环境变量 ${config.envVar} 或将其加入 PATH。下载地址：${config.downloadUrl}`,
                 severity: "suggestion",
                 file: projectInfo.projectDir,
                 line: 1,
@@ -362,16 +360,17 @@ async function runScreenshotSmoke(
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     }
 
-    const screenshotPath = getCurrentScreenshotPath(screenshotDir, firstPage, undefined, SCREENSHOT_PROFILE);
-    const baselinePath = getBaselinePath(baselineDir, firstPage, undefined, SCREENSHOT_PROFILE);
+    const profile = getScreenshotProfile(projectInfo.platform);
+    const screenshotPath = getCurrentScreenshotPath(screenshotDir, firstPage, undefined, profile);
+    const baselinePath = getBaselinePath(baselineDir, firstPage, undefined, profile);
 
-    const output = wechatScreenshot(projectInfo.projectDir, screenshotPath, options.timeout ?? 60000);
+    const output = runScreenshot(config, projectInfo.projectDir, screenshotPath, options.timeout ?? 60000);
     if (!output || !existsSync(screenshotPath)) {
         return {
             issue: {
                 ruleId: "miniprogram-screenshot-failed",
                 title: "小程序首页截图失败",
-                description: "调用微信开发者工具 --screenshot 未生成截图。当前版本的开发者工具可能不支持该命令。",
+                description: `调用${config.label}开发者工具 --screenshot 未生成截图。当前版本的开发者工具可能不支持该命令。`,
                 severity: "warning",
                 file: projectInfo.projectDir,
                 line: 1,
@@ -452,19 +451,31 @@ async function runScreenshotSmoke(
     };
 }
 
-// ── 主入口 ───────────────────────────────────────────────────────────────────
+/** 解析本次需要测试的平台列表 */
+function resolvePlatforms(options: MiniProgramOptions): MiniProgramPlatform[] {
+    if (options.platforms?.length) {
+        return options.platforms;
+    }
 
-/**
- * 运行小程序自动化测试
- */
-export async function runMiniProgramTest(options: MiniProgramOptions): Promise<MiniProgramResult> {
-    const start = Date.now();
-    const platform =
-        options.platform && options.platform !== "auto"
-            ? options.platform
-            : detectMiniProgramPlatform(options.projectDir);
+    if (options.platform === "all") {
+        const detected = detectMiniProgramPlatforms(options.projectDir);
+        if (detected.length === 0) {
+            throw new Error(
+                `无法识别 ${options.projectDir} 的小程序类型。请确保目录下存在以下文件之一：\n` +
+                    "  微信: app.json + project.config.json 或 manifest.json + pages.json\n" +
+                    "  支付宝: mini.project.json\n" +
+                    "  抖音: project.config.json（含 tt 字段）"
+            );
+        }
+        return detected;
+    }
 
-    if (!platform) {
+    if (options.platform && options.platform !== "auto") {
+        return [options.platform];
+    }
+
+    const detected = detectMiniProgramPlatform(options.projectDir);
+    if (!detected) {
         throw new Error(
             `无法识别 ${options.projectDir} 的小程序类型。请确保目录下存在以下文件之一：\n` +
                 "  微信: app.json + project.config.json 或 manifest.json + pages.json\n" +
@@ -472,12 +483,22 @@ export async function runMiniProgramTest(options: MiniProgramOptions): Promise<M
                 "  抖音: project.config.json（含 tt 字段）"
         );
     }
+    return [detected];
+}
+
+/** 单平台测试 */
+async function runSingleMiniProgramTest(
+    platform: MiniProgramPlatform,
+    options: SinglePlatformOptions
+): Promise<MiniProgramResult> {
+    const start = Date.now();
 
     const projectInfo = resolveMiniProgramProject(options.projectDir, platform);
     if (!projectInfo) {
         throw new Error(`解析 ${platform} 小程序项目失败`);
     }
 
+    const config = getCliConfig(platform);
     const baseMeta: Record<string, unknown> = {
         platform,
         projectDir: options.projectDir,
@@ -531,11 +552,11 @@ export async function runMiniProgramTest(options: MiniProgramOptions): Promise<M
     issues.push(...compileResult.issues);
 
     // 缺少开发者工具时给出建议
-    if (platform === "wechat" && !isWechatDevToolsAvailable()) {
+    if (!isDevToolsAvailable(config)) {
         issues.push({
             ruleId: "miniprogram-devtools-missing",
-            title: "未检测到微信开发者工具",
-            description: `已完成的检查为静态检查。如需编译/截图验证，请安装微信开发者工具并加入 PATH，或设置环境变量 WECHAT_DEVTOOLS_CLI。下载地址：${getMiniProgramDevToolsDownloadUrl("wechat")}`,
+            title: `未检测到${config.label}开发者工具`,
+            description: `已完成的检查为静态检查。如需编译/截图验证，请安装${config.label}开发者工具并加入 PATH，或设置环境变量 ${config.envVar}。下载地址：${config.downloadUrl}`,
             severity: "suggestion",
             file: projectInfo.projectDir,
             line: 1,
@@ -571,16 +592,62 @@ export async function runMiniProgramTest(options: MiniProgramOptions): Promise<M
     };
 }
 
+// ── 主入口 ───────────────────────────────────────────────────────────────────
+
+/**
+ * 运行小程序自动化测试
+ */
+export async function runMiniProgramTest(options: MiniProgramOptions): Promise<MiniProgramResult> {
+    const platforms = resolvePlatforms(options);
+
+    // 单平台时直接返回，保持向后兼容
+    if (platforms.length === 1) {
+        const single: SinglePlatformOptions = options;
+        return runSingleMiniProgramTest(platforms[0], single);
+    }
+
+    const singleOptions: SinglePlatformOptions = options;
+    const results: MiniProgramResult[] = [];
+    for (const platform of platforms) {
+        results.push(await runSingleMiniProgramTest(platform, singleOptions));
+    }
+
+    const merged: MiniProgramResult = {
+        platform: "multi",
+        platforms,
+        projectDir: options.projectDir,
+        issues: [],
+        checkedPages: [],
+        screenshots: [],
+        duration: 0,
+    };
+
+    for (const r of results) {
+        merged.issues.push(...r.issues);
+        merged.checkedPages.push(...r.checkedPages.map((p) => ({ ...p, platform: r.platform as MiniProgramPlatform })));
+        merged.screenshots.push(...r.screenshots);
+        merged.duration += r.duration;
+    }
+
+    return merged;
+}
+
 // ── 格式化输出 ─────────────────────────────────────────────────────────────────
 
 /**
  * 将结果格式化为终端报告
  */
 export function formatMiniProgramReport(result: MiniProgramResult): string {
-    const platformLabel = getMiniProgramPlatformLabel(result.platform);
     const lines: string[] = [];
 
-    lines.push(`🛰️  ${platformLabel}小程序自动化测试报告`);
+    if (result.platform === "multi" && result.platforms) {
+        lines.push(`🛰️  多平台小程序自动化测试报告`);
+        lines.push(`   平台: ${result.platforms.map(getMiniProgramPlatformLabel).join(", ")}`);
+    } else {
+        const platformLabel = getMiniProgramPlatformLabel(result.platform as MiniProgramPlatform);
+        lines.push(`🛰️  ${platformLabel}小程序自动化测试报告`);
+    }
+
     lines.push(`   项目目录: ${result.projectDir}`);
     lines.push(`   检查页面: ${result.checkedPages.length} 个`);
     lines.push(`   总耗时: ${result.duration}ms`);
@@ -594,8 +661,9 @@ export function formatMiniProgramReport(result: MiniProgramResult): string {
     lines.push("");
 
     for (const page of result.checkedPages) {
+        const prefix = page.platform ? `[${getMiniProgramPlatformLabel(page.platform)}] ` : "";
         const icon = page.status === "ok" ? "✅" : page.status === "warning" ? "⚠️" : "❌";
-        lines.push(`   ${icon} ${page.path}`);
+        lines.push(`   ${icon} ${prefix}${page.path}`);
         if (page.messages.length > 0) {
             for (const msg of page.messages) {
                 lines.push(`      ${msg}`);
@@ -629,6 +697,7 @@ export function formatMiniProgramJson(result: MiniProgramResult): object {
     return {
         summary: {
             platform: result.platform,
+            platforms: result.platforms,
             projectDir: result.projectDir,
             totalPages: result.checkedPages.length,
             ok: result.checkedPages.filter((p) => p.status === "ok").length,
@@ -683,6 +752,7 @@ export async function uploadMiniProgramResult(
             duration: result.duration,
             filesScanned: result.checkedPages.length,
             platform: result.platform,
+            platforms: result.platforms,
             screenshotCount: result.screenshots.length,
         },
     };

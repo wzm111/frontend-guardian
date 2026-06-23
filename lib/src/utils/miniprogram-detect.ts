@@ -66,6 +66,15 @@ export function detectMiniProgramPlatform(projectDir: string): MiniProgramPlatfo
     return null;
 }
 
+/** 自动检测项目中包含的所有小程序平台 */
+export function detectMiniProgramPlatforms(projectDir: string): MiniProgramPlatform[] {
+    const platforms: MiniProgramPlatform[] = [];
+    if (isWechatMiniProgram(projectDir)) platforms.push("wechat");
+    if (isAlipayMiniProgram(projectDir)) platforms.push("alipay");
+    if (isDouyinMiniProgram(projectDir)) platforms.push("douyin");
+    return platforms;
+}
+
 /** 解析 JSON 文件，失败时返回 undefined */
 function readJson(path: string): unknown | undefined {
     try {
@@ -76,7 +85,9 @@ function readJson(path: string): unknown | undefined {
 }
 
 /** 从 pages.json（UniApp）读取 pages 与 subPackages */
-function readPagesJson(projectDir: string): { pages: string[]; subPackages?: MiniProgramProjectInfo["subPackages"] } | undefined {
+function readPagesJson(
+    projectDir: string
+): { pages: string[]; subPackages?: MiniProgramProjectInfo["subPackages"] } | undefined {
     const pagesPath = resolve(projectDir, "pages.json");
     if (!existsSync(pagesPath)) return undefined;
     const data = readJson(pagesPath);
@@ -89,7 +100,12 @@ function readPagesJson(projectDir: string): { pages: string[]; subPackages?: Min
         : [];
 
     const subPackages = Array.isArray((data as Record<string, unknown>).subPackages)
-        ? ((data as Record<string, unknown>).subPackages as Array<{ root: string; pages: Array<{ path: string } | string> }>)
+        ? (
+              (data as Record<string, unknown>).subPackages as Array<{
+                  root: string;
+                  pages: Array<{ path: string } | string>;
+              }>
+          )
               .map((pkg) => ({
                   root: pkg.root,
                   pages: pkg.pages
@@ -103,7 +119,9 @@ function readPagesJson(projectDir: string): { pages: string[]; subPackages?: Min
 }
 
 /** 从 app.json 读取 pages 与 subPackages */
-function readAppJson(projectDir: string): { pages: string[]; subPackages?: MiniProgramProjectInfo["subPackages"] } | undefined {
+function readAppJson(
+    projectDir: string
+): { pages: string[]; subPackages?: MiniProgramProjectInfo["subPackages"] } | undefined {
     const appPath = resolve(projectDir, "app.json");
     if (!existsSync(appPath)) return undefined;
     const data = readJson(appPath);
@@ -145,7 +163,10 @@ export function readMiniProgramPages(
 }
 
 /** 解析小程序项目，返回完整项目信息 */
-export function resolveMiniProgramProject(projectDir: string, platform?: MiniProgramPlatform): MiniProgramProjectInfo | null {
+export function resolveMiniProgramProject(
+    projectDir: string,
+    platform?: MiniProgramPlatform
+): MiniProgramProjectInfo | null {
     const detected = platform ? platform : detectMiniProgramPlatform(projectDir);
     if (!detected) return null;
 

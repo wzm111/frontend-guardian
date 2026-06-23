@@ -1,138 +1,56 @@
 /**
- * v3.11.0: 微信开发者工具 CLI 封装
+ * v3.11.1: 微信开发者工具 CLI 封装（基于通用 miniprogram-cli）
  *
- * 负责查找 `cli` 可执行文件、检测是否安装，以及调用命令。
- * 微信开发者工具为可选外部工具，未安装时给出友好提示。
+ * 保留原有导出符号，内部委托给通用实现。
  */
 
-import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import {
+    findDevToolsCli,
+    isDevToolsAvailable,
+    parseCompileOutput,
+    runAutoCompile,
+    runDevTools,
+    runScreenshot,
+    type MiniProgramDevToolsRunOptions,
+} from "./miniprogram-cli.js";
+import { wechatCliConfig } from "./miniprogram-cli-configs.js";
 
-export const WECHAT_DEVTOOLS_ENV_VAR = "WECHAT_DEVTOOLS_CLI";
+export { wechatCliConfig };
 
-/** macOS 默认安装路径 */
-export const WECHAT_DEVTOOLS_CLI_MAC = "/Applications/wechatwebdevtools.app/Contents/MacOS/cli";
-
-/** Windows 默认安装路径（候选） */
-export const WECHAT_DEVTOOLS_CLI_WIN_CANDIDATES = [
-    "C:\\Program Files (x86)\\Tencent\\微信web开发者工具\\cli.bat",
-    "C:\\Program Files\\Tencent\\微信web开发者工具\\cli.bat",
-];
-
-/** 返回候选的 cli 路径列表 */
-export function getWechatDevToolsCliCandidates(): string[] {
-    const candidates: string[] = [];
-
-    // 1. 环境变量优先
-    if (process.env[WECHAT_DEVTOOLS_ENV_VAR]) {
-        candidates.push(process.env[WECHAT_DEVTOOLS_ENV_VAR] as string);
-    }
-
-    // 2. 默认安装路径
-    candidates.push(WECHAT_DEVTOOLS_CLI_MAC);
-    candidates.push(...WECHAT_DEVTOOLS_CLI_WIN_CANDIDATES);
-
-    return candidates;
-}
+/** 兼容旧接口：微信 CLI 运行选项 */
+export interface WechatDevToolsRunOptions extends MiniProgramDevToolsRunOptions {}
 
 /** 检测微信开发者工具 CLI 是否可用 */
 export function isWechatDevToolsAvailable(): boolean {
-    return !!findWechatDevToolsCli();
+    return isDevToolsAvailable(wechatCliConfig);
 }
 
 /** 查找可用的 cli 路径 */
 export function findWechatDevToolsCli(): string | undefined {
-    for (const candidate of getWechatDevToolsCliCandidates()) {
-        if (existsSync(candidate)) {
-            return candidate;
-        }
-    }
-
-    // 3. 尝试 PATH 中的 cli（Linux / 自定义安装）
-    try {
-        const which = process.platform === "win32" ? "where cli" : "which cli";
-        const found = execSync(which, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] })
-            .split("\n")
-            .map((s) => s.trim())
-            .filter((s) => s.length > 0)[0];
-        if (found && existsSync(found)) {
-            return found;
-        }
-    } catch {
-        // ignore
-    }
-
-    return undefined;
+    return findDevToolsCli(wechatCliConfig);
 }
 
-export interface WechatDevToolsRunOptions {
-    /** 项目目录 */
-    projectDir: string;
-    /** 额外传递给 cli 的参数 */
-    args: string[];
-    /** 超时时间（毫秒） */
-    timeoutMs?: number;
-}
-
-/**
- * 调用微信开发者工具 CLI
- * @returns stdout 内容，失败时返回 null
- */
+/** 调用微信开发者工具 CLI */
 export function runWechatDevTools(options: WechatDevToolsRunOptions): string | null {
-    const cli = findWechatDevToolsCli();
-    if (!cli) {
-        return null;
-    }
-
-    const args = [...options.args, "--project", options.projectDir];
-    const cmd = `"${cli}" ${args.map((a) => (a.includes(" ") ? `"${a}"` : a)).join(" ")}`;
-
-    try {
-        return execSync(cmd, {
-            cwd: options.projectDir,
-            encoding: "utf-8",
-            timeout: options.timeoutMs ?? 120000,
-            stdio: ["pipe", "pipe", "pipe"],
-        });
-    } catch (err: any) {
-        if (err.stdout) {
-            return err.stdout as string;
-        }
-        return null;
-    }
+    return runDevTools(options, wechatCliConfig);
 }
 
 /** 编译并打开项目（--auto） */
 export function wechatAutoCompile(projectDir: string, timeoutMs = 120000): string | null {
-    return runWechatDevTools({ projectDir, args: ["--auto"], timeoutMs });
+    return runAutoCompile(wechatCliConfig, projectDir, timeoutMs);
 }
 
 /** 生成预览二维码/链接 */
 export function wechatPreview(projectDir: string, timeoutMs = 120000): string | null {
-    return runWechatDevTools({ projectDir, args: ["--preview"], timeoutMs });
+    return runDevTools({ projectDir, args: wechatCliConfig.previewArgs, timeoutMs }, wechatCliConfig);
 }
 
 /** 尝试截图并保存到指定路径（需要开发者工具版本支持 --screenshot） */
 export function wechatScreenshot(projectDir: string, outputPath: string, timeoutMs = 60000): string | null {
-    return runWechatDevTools({ projectDir, args: ["--screenshot", "--path", outputPath], timeoutMs });
+    return runScreenshot(wechatCliConfig, projectDir, outputPath, timeoutMs);
 }
 
 /** 从编译输出中粗略统计 error / warning 数量 */
 export function parseWechatCompileOutput(output: string): { errors: string[]; warnings: string[] } {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    const lines = output.split("\n");
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        // 匹配常见错误/警告前缀：error: / warn: / [error] / [warn]
-        if (/^(error|\[error\]|\[ERR\]|\[ERROR\])/i.test(trimmed)) {
-            errors.push(trimmed);
-        } else if (/^(warn|warning|\[warn\]|\[WARN\]|\[WARNING\])/i.test(trimmed)) {
-            warnings.push(trimmed);
-        }
-    }
-
-    return { errors, warnings };
+    return parseCompileOutput(output);
 }

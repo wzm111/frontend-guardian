@@ -6,11 +6,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { globby } from "globby";
 import { ProjectIndexer } from "@/engine/indexer.js";
 import { createEngine, type EngineOptions, type RuleEngine } from "@/engine/rule-engine.js";
-import {
-    formatMiniProgramJson,
-    formatMiniProgramReport,
-    runMiniProgramTest,
-} from "@/integrations/miniprogram-wechat.js";
+import { formatMiniProgramJson, formatMiniProgramReport, runMiniProgramTest } from "@/integrations/miniprogram.js";
 import { formatPageHealthJson, isPlaywrightAvailable, runPageHealthCheck } from "@/integrations/page-health.js";
 import { playwrightIntegration } from "@/integrations/playwright.js";
 import { a11yRules } from "@/scanners/a11y-scanner.js";
@@ -382,7 +378,7 @@ export function getToolDefinitions(): Tool[] {
                 properties: {
                     platform: {
                         type: "string",
-                        enum: ["wechat", "alipay", "douyin", "auto"],
+                        enum: ["wechat", "alipay", "douyin", "auto", "all"],
                         description: "Mini-program platform. Default: auto.",
                     },
                     screenshot: {

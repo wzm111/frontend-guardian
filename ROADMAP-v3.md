@@ -407,10 +407,10 @@
 
 ### P1 — 尽量完成
 
-- [ ] **支付宝小程序 IDE 自动化**：类似微信方案，调用支付宝小程序开发者工具 CLI
+- [x] **支付宝小程序 IDE 自动化**：类似微信方案，调用支付宝小程序开发者工具 CLI（v3.11.1 交付）
   - 检测 `mini.project.json` 定位支付宝项目
   - 支持支付宝小程序特有的 API 检测（如 `my.request` vs `wx.request`）
-- [ ] **抖音小程序自动化**：调用抖音开发者工具 CLI
+- [x] **抖音小程序自动化**：调用抖音开发者工具 CLI（v3.11.1 交付）
   - 检测 `project.config.json` + `tt` 字段识别抖音项目
 - [x] **小程序截图对比**：保存小程序页面基线截图，检测 UI 回退
   - 微信开发者工具支持 headless 截图（`--screenshot`）
@@ -421,9 +421,30 @@
 - [ ] **小程序性能采集**：通过开发者工具性能面板采集启动时间、setData 耗时、渲染帧率
   - 启动时间 > 2s 时生成 warning Issue
   - setData 数据量 > 100KB 时生成 warning Issue
-- [ ] **多平台并行测试**：同时测试微信 + 支付宝 + 抖音三个平台，发现平台差异
-  - 同一份代码编译到不同平台，对比截图差异
+- [x] **多平台并行测试**：同时测试微信 + 支付宝 + 抖音三个平台，发现平台差异（v3.11.1 交付）
+  - `--mini-program all` 与 `--mini-program wechat,alipay` 支持
+  - 同一份代码编译到不同平台，分别输出各平台报告
+- [ ] **多平台截图差异对比**：同一份代码编译到不同平台后对比截图差异
   - 输出平台兼容性报告
+
+---
+
+## ✅ v3.11.1 — 支付宝/抖音小程序 CLI 自动化与多平台并行测试
+
+**目标**：把 v3.11.0 仅支持微信的小程序测试能力扩展到支付宝、抖音，并支持一次跑多个平台。
+
+**预计发布**：2026-06-30 · **实际交付**：2026-06-23 · **733 测试全部通过，3 个 skip**
+
+### 已完成
+
+- [x] 通用小程序开发者工具 CLI 抽象：`lib/src/utils/miniprogram-cli.ts`
+- [x] 支付宝/抖音 CLI 配置与下载链接：`miniprogram-alipay-cli.ts`、`miniprogram-douyin-cli.ts`
+- [x] 多平台统一集成入口：`lib/src/integrations/miniprogram.ts`
+- [x] CLI 支持 `--mini-program all` 与逗号分隔多平台
+- [x] 各平台截图基线目录隔离：`miniprogram/{wechat,alipay,douyin}/`
+- [x] `project-detector.ts` 补齐 `douyin-mp` 检测
+- [x] 新增 `rules/douyin-mp.md`
+- [x] MCP `mini-program` 工具支持 `platform: "all"`
 
 ---
 

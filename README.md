@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.11.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.11.1** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -18,7 +18,7 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **♿ 运行时无障碍检测** | 注入 axe-core 检测渲染后 DOM 的可访问性问题 | `fg-core . --page-health --a11y` |
 | **🌐 跨浏览器基线** | 支持 Chromium / Firefox / WebKit 三套独立基线，检测浏览器渲染差异 | `fg-core . --page-health --browser all` |
 | **📱 移动端视口模拟** | 使用 Playwright 设备预设或自定义视口，发现响应式布局问题 | `fg-core . --page-health --device "iPhone 14 Pro"` |
-| **🛰️ 小程序自动化测试** | 自动检测微信/支付宝/抖音小程序，检查页面存在性、包体积、编译错误，支持首页截图基线 | `fg-core . --mini-program auto` |
+| **🛰️ 小程序自动化测试** | 自动检测微信/支付宝/抖音小程序，检查页面存在性、包体积、编译错误，支持多平台并行与首页截图基线 | `fg-core . --mini-program all` |
 | **🛠️ 自动修复** | 8 类问题支持一键自动修复，含修复预览（dry-run）和交互式确认 | `fg-core . --scan --fix` |
 | **📊 治理看板** | 扫描结果上报到 Web 看板，团队维度追踪代码质量趋势 | `fg-core . --scan --server <url>` |
 | **🧠 AI 修复建议** | 为无自动修复方案的问题调用 LLM 生成修复建议 | `fg-core . --scan --ai-fix` |
@@ -370,7 +370,7 @@ fg-core . --scan --post-comment
 | `--device <name>` | 页面健康检查模拟设备（如 `iPhone 14 Pro`） | - |
 | `--viewport <WxH>` | 页面健康检查自定义视口（如 `390x844`） | - |
 | `--viewport-mobile` | 页面健康检查使用移动端预设视口 | false |
-| `--mini-program [p]` | 小程序自动化测试：`wechat` / `alipay` / `douyin` / `auto` | - |
+| `--mini-program [p]` | 小程序自动化测试：`wechat` / `alipay` / `douyin` / `auto` / `all` / `wechat,alipay,...` | - |
 | `--miniprogram-screenshot` | 小程序测试时截取首页截图 | false |
 | `--miniprogram-update-baseline` | 更新小程序截图基线 | false |
 
@@ -926,6 +926,20 @@ platform:
 ---
 
 ## 版本演进
+
+### v3.11.1 — 支付宝/抖音小程序 CLI 自动化与多平台并行测试（已交付，733 测试通过，3 个 skip）
+
+- **通用 CLI 抽象**：新增 `lib/src/utils/miniprogram-cli.ts`，将开发者工具路径发现、execSync 调用、编译输出解析统一为平台无关函数
+- **支付宝/抖音 CLI 配置**：新增 `miniprogram-alipay-cli.ts`、`miniprogram-douyin-cli.ts`，提供默认安装路径、环境变量与下载链接；命令参数按常见约定实现并留有版本验证注释
+- **多平台统一入口**：`lib/src/integrations/miniprogram.ts` 替代原 `miniprogram-wechat.ts`，按平台分发编译/截图调用，缺失某平台开发者工具时仅跳过该平台运行时检查
+- **多平台并行测试**：
+  - `--mini-program all` 自动检测项目中的所有小程序平台并串行执行
+  - `--mini-program wechat,alipay` 显式指定多个平台
+  - 结果合并为 `MiniProgramResult`，`platform` 为 `"multi"` 并附带 `platforms` 列表
+- **基线隔离**：各平台首页截图基线目录改为 `.frontend-guardian/screenshots/baseline/miniprogram/{wechat,alipay,douyin}/`
+- **补齐抖音检测**：`project-detector.ts` 在 `project.config.json` 含 `tt` 字段时返回 `douyin-mp`；新增 `rules/douyin-mp.md`
+- **MCP 增强**：`mini-program` 工具 `platform` 枚举新增 `"all"`
+- **测试覆盖**：新增/替换 `miniprogram-cli.test.ts`、`miniprogram-alipay-cli.test.ts`、`miniprogram-douyin-cli.test.ts`、`miniprogram-integration.test.ts`
 
 ### v3.11.0 — 小程序自动化测试（已交付，713 测试通过，3 个 skip）
 

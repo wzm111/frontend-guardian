@@ -102,7 +102,7 @@ export interface PageHealthToolArgs {
 
 /** mini-program 工具参数 */
 export interface MiniProgramToolArgs {
-    platform?: "wechat" | "alipay" | "douyin" | "auto";
+    platform?: "wechat" | "alipay" | "douyin" | "auto" | "all";
     screenshot?: boolean;
     updateBaseline?: boolean;
     json?: boolean;

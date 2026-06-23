@@ -148,6 +148,13 @@ describe("detectProjectMeta — 平台检测", () => {
         expect(meta.platforms).toContain("alipay-mp");
     });
 
+    it("应检测抖音小程序（project.config.json 含 tt）", () => {
+        writePkg({});
+        writeFileSync(join(tempDir, "project.config.json"), '{"tt":{"appid":"test"}}', "utf-8");
+        const meta = detectProjectMeta(tempDir);
+        expect(meta.platforms).toContain("douyin-mp");
+    });
+
     it("HarmonyOS 应返回 harmony", () => {
         writePkg({});
         const etsDir = join(tempDir, "entry", "src", "main", "ets");

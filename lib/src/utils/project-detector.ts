@@ -158,6 +158,18 @@ function detectPlatforms(projectDir: string, framework?: Framework, deps?: Recor
         platforms.push("alipay-mp");
         return platforms;
     }
+    if (existsSync(resolve(projectDir, "project.config.json"))) {
+        try {
+            const raw = readFileSync(resolve(projectDir, "project.config.json"), "utf-8");
+            const config = JSON.parse(raw);
+            if (config && config.tt) {
+                platforms.push("douyin-mp");
+                return platforms;
+            }
+        } catch {
+            // ignore parse errors
+        }
+    }
 
     // 多端框架
     if (framework === "uniapp") {
