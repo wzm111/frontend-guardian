@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.11.2** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.12.1** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -938,6 +938,17 @@ platform:
 - **差异输出**：生成高亮差异图到 `.frontend-guardian/screenshots/miniprogram/cross-platform/`，并输出 `miniprogram-cross-platform-screenshot-diff` warning 级 issue
 - **MCP 增强**：`mini-program` 工具新增 `crossPlatformDiff`、`diffMode`、`diffReferencePlatform`、`diffPages`、`diffMaxPages`、`diffThresholdPixels`、`diffThresholdRatio` 参数
 - **多页面截图**：`--miniprogram-screenshot` 在跨平台对比模式下自动截取多个页面
+
+### v3.12.1 — flaky 测试预警（已交付，765 测试通过，3 个 skip）
+
+- **测试历史记录**：新增 `lib/src/utils/test-history.ts`，`TestHistoryReport` 将 Playwright E2E 运行结果持久化到 `.frontend-guardian/test-history.json`
+- **flaky 检测算法**：基于失败率 + 相邻运行状态翻转率双阈值，标记高 flakiness 风险测试
+- **智能测试推荐集成**：`--recommend-tests` 自动加载历史数据，为推荐测试附加 `flakyRisk`，终端/JSON 报告输出 flaky 风险提示
+- **CLI 阈值参数**：
+  - `--flaky-threshold-failure-rate` 失败率阈值（默认 0.2）
+  - `--flaky-threshold-flip-rate` 状态翻转率阈值（默认 0.15）
+  - `--flaky-min-runs` 参与计算的最少历史运行次数（默认 3）
+- **MCP 增强**：`recommend-tests` 工具新增 `flakyThresholds` 参数
 
 ### v3.11.2 — 小程序性能采集（已交付，748 测试通过，3 个 skip）
 

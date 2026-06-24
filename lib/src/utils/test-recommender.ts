@@ -16,6 +16,7 @@ import { ProjectIndexer, type RouteInfo } from "@/engine/indexer.js";
 import type { TestFramework } from "@/types.js";
 import { collectTestFiles, extractCoveredPaths } from "@/utils/e2e-gap-detector.js";
 import { detectProjectMeta } from "@/utils/project-detector.js";
+import { type FlakyTestInfo, type FlakyTestThresholds, TestHistoryReport } from "@/utils/test-history.js";
 
 export interface RecommendTestsOptions {
     /** 项目根目录 */
@@ -30,6 +31,8 @@ export interface RecommendTestsOptions {
     autoScope?: boolean;
     /** 最小优先级：1 直接 | 2 传递 | 3 路由相关，默认 1 */
     minPriority?: number;
+    /** flaky 检测阈值 */
+    flakyThresholds?: FlakyTestThresholds;
 }
 
 export interface TestRecommendation {
@@ -45,6 +48,8 @@ export interface TestRecommendation {
     testType: "unit" | "integration" | "e2e";
     /** 建议运行的命令 */
     suggestedCommand?: string;
+    /** flaky 风险信息（如果有历史数据） */
+    flakyRisk?: FlakyTestInfo;
 }
 
 export interface RecommendTestsResult {
@@ -60,12 +65,15 @@ export interface RecommendTestsResult {
     recommendations: TestRecommendation[];
     /** 未被任何测试覆盖的变更 */
     uncoveredChanges: { file: string; reason: string }[];
+    /** 高 flaky 风险测试 */
+    flakyTests: FlakyTestInfo[];
     /** 汇总 */
     summary: {
         direct: number;
         transitive: number;
         routeRelated: number;
         uncovered: number;
+        flaky: number;
     };
 }
 
@@ -225,7 +233,7 @@ function buildE2ERouteCoverageMap(projectDir: string): Map<string, Set<string>> 
                 if (!map.has(normalized)) {
                     map.set(normalized, new Set<string>());
                 }
-                map.get(normalized)!.add(testFile);
+                map.get(normalized)?.add(testFile);
             }
         }
     }
@@ -236,7 +244,7 @@ function buildE2ERouteCoverageMap(projectDir: string): Map<string, Set<string>> 
 /** 路由 path 标准化 */
 function normalizeRoute(path: string): string {
     let p = path.trim();
-    if (!p.startsWith("/")) p = "/" + p;
+    if (!p.startsWith("/")) p = `/${p}`;
     if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
     return p;
 }
@@ -370,6 +378,17 @@ export async function recommendTests(options: RecommendTestsOptions): Promise<Re
         rec.triggeredBy = [...new Set(rec.triggeredBy)];
     }
 
+    // v3.12.1: 基于历史数据检测 flaky 测试
+    const testHistory = new TestHistoryReport(projectDir);
+    const flakyTests = testHistory.detectFlakyTests(options.flakyThresholds);
+    const flakyMap = new Map(flakyTests.map((f) => [f.testFile, f]));
+    for (const rec of recommendations) {
+        const flaky = flakyMap.get(rec.testFile);
+        if (flaky) {
+            rec.flakyRisk = flaky;
+        }
+    }
+
     // 计算 uncovered changes
     const coveredChangedFiles = new Set<string>();
     for (const rec of recommendations) {
@@ -386,6 +405,7 @@ export async function recommendTests(options: RecommendTestsOptions): Promise<Re
         transitive: recommendations.filter((r) => r.priority === 2).length,
         routeRelated: recommendations.filter((r) => r.priority === 3).length,
         uncovered: uncoveredChanges.length,
+        flaky: recommendations.filter((r) => r.flakyRisk).length,
     };
 
     return {
@@ -395,6 +415,7 @@ export async function recommendTests(options: RecommendTestsOptions): Promise<Re
         totalTestFiles,
         recommendations,
         uncoveredChanges,
+        flakyTests,
         summary,
     };
 }
@@ -419,9 +440,30 @@ export function formatRecommendations(result: RecommendTestsResult): string {
             const priorityLabel = rec.priority === 1 ? "直接" : rec.priority === 2 ? "传递" : "路由";
             const priorityColor = rec.priority === 1 ? pc.red : rec.priority === 2 ? pc.yellow : pc.blue;
             const displayPath = relative(process.cwd(), rec.testFile);
-            lines.push(priorityColor(`   [P${rec.priority} ${priorityLabel}] ${displayPath}`));
+            const flakyBadge = rec.flakyRisk ? pc.yellow(" [flaky]") : "";
+            lines.push(priorityColor(`   [P${rec.priority} ${priorityLabel}] ${displayPath}${flakyBadge}`));
             lines.push(pc.gray(`      原因: ${rec.reason}`));
+            if (rec.flakyRisk) {
+                lines.push(
+                    pc.yellow(
+                        `      ⚠️ flaky 风险: 失败率 ${(rec.flakyRisk.failureRate * 100).toFixed(1)}%，翻转率 ${(rec.flakyRisk.flipRate * 100).toFixed(1)}% (${rec.flakyRisk.totalRuns} 次历史运行)`
+                    )
+                );
+            }
             lines.push(pc.gray(`      命令: ${rec.suggestedCommand}`));
+        }
+    }
+
+    if (result.flakyTests.length > 0) {
+        lines.push("");
+        lines.push(pc.yellow(`   🌀 ${result.flakyTests.length} 个测试存在 flaky 风险：`));
+        for (const f of result.flakyTests) {
+            const displayPath = relative(process.cwd(), f.testFile);
+            lines.push(
+                pc.gray(
+                    `      - ${displayPath}: 失败率 ${(f.failureRate * 100).toFixed(1)}%，翻转率 ${(f.flipRate * 100).toFixed(1)}%`
+                )
+            );
         }
     }
 
@@ -437,7 +479,7 @@ export function formatRecommendations(result: RecommendTestsResult): string {
     lines.push(pc.cyan("   汇总"));
     lines.push(
         pc.gray(
-            `      直接: ${result.summary.direct} | 传递: ${result.summary.transitive} | 路由: ${result.summary.routeRelated} | 未覆盖: ${result.summary.uncovered}`
+            `      直接: ${result.summary.direct} | 传递: ${result.summary.transitive} | 路由: ${result.summary.routeRelated} | 未覆盖: ${result.summary.uncovered} | flaky: ${result.summary.flaky}`
         )
     );
 
@@ -458,8 +500,10 @@ export function formatRecommendationsJson(result: RecommendTestsResult): object 
             triggeredBy: r.triggeredBy,
             testType: r.testType,
             suggestedCommand: r.suggestedCommand,
+            flakyRisk: r.flakyRisk,
         })),
         uncoveredChanges: result.uncoveredChanges,
+        flakyTests: result.flakyTests,
         summary: result.summary,
     };
 }

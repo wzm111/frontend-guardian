@@ -8,11 +8,12 @@
  * `fg-core . --external` 自动触发 Playwright 测试并聚合结果。
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { Issue } from "@/types.js";
+import { TestHistoryReport } from "@/utils/test-history.js";
 import type { ExternalTool } from "./base.js";
 import { runCommand } from "./base.js";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 
 /** Playwright JSON 报告结构（简化） */
 interface PlaywrightReport {
@@ -119,7 +120,7 @@ export const playwrightIntegration: ExternalTool = {
             if (existsSync(pkgPath)) {
                 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
                 const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-                if (deps["@playwright/test"] || deps["playwright"]) {
+                if (deps["@playwright/test"] || deps.playwright) {
                     return true;
                 }
             }
@@ -217,16 +218,63 @@ export const playwrightIntegration: ExternalTool = {
             }
         }
 
+        // v3.12.1: 记录测试历史，用于 flaky 测试预警
+        recordPlaywrightReport(projectDir, report);
+
         return issues;
     },
 };
 
+/** 将 Playwright JSON 报告结果记录到测试历史 */
+function recordPlaywrightReport(projectDir: string, report: PlaywrightReport): void {
+    try {
+        const records: { testFile: string; status: "passed" | "failed" | "skipped"; duration?: number }[] = [];
+
+        if (report.suites) {
+            for (const suite of report.suites) {
+                const suiteFile = suite.file;
+                if (!suiteFile) continue;
+
+                let failed = false;
+                let passed = false;
+                let totalDuration = 0;
+
+                for (const spec of suite.specs) {
+                    for (const test of spec.tests) {
+                        for (const result of test.results) {
+                            totalDuration += result.duration || 0;
+                            if (
+                                result.status === "failed" ||
+                                result.status === "timedOut" ||
+                                result.status === "interrupted"
+                            ) {
+                                failed = true;
+                            } else if (result.status === "passed") {
+                                passed = true;
+                            }
+                        }
+                    }
+                }
+
+                const status: "passed" | "failed" | "skipped" = failed ? "failed" : passed ? "passed" : "skipped";
+                records.push({
+                    testFile: suiteFile.startsWith("/") ? suiteFile : resolve(projectDir, suiteFile),
+                    status,
+                    duration: totalDuration,
+                });
+            }
+        }
+
+        if (records.length > 0) {
+            new TestHistoryReport(projectDir).recordRun(records);
+        }
+    } catch {
+        // 记录历史失败不应影响主流程
+    }
+}
+
 /** 格式化错误描述，包含堆栈和步骤信息 */
-function formatErrorDescription(
-    message: string,
-    stack: string,
-    steps?: PlaywrightStep[]
-): string {
+function formatErrorDescription(message: string, stack: string, steps?: PlaywrightStep[]): string {
     const parts: string[] = [message];
 
     if (steps && steps.length > 0) {

@@ -125,6 +125,11 @@ Skill 会自动检测项目类型并加载对应规则：
 # 智能测试推荐（PR 阶段只跑相关测试）
 /frontend-guardian --recommend-tests --staged --json
 
+# 智能测试推荐并标记 flaky 风险（需先运行过 E2E 积累历史数据）
+/frontend-guardian --recommend-tests --staged \
+    --flaky-threshold-failure-rate 0.3 \
+    --flaky-threshold-flip-rate 0.2
+
 # SARIF 报告输出（GitHub Security tab）
 /frontend-guardian --scan --sarif report.sarif
 
@@ -236,7 +241,7 @@ fg-server --port 3456 --cors "*"
 | `ai-fix` | 为无自动修复的问题生成 AI 建议 |
 | `get-project-meta` | 获取检测到的项目元数据 |
 | `index-project` | 查询/构建项目索引 |
-| `recommend-tests` | 基于变更文件智能推荐需要运行的测试 |
+| `recommend-tests` | 基于变更文件智能推荐需要运行的测试，支持 flaky 风险预警 |
 
 Cursor / Copilot 配置示例（`.cursor/mcp.json`）：
 

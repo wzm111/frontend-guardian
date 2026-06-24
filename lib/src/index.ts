@@ -255,6 +255,9 @@ export {
     parseUniAppRoutes,
     parseVueRouterConfig,
 } from "./utils/route-parser.js";
+// v3.12.1: flaky 测试预警
+export type { FlakyTestInfo, FlakyTestThresholds, TestRunRecord } from "./utils/test-history.js";
+export { analyzeFlakyTests, detectFlakyTests, TestHistoryReport } from "./utils/test-history.js";
 export type { RecommendTestsOptions, RecommendTestsResult, TestRecommendation } from "./utils/test-recommender.js";
 // v3.9.0: Intelligent Test Recommendation
 export {

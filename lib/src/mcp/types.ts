@@ -147,6 +147,11 @@ export interface RecommendTestsToolArgs {
     changedFiles?: string[];
     minPriority?: number;
     json?: boolean;
+    flakyThresholds?: {
+        failureRate?: number;
+        flipRate?: number;
+        minRuns?: number;
+    };
 }
 
 /** 工具分发器接受的参数 */

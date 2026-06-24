@@ -270,7 +270,10 @@
 
 - [x] **测试优先级排序**：根据变更影响范围排序推荐列表（Priority 1 直接 / 2 传递 / 3 路由相关）
 - [x] **跨文件影响追踪**：修改 utils/hooks 等共享模块时，追踪到所有引用它的页面和测试
-- [ ] **flaky 测试预警**：基于历史测试数据，标记高 flakiness 风险的测试
+- [x] **flaky 测试预警**：基于历史测试数据，标记高 flakiness 风险的测试（v3.12.1 交付）
+  - 历史数据存储：`.frontend-guardian/test-history.json`
+  - 失败率 / 状态翻转率双阈值检测
+  - `--recommend-tests` 输出 flaky 风险提示
 
 ### P2 — 排期实现
 
@@ -446,6 +449,24 @@
 - [x] CLI 参数：`--miniprogram-cross-platform-diff` 及 6 个相关参数
 - [x] MCP `mini-program` 工具支持跨平台截图对比字段
 - [x] 报告输出：终端 / JSON / ScanResult meta 均包含跨平台差异统计
+
+---
+
+## ✅ v3.12.1 — flaky 测试预警
+
+**目标**：补齐 v3.9.0 P1 的 flaky 测试预警能力，基于历史测试运行数据标记高 flakiness 风险的测试。
+
+**预计发布**：2026-06-30 · **实际交付**：2026-06-24 · **765 测试全部通过，3 个 skip**
+
+### 已实现
+
+- [x] 测试历史记录：`TestHistoryReport` 持久化到 `.frontend-guardian/test-history.json`
+- [x] Playwright E2E 运行后自动记录每个 suite 的通过/失败状态
+- [x] flaky 检测算法：失败率 + 相邻运行状态翻转率双阈值
+- [x] 智能测试推荐集成：`--recommend-tests` 输出 flaky 风险提示与汇总
+- [x] CLI 阈值参数：`--flaky-threshold-failure-rate`、`--flaky-threshold-flip-rate`、`--flaky-min-runs`
+- [x] MCP `recommend-tests` 工具支持 `flakyThresholds` 参数
+- [x] 新增 10 个单元/集成测试
 
 ---
 

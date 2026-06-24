@@ -522,6 +522,15 @@ export function getToolDefinitions(): Tool[] {
                         default: 1,
                     },
                     json: { type: "boolean", description: "Return JSON output instead of Markdown." },
+                    flakyThresholds: {
+                        type: "object",
+                        description: "Thresholds for flaky test detection based on historical test data.",
+                        properties: {
+                            failureRate: { type: "number", description: "Failure rate threshold (default 0.2)." },
+                            flipRate: { type: "number", description: "Status flip rate threshold (default 0.15)." },
+                            minRuns: { type: "number", description: "Minimum historical runs required (default 3)." },
+                        },
+                    },
                 },
             },
         },
@@ -920,6 +929,7 @@ async function handleRecommendTests(
         autoScope: args.scope === "auto" || !args.scope,
         changedFiles: args.scope === "explicit" ? args.changedFiles : undefined,
         minPriority: args.minPriority ?? 1,
+        flakyThresholds: args.flakyThresholds,
     });
 
     if (args.json) {
