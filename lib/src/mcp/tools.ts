@@ -410,6 +410,39 @@ export function getToolDefinitions(): Tool[] {
                             pageSize: { type: "number", description: "Max page size in bytes." },
                         },
                     },
+                    // v3.12.0
+                    crossPlatformDiff: {
+                        type: "boolean",
+                        description:
+                            "Enable cross-platform screenshot diff (requires platform=all and screenshot=true).",
+                    },
+                    diffMode: {
+                        type: "string",
+                        enum: ["reference", "pairwise"],
+                        description: "Cross-platform diff mode. Default: reference.",
+                    },
+                    diffReferencePlatform: {
+                        type: "string",
+                        enum: ["wechat", "alipay", "douyin"],
+                        description: "Reference platform for reference mode. Default: wechat.",
+                    },
+                    diffPages: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Pages to diff (defaults to first 10 pages from app.json).",
+                    },
+                    diffMaxPages: {
+                        type: "number",
+                        description: "Max pages to diff. Default: 10.",
+                    },
+                    diffThresholdPixels: {
+                        type: "number",
+                        description: "Diff pixel threshold. Default: 100.",
+                    },
+                    diffThresholdRatio: {
+                        type: "number",
+                        description: "Diff pixel ratio threshold. Default: 0.01.",
+                    },
                 },
             },
         },
@@ -796,6 +829,14 @@ async function handleMiniProgram(
         updateBaseline: args.updateBaseline,
         performance: args.performance,
         performanceThresholds: args.performanceThresholds,
+        // v3.12.0
+        crossPlatformDiff: args.crossPlatformDiff,
+        diffMode: args.diffMode,
+        diffReferencePlatform: args.diffReferencePlatform,
+        diffPages: args.diffPages,
+        diffMaxPages: args.diffMaxPages,
+        diffThresholdPixels: args.diffThresholdPixels,
+        diffThresholdRatio: args.diffThresholdRatio,
     });
     if (args.json) {
         return textResult(JSON.stringify(formatMiniProgramJson(result), null, 2));

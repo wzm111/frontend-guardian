@@ -106,6 +106,8 @@ export interface ScanResult {
     filesScanned: number;
     /** Files with issues */
     filesWithIssues: number;
+    /** Optional extra metadata */
+    meta?: Record<string, unknown>;
 }
 
 export interface Rule {

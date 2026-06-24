@@ -75,8 +75,10 @@ export type { FormatResult, FormatterTool } from "./formatter.js";
 export { detectFormatter, runFormat } from "./formatter.js";
 // v3.11.1: 小程序自动化测试（微信/支付宝/抖音）
 // v3.11.2: 小程序性能采集类型
+// v3.12.0: 小程序跨平台截图对比类型
 export type {
     CheckedMiniProgramPage,
+    CrossPlatformDiffResult,
     MiniProgramOptions,
     MiniProgramPagePerformance,
     MiniProgramPerformanceData,

@@ -927,6 +927,18 @@ platform:
 
 ## 版本演进
 
+### v3.12.0 — 多平台截图差异对比（已交付，目标 756–760 测试通过）
+
+- **跨平台截图对比**：新增 `--miniprogram-cross-platform-diff`，对比同一页面在多个小程序平台的截图差异
+- **对比模式**：
+  - `reference`（默认）：以指定平台为基准，其他平台逐一对比
+  - `pairwise`：所有平台两两对比
+- **页面范围**：支持 `--miniprogram-diff-pages` 指定页面，默认取 `app.json` 前 10 页，可通过 `--miniprogram-diff-max-pages` 调整
+- **阈值配置**：`--miniprogram-diff-threshold-pixels`（默认 100）、`--miniprogram-diff-threshold-ratio`（默认 0.01）
+- **差异输出**：生成高亮差异图到 `.frontend-guardian/screenshots/miniprogram/cross-platform/`，并输出 `miniprogram-cross-platform-screenshot-diff` warning 级 issue
+- **MCP 增强**：`mini-program` 工具新增 `crossPlatformDiff`、`diffMode`、`diffReferencePlatform`、`diffPages`、`diffMaxPages`、`diffThresholdPixels`、`diffThresholdRatio` 参数
+- **多页面截图**：`--miniprogram-screenshot` 在跨平台对比模式下自动截取多个页面
+
 ### v3.11.2 — 小程序性能采集（已交付，748 测试通过，3 个 skip）
 
 - **性能采集入口**：`lib/src/utils/miniprogram-cli.ts` 新增 `performanceArgs` 与 `runPerformance`，为各平台开发者工具 CLI 性能参数预留统一入口

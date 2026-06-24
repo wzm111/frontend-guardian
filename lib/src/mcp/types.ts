@@ -116,6 +116,14 @@ export interface MiniProgramToolArgs {
         packageSize?: number;
         pageSize?: number;
     };
+    // v3.12.0
+    crossPlatformDiff?: boolean;
+    diffMode?: "reference" | "pairwise";
+    diffReferencePlatform?: "wechat" | "alipay" | "douyin";
+    diffPages?: string[];
+    diffMaxPages?: number;
+    diffThresholdPixels?: number;
+    diffThresholdRatio?: number;
 }
 
 /** ai-fix 工具参数 */

@@ -424,8 +424,28 @@
 - [x] **多平台并行测试**：同时测试微信 + 支付宝 + 抖音三个平台，发现平台差异（v3.11.1 交付）
   - `--mini-program all` 与 `--mini-program wechat,alipay` 支持
   - 同一份代码编译到不同平台，分别输出各平台报告
-- [ ] **多平台截图差异对比**：同一份代码编译到不同平台后对比截图差异
-  - 输出平台兼容性报告
+- [x] **多平台截图差异对比**：同一份代码编译到不同平台后对比截图差异（v3.12.0 交付）
+  - 支持 reference / pairwise 两种对比模式
+  - 复用 `visual-regression.ts` 像素级差异计算
+  - 生成 `miniprogram-cross-platform-screenshot-diff` issue 与差异图
+
+---
+
+## ✅ v3.12.0 — 小程序多平台截图差异对比
+
+**目标**：在 v3.11.1 多平台并行测试与单平台截图基线基础上，实现同一页面在不同平台（微信/支付宝/抖音）之间的截图差异检测。
+
+**预计发布**：2026-06-30 · **实际交付**：2026-06-24 · **755 测试全部通过，3 个 skip**
+
+### 已实现
+
+- [x] 多页面截图：`runScreenshotForPages` 支持首页或指定页面列表
+- [x] 跨平台差异对比：`runCrossPlatformDiff` 支持 reference / pairwise 模式
+- [x] 差异图生成：输出到 `.frontend-guardian/screenshots/miniprogram/cross-platform/`
+- [x] 阈值检查：`diffThresholdPixels` / `diffThresholdRatio` 控制 issue 生成
+- [x] CLI 参数：`--miniprogram-cross-platform-diff` 及 6 个相关参数
+- [x] MCP `mini-program` 工具支持跨平台截图对比字段
+- [x] 报告输出：终端 / JSON / ScanResult meta 均包含跨平台差异统计
 
 ---
 
@@ -448,7 +468,7 @@
 
 ### 明确不做
 
-- [ ] 多平台截图差异对比（v3.12.0）
+- [x] 多平台截图差异对比（已拆分为 v3.12.0 独立完成）
 - [ ] 真机运行时 SDK 深度性能埋点（v3.13.0+）
 
 ---

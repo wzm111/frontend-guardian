@@ -48,10 +48,12 @@ import {
     compareScreenshotsPixel,
     getBaselinePath,
     getCurrentScreenshotPath,
+    getDiffImagePath,
     isPixelmatchAvailable,
     isPngjsAvailable,
     isVisualRegressionFailed,
     safeRouteName,
+    type VisualRegressionResult,
 } from "@/utils/visual-regression.js";
 
 // 从性能工具库重导出类型，供 public API 使用
@@ -93,6 +95,21 @@ export interface MiniProgramOptions {
     performance?: boolean;
     /** 性能阈值覆盖 */
     performanceThresholds?: Partial<MiniProgramPerformanceThresholds>;
+    // v3.12.0: 跨平台截图对比
+    /** 启用跨平台截图对比 */
+    crossPlatformDiff?: boolean;
+    /** 对比模式：reference（以参考平台为基准）| pairwise（两两对比） */
+    diffMode?: "reference" | "pairwise";
+    /** 参考平台（默认 wechat） */
+    diffReferencePlatform?: MiniProgramPlatform;
+    /** 指定要对比的页面（默认取 app.json pages 前 N 个） */
+    diffPages?: string[];
+    /** 最大对比页面数（默认 10） */
+    diffMaxPages?: number;
+    /** 差异像素阈值 */
+    diffThresholdPixels?: number;
+    /** 差异比例阈值 */
+    diffThresholdRatio?: number;
     /** 上报到的 dashboard server URL */
     server?: string;
     /** dashboard server auth token */
@@ -118,6 +135,20 @@ export interface CheckedMiniProgramPage {
     platform?: MiniProgramPlatform;
 }
 
+/** 跨平台截图对比结果（v3.12.0） */
+export interface CrossPlatformDiffResult {
+    /** 页面路由 */
+    pagePath: string;
+    /** 平台 A */
+    platformA: MiniProgramPlatform;
+    /** 平台 B */
+    platformB: MiniProgramPlatform;
+    /** 差异结果 */
+    diffResult: VisualRegressionResult | null;
+    /** 生成的 issue（差异超阈值时） */
+    issue?: Issue;
+}
+
 export interface MiniProgramResult {
     /** 测试的平台；多平台时为 "multi" */
     platform: MiniProgramPlatform | "multi";
@@ -135,6 +166,8 @@ export interface MiniProgramResult {
     duration: number;
     /** 性能数据（启用 --miniprogram-performance 时填充；多平台时为数组） */
     performanceData?: MiniProgramPerformanceData | MiniProgramPerformanceData[];
+    /** 跨平台截图对比结果（v3.12.0，多平台时填充） */
+    crossPlatformDiffs?: CrossPlatformDiffResult[];
 }
 
 /** 单平台运行时排除 platform/platforms 的选项 */
@@ -145,6 +178,8 @@ type SinglePlatformOptions = Omit<MiniProgramOptions, "platform" | "platforms">;
 const DEFAULT_MAX_MAIN_PACKAGE_SIZE = 2 * 1024 * 1024; // 2MB
 const DEFAULT_MAX_SUB_PACKAGE_SIZE = 2 * 1024 * 1024; // 2MB
 const DEFAULT_SCREENSHOT_DIR = ".frontend-guardian/screenshots/miniprogram";
+const DEFAULT_DIFF_MAX_PAGES = 10;
+const DEFAULT_DIFF_REFERENCE_PLATFORM: MiniProgramPlatform = "wechat";
 
 // ── 工具函数 ─────────────────────────────────────────────────────────────────
 
@@ -362,37 +397,17 @@ function runPerformanceCheck(
     return { data, issues, suggestion };
 }
 
-/** 对首页进行截图冒烟测试 */
-async function runScreenshotSmoke(
+/** 对指定页面列表进行截图 */
+async function runScreenshotForPages(
     projectInfo: MiniProgramProjectInfo,
     options: SinglePlatformOptions,
+    pages: string[],
     baseMeta: Record<string, unknown>
-): Promise<{ checkedPage?: CheckedMiniProgramPage; issue?: Issue; screenshotPath?: string }> {
-    if (!options.screenshot) {
-        return {};
-    }
-
+): Promise<{ checkedPages: CheckedMiniProgramPage[]; issues: Issue[]; screenshots: string[] }> {
     const config = getCliConfig(projectInfo.platform);
-
-    if (!isDevToolsAvailable(config)) {
-        return {
-            issue: {
-                ruleId: "miniprogram-screenshot-skipped",
-                title: `小程序截图因缺少${config.label}开发者工具已跳过`,
-                description: `未检测到${config.label}开发者工具 CLI。如需截图，请安装并配置环境变量 ${config.envVar} 或将其加入 PATH。下载地址：${config.downloadUrl}`,
-                severity: "suggestion",
-                file: projectInfo.projectDir,
-                line: 1,
-                column: 1,
-                meta: baseMeta,
-            },
-        };
-    }
-
-    const firstPage = options.pages?.[0] || projectInfo.pages[0];
-    if (!firstPage) {
-        return {};
-    }
+    const checkedPages: CheckedMiniProgramPage[] = [];
+    const issues: Issue[] = [];
+    const screenshots: string[] = [];
 
     const screenshotDir = options.screenshotDir || join(projectInfo.projectDir, DEFAULT_SCREENSHOT_DIR);
     const baselineDir = options.baselineDir || join(screenshotDir, "baseline");
@@ -403,61 +418,76 @@ async function runScreenshotSmoke(
     }
 
     const profile = getScreenshotProfile(projectInfo.platform);
-    const screenshotPath = getCurrentScreenshotPath(screenshotDir, firstPage, undefined, profile);
-    const baselinePath = getBaselinePath(baselineDir, firstPage, undefined, profile);
 
-    const output = runScreenshot(config, projectInfo.projectDir, screenshotPath, options.timeout ?? 60000);
-    if (!output || !existsSync(screenshotPath)) {
-        return {
-            issue: {
+    for (const page of pages) {
+        const screenshotPath = getCurrentScreenshotPath(screenshotDir, page, undefined, profile);
+        const baselinePath = getBaselinePath(baselineDir, page, undefined, profile);
+
+        const output = runScreenshot(config, projectInfo.projectDir, screenshotPath, options.timeout ?? 60000);
+        if (!output || !existsSync(screenshotPath)) {
+            issues.push({
                 ruleId: "miniprogram-screenshot-failed",
-                title: "小程序首页截图失败",
+                title: `小程序页面 ${page} 截图失败`,
                 description: `调用${config.label}开发者工具 --screenshot 未生成截图。当前版本的开发者工具可能不支持该命令。`,
                 severity: "warning",
                 file: projectInfo.projectDir,
                 line: 1,
                 column: 1,
-                meta: baseMeta,
-            },
-        };
-    }
+                meta: { ...baseMeta, pagePath: page },
+            });
+            checkedPages.push({
+                path: page,
+                status: "warning",
+                messages: ["截图失败"],
+                platform: projectInfo.platform,
+            });
+            continue;
+        }
 
-    if (options.updateBaseline) {
-        const baselineParent = dirname(baselinePath);
-        if (!existsSync(baselineParent)) mkdirSync(baselineParent, { recursive: true });
-        writeFileSync(baselinePath, readFileSync(screenshotPath));
-        return {
-            checkedPage: {
-                path: firstPage,
+        screenshots.push(screenshotPath);
+
+        if (options.updateBaseline) {
+            const baselineParent = dirname(baselinePath);
+            if (!existsSync(baselineParent)) mkdirSync(baselineParent, { recursive: true });
+            writeFileSync(baselinePath, readFileSync(screenshotPath));
+            checkedPages.push({
+                path: page,
                 status: "ok",
                 messages: ["已更新基线截图"],
                 screenshotPath,
                 baselinePath,
-            },
-            screenshotPath,
-        };
-    }
+                platform: projectInfo.platform,
+            });
+            continue;
+        }
 
-    if (!existsSync(baselinePath)) {
-        return {
-            checkedPage: {
-                path: firstPage,
+        if (!existsSync(baselinePath)) {
+            checkedPages.push({
+                path: page,
                 status: "warning",
                 messages: ["缺少基线截图，本次已保存当前截图，请确认后使用 --miniprogram-update-baseline 更新基线"],
                 screenshotPath,
                 baselinePath,
-            },
-            screenshotPath,
-        };
-    }
+                platform: projectInfo.platform,
+            });
+            continue;
+        }
 
-    if (isPixelmatchAvailable() && isPngjsAvailable()) {
-        const diffPath = join(diffDir, `${safeRouteName(firstPage)}.png`);
-        const regression = await compareScreenshotsPixel(screenshotPath, baselinePath, diffPath);
-        if (regression && isVisualRegressionFailed(regression)) {
-            return {
-                checkedPage: {
-                    path: firstPage,
+        if (isPixelmatchAvailable() && isPngjsAvailable()) {
+            const diffPath = getDiffImagePath(diffDir, page, undefined, profile);
+            const regression = await compareScreenshotsPixel(screenshotPath, baselinePath, diffPath, {
+                maxDiffPixels: options.diffThresholdPixels,
+                maxDiffPixelRatio: options.diffThresholdRatio,
+            });
+            if (
+                regression &&
+                isVisualRegressionFailed(regression, {
+                    maxDiffPixels: options.diffThresholdPixels,
+                    maxDiffPixelRatio: options.diffThresholdRatio,
+                })
+            ) {
+                checkedPages.push({
+                    path: page,
                     status: "warning",
                     messages: [
                         `截图与基线不同：差异像素 ${regression.diffPixels} (${(regression.diffPixelRatio * 100).toFixed(2)}%)`,
@@ -465,32 +495,78 @@ async function runScreenshotSmoke(
                     screenshotChanged: true,
                     screenshotPath,
                     baselinePath,
-                },
-                issue: {
+                    platform: projectInfo.platform,
+                });
+                issues.push({
                     ruleId: "miniprogram-screenshot-changed",
-                    title: "小程序首页截图与基线不同",
-                    description: `首页 ${firstPage} 截图差异像素 ${regression.diffPixels}，比例 ${(regression.diffPixelRatio * 100).toFixed(2)}%。`,
+                    title: `小程序页面 ${page} 截图与基线不同`,
+                    description: `页面 ${page} 截图差异像素 ${regression.diffPixels}，比例 ${(regression.diffPixelRatio * 100).toFixed(2)}%。`,
                     severity: "warning",
                     file: projectInfo.projectDir,
                     line: 1,
                     column: 1,
-                    meta: { ...baseMeta, diffPixels: regression.diffPixels, diffPixelRatio: regression.diffPixelRatio },
-                },
-                screenshotPath,
-            };
+                    meta: {
+                        ...baseMeta,
+                        pagePath: page,
+                        diffPixels: regression.diffPixels,
+                        diffPixelRatio: regression.diffPixelRatio,
+                    },
+                });
+                continue;
+            }
         }
-    }
 
-    return {
-        checkedPage: {
-            path: firstPage,
+        checkedPages.push({
+            path: page,
             status: "ok",
             messages: ["截图与基线一致"],
             screenshotPath,
             baselinePath,
-        },
-        screenshotPath,
-    };
+            platform: projectInfo.platform,
+        });
+    }
+
+    return { checkedPages, issues, screenshots };
+}
+
+/** 对首页进行截图冒烟测试 */
+async function runScreenshotSmoke(
+    projectInfo: MiniProgramProjectInfo,
+    options: SinglePlatformOptions,
+    baseMeta: Record<string, unknown>
+): Promise<{ checkedPages?: CheckedMiniProgramPage[]; issues?: Issue[]; screenshots?: string[] }> {
+    if (!options.screenshot) {
+        return {};
+    }
+
+    const config = getCliConfig(projectInfo.platform);
+
+    if (!isDevToolsAvailable(config)) {
+        return {
+            issues: [
+                {
+                    ruleId: "miniprogram-screenshot-skipped",
+                    title: `小程序截图因缺少${config.label}开发者工具已跳过`,
+                    description: `未检测到${config.label}开发者工具 CLI。如需截图，请安装并配置环境变量 ${config.envVar} 或将其加入 PATH。下载地址：${config.downloadUrl}`,
+                    severity: "suggestion",
+                    file: projectInfo.projectDir,
+                    line: 1,
+                    column: 1,
+                    meta: baseMeta,
+                },
+            ],
+        };
+    }
+
+    const pages = options.crossPlatformDiff
+        ? (options.diffPages ?? projectInfo.pages).slice(0, options.diffMaxPages ?? DEFAULT_DIFF_MAX_PAGES)
+        : ([options.pages?.[0] || projectInfo.pages[0]].filter(Boolean) as string[]);
+
+    if (pages.length === 0) {
+        return {};
+    }
+
+    return runScreenshotForPages(projectInfo, options, pages, baseMeta);
 }
 
 /** 解析本次需要测试的平台列表 */
@@ -618,21 +694,23 @@ async function runSingleMiniProgramTest(
         });
     }
 
-    // 首页截图冒烟
+    // 截图冒烟（v3.12.0 支持多页面）
     const screenshotResult = await runScreenshotSmoke(projectInfo, options, baseMeta);
-    if (screenshotResult.issue) {
-        issues.push(screenshotResult.issue);
+    if (screenshotResult.issues) {
+        issues.push(...screenshotResult.issues);
     }
-    if (screenshotResult.checkedPage) {
-        const existing = checkedPages.find((p) => p.path === screenshotResult.checkedPage!.path);
-        if (existing) {
-            Object.assign(existing, screenshotResult.checkedPage);
-        } else {
-            checkedPages.push(screenshotResult.checkedPage);
+    if (screenshotResult.checkedPages) {
+        for (const page of screenshotResult.checkedPages) {
+            const existing = checkedPages.find((p) => p.path === page.path);
+            if (existing) {
+                Object.assign(existing, page);
+            } else {
+                checkedPages.push(page);
+            }
         }
     }
-    if (screenshotResult.screenshotPath) {
-        screenshots.push(screenshotResult.screenshotPath);
+    if (screenshotResult.screenshots) {
+        screenshots.push(...screenshotResult.screenshots);
     }
 
     return {
@@ -644,6 +722,155 @@ async function runSingleMiniProgramTest(
         duration: Date.now() - start,
         performanceData,
     };
+}
+
+/** 跨平台截图差异对比（v3.12.0） */
+async function runCrossPlatformDiff(
+    results: MiniProgramResult[],
+    options: SinglePlatformOptions,
+    baseMeta: Record<string, unknown>
+): Promise<{ diffs: CrossPlatformDiffResult[]; issues: Issue[] }> {
+    const diffs: CrossPlatformDiffResult[] = [];
+    const issues: Issue[] = [];
+
+    const mode = options.diffMode || "reference";
+    const reference = options.diffReferencePlatform || DEFAULT_DIFF_REFERENCE_PLATFORM;
+    const thresholdPixels = options.diffThresholdPixels;
+    const thresholdRatio = options.diffThresholdRatio;
+
+    // pagePath -> platform -> screenshotPath
+    const screenshotMap = new Map<string, Map<MiniProgramPlatform, string>>();
+    for (const r of results) {
+        if (r.platform === "multi") continue;
+        const platform = r.platform as MiniProgramPlatform;
+        for (const page of r.checkedPages) {
+            if (!page.screenshotPath) continue;
+            if (!screenshotMap.has(page.path)) {
+                screenshotMap.set(page.path, new Map());
+            }
+            screenshotMap.get(page.path)?.set(platform, page.screenshotPath);
+        }
+    }
+
+    const screenshotDir = options.screenshotDir || join(options.projectDir, DEFAULT_SCREENSHOT_DIR);
+    const crossDir = join(screenshotDir, "cross-platform");
+    if (!existsSync(crossDir)) mkdirSync(crossDir, { recursive: true });
+
+    const visualOpts = {
+        maxDiffPixels: thresholdPixels,
+        maxDiffPixelRatio: thresholdRatio,
+    };
+
+    for (const [pagePath, platformMap] of screenshotMap) {
+        const platforms = Array.from(platformMap.keys());
+        if (platforms.length < 2) continue;
+
+        if (mode === "reference") {
+            const refPath = platformMap.get(reference);
+            if (!refPath) continue;
+
+            for (const [platform, screenshotPath] of platformMap) {
+                if (platform === reference) continue;
+
+                const diffImagePath = join(
+                    crossDir,
+                    `reference-${reference}`,
+                    safeRouteName(pagePath),
+                    `${platform}_diff.png`
+                );
+                const diffParent = dirname(diffImagePath);
+                if (!existsSync(diffParent)) mkdirSync(diffParent, { recursive: true });
+
+                const diffResult = await compareScreenshotsPixel(refPath, screenshotPath, diffImagePath, visualOpts);
+                const result: CrossPlatformDiffResult = {
+                    pagePath,
+                    platformA: reference,
+                    platformB: platform,
+                    diffResult,
+                };
+
+                if (diffResult && isVisualRegressionFailed(diffResult, visualOpts)) {
+                    const issue: Issue = {
+                        ruleId: "miniprogram-cross-platform-screenshot-diff",
+                        title: `小程序跨平台截图差异: ${pagePath} (${reference} vs ${platform})`,
+                        description: `页面 ${pagePath} 在 ${reference} 与 ${platform} 平台截图差异像素 ${diffResult.diffPixels}，比例 ${(diffResult.diffPixelRatio * 100).toFixed(2)}%。差异图: ${diffImagePath}`,
+                        severity: "warning",
+                        file: options.projectDir,
+                        line: 1,
+                        column: 1,
+                        meta: {
+                            ...baseMeta,
+                            pagePath,
+                            referencePlatform: reference,
+                            comparePlatform: platform,
+                            diffPixels: diffResult.diffPixels,
+                            diffPixelRatio: diffResult.diffPixelRatio,
+                            diffImagePath,
+                        },
+                    };
+                    result.issue = issue;
+                    issues.push(issue);
+                }
+
+                diffs.push(result);
+            }
+        } else {
+            // pairwise
+            for (let i = 0; i < platforms.length; i++) {
+                for (let j = i + 1; j < platforms.length; j++) {
+                    const platformA = platforms[i];
+                    const platformB = platforms[j];
+                    const pathA = platformMap.get(platformA);
+                    const pathB = platformMap.get(platformB);
+                    if (!pathA || !pathB) continue;
+
+                    const diffImagePath = join(
+                        crossDir,
+                        "pairwise",
+                        safeRouteName(pagePath),
+                        `${platformA}_vs_${platformB}_diff.png`
+                    );
+                    const diffParent = dirname(diffImagePath);
+                    if (!existsSync(diffParent)) mkdirSync(diffParent, { recursive: true });
+
+                    const diffResult = await compareScreenshotsPixel(pathA, pathB, diffImagePath, visualOpts);
+                    const result: CrossPlatformDiffResult = {
+                        pagePath,
+                        platformA,
+                        platformB,
+                        diffResult,
+                    };
+
+                    if (diffResult && isVisualRegressionFailed(diffResult, visualOpts)) {
+                        const issue: Issue = {
+                            ruleId: "miniprogram-cross-platform-screenshot-diff",
+                            title: `小程序跨平台截图差异: ${pagePath} (${platformA} vs ${platformB})`,
+                            description: `页面 ${pagePath} 在 ${platformA} 与 ${platformB} 平台截图差异像素 ${diffResult.diffPixels}，比例 ${(diffResult.diffPixelRatio * 100).toFixed(2)}%。差异图: ${diffImagePath}`,
+                            severity: "warning",
+                            file: options.projectDir,
+                            line: 1,
+                            column: 1,
+                            meta: {
+                                ...baseMeta,
+                                pagePath,
+                                platformA,
+                                platformB,
+                                diffPixels: diffResult.diffPixels,
+                                diffPixelRatio: diffResult.diffPixelRatio,
+                                diffImagePath,
+                            },
+                        };
+                        result.issue = issue;
+                        issues.push(issue);
+                    }
+
+                    diffs.push(result);
+                }
+            }
+        }
+    }
+
+    return { diffs, issues };
 }
 
 // ── 主入口 ───────────────────────────────────────────────────────────────────
@@ -690,6 +917,15 @@ export async function runMiniProgramTest(options: MiniProgramOptions): Promise<M
 
     if ((merged.performanceData as MiniProgramPerformanceData[]).length === 0) {
         delete merged.performanceData;
+    }
+
+    // v3.12.0: 跨平台截图差异对比
+    if (options.crossPlatformDiff && platforms.length > 1) {
+        const diffResult = await runCrossPlatformDiff(results, singleOptions, { projectDir: options.projectDir });
+        if (diffResult.diffs.length > 0) {
+            merged.crossPlatformDiffs = diffResult.diffs;
+            merged.issues.push(...diffResult.issues);
+        }
     }
 
     return merged;
@@ -758,6 +994,28 @@ export function formatMiniProgramReport(result: MiniProgramResult): string {
         }
     }
 
+    // v3.12.0: 跨平台截图对比
+    if (result.crossPlatformDiffs && result.crossPlatformDiffs.length > 0) {
+        lines.push("");
+        lines.push(`   🔍 跨平台截图对比 (${result.crossPlatformDiffs.length} 组)`);
+        const failedCount = result.crossPlatformDiffs.filter((d) => d.issue).length;
+        if (failedCount > 0) {
+            lines.push(`   ⚠️  发现差异: ${failedCount} 组`);
+        } else {
+            lines.push(`   ✅ 所有平台截图一致`);
+        }
+        for (const diff of result.crossPlatformDiffs) {
+            const icon = diff.issue ? "⚠️" : "✅";
+            lines.push(`   ${icon} ${diff.pagePath} (${diff.platformA} vs ${diff.platformB})`);
+            if (diff.diffResult) {
+                lines.push(
+                    `      差异像素: ${diff.diffResult.diffPixels} (${(diff.diffResult.diffPixelRatio * 100).toFixed(2)}%)`
+                );
+                lines.push(`      差异图: ${diff.diffResult.diffImagePath}`);
+            }
+        }
+    }
+
     return lines.join("\n");
 }
 
@@ -777,11 +1035,22 @@ export function formatMiniProgramJson(result: MiniProgramResult): object {
             duration: result.duration,
             issueCount: result.issues.length,
             screenshotCount: result.screenshots.length,
+            crossPlatformDiffCount: result.crossPlatformDiffs?.length ?? 0,
+            crossPlatformDiffFailedCount: result.crossPlatformDiffs?.filter((d) => d.issue).length ?? 0,
         },
         pages: result.checkedPages,
         issues: result.issues,
         screenshots: result.screenshots,
         performanceData: result.performanceData,
+        crossPlatformDiffs: result.crossPlatformDiffs?.map((d) => ({
+            pagePath: d.pagePath,
+            platformA: d.platformA,
+            platformB: d.platformB,
+            diffPixels: d.diffResult?.diffPixels,
+            diffPixelRatio: d.diffResult?.diffPixelRatio,
+            diffImagePath: d.diffResult?.diffImagePath,
+            hasIssue: !!d.issue,
+        })),
     };
 }
 
@@ -802,6 +1071,10 @@ export function toScanResult(result: MiniProgramResult): ScanResult {
         duration: result.duration,
         filesScanned: result.checkedPages.length,
         filesWithIssues: result.checkedPages.filter((p) => p.status !== "ok").length,
+        meta: {
+            crossPlatformDiffCount: result.crossPlatformDiffs?.length,
+            crossPlatformDiffFailedCount: result.crossPlatformDiffs?.filter((d) => d.issue).length,
+        },
     };
 }
 
@@ -826,6 +1099,8 @@ export async function uploadMiniProgramResult(
             platform: result.platform,
             platforms: result.platforms,
             screenshotCount: result.screenshots.length,
+            crossPlatformDiffCount: result.crossPlatformDiffs?.length,
+            crossPlatformDiffFailedCount: result.crossPlatformDiffs?.filter((d) => d.issue).length,
             performanceData: result.performanceData
                 ? Array.isArray(result.performanceData)
                     ? result.performanceData.map((d) => ({
