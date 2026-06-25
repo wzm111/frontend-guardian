@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.12.1** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.13.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -950,6 +950,19 @@ platform:
   - `--flaky-min-runs` 参与计算的最少历史运行次数（默认 3）
 - **MCP 增强**：`recommend-tests` 工具新增 `flakyThresholds` 参数
 
+### v3.13.0 — MCP 上下文感知扫描与修复反馈（已交付，771 测试通过，3 个 skip）
+
+- **上下文感知扫描**：MCP `scan` / `fix` 工具新增 `context` 参数，Agent 可传入当前编辑文件、行范围、未保存内容
+  - `context.file`：聚焦目标文件
+  - `context.range`：只返回范围内的 issue
+  - `context.content`：使用内存中的未保存内容扫描，不读取磁盘
+  - `context.expand`：基于 `ProjectIndexer` import 图扩展到上游相关文件
+- **修复结果反馈**：`fix` 返回标准 unified diff，Agent 可直接应用到编辑器
+  - 提供 `context.content` 时只返回 diff，不写盘，避免覆盖未保存内容
+  - 未提供 `context.content` 时正常写盘并返回 diff
+- **引擎增强**：`RuleEngine.scanSingleFile` / `scanFile` 支持传入内存 source；`applyFixes` 支持 `sourceOverrides` 与 `writeFiles`
+- **统一 diff 格式化器**：新增 `lib/src/formatters/unified-diff.ts`
+- **测试覆盖**：新增 `lib/tests/mcp-context.test.ts`（6 个测试）
 ### v3.11.2 — 小程序性能采集（已交付，748 测试通过，3 个 skip）
 
 - **性能采集入口**：`lib/src/utils/miniprogram-cli.ts` 新增 `performanceArgs` 与 `runPerformance`，为各平台开发者工具 CLI 性能参数预留统一入口

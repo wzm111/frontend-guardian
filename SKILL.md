@@ -243,6 +243,44 @@ fg-server --port 3456 --cors "*"
 | `index-project` | 查询/构建项目索引 |
 | `recommend-tests` | 基于变更文件智能推荐需要运行的测试，支持 flaky 风险预警 |
 
+### MCP 上下文感知扫描 / 修复（v3.13.0）
+
+Agent 可以传入当前编辑上下文，避免全量扫描，只聚焦相关文件和行范围：
+
+```json
+{
+  "name": "scan",
+  "arguments": {
+    "module": "i18n",
+    "context": {
+      "file": "src/App.tsx",
+      "range": { "startLine": 1, "endLine": 20 },
+      "content": "export default function App() {\n  return <div>你好</div>;\n}\n"
+    },
+    "json": true
+  }
+}
+```
+
+- `file`：当前编辑文件路径（必填）。
+- `range`：聚焦行范围（1-based，可选）。
+- `content`：未保存的编辑器内容（可选；提供时不读取磁盘，也不写盘）。
+- `expand`：基于 import 图扩展到上游相关文件（可选，默认 false）。
+
+`fix` 工具同样支持 `context`，返回标准 unified diff：
+
+```json
+{
+  "name": "fix",
+  "arguments": {
+    "module": "i18n",
+    "context": { "file": "src/App.tsx" },
+    "dryRun": true,
+    "json": true
+  }
+}
+```
+
 Cursor / Copilot 配置示例（`.cursor/mcp.json`）：
 
 ```json

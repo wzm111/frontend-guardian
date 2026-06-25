@@ -19,6 +19,22 @@ export type MCPToolName =
     | "index-project"
     | "recommend-tests";
 
+/** v3.13.0: 编辑器上下文范围（1-based，含端点） */
+export interface ScanContextRange {
+    startLine: number;
+    startColumn?: number;
+    endLine?: number;
+    endColumn?: number;
+}
+
+/** v3.13.0: 编辑器上下文 */
+export interface ScanContext {
+    file: string;
+    range?: ScanContextRange;
+    content?: string;
+    expand?: boolean;
+}
+
 /** scan 工具参数 */
 export interface ScanToolArgs {
     module?: string;
@@ -31,6 +47,8 @@ export interface ScanToolArgs {
     fix?: boolean;
     dryRun?: boolean;
     json?: boolean;
+    // v3.13.0
+    context?: ScanContext;
 }
 
 /** fix 工具参数 */
@@ -42,6 +60,8 @@ export interface FixToolArgs {
     diff?: string;
     dryRun?: boolean;
     json?: boolean;
+    // v3.13.0
+    context?: ScanContext;
 }
 
 /** e2e-run 工具参数 */

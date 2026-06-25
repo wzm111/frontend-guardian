@@ -291,12 +291,14 @@ export class RuleEngine {
 
     /**
      * v3.3.0: 公共单文件扫描方法（用于 IDE 增量诊断）
+     * v3.13.0: 支持传入内存中的 source，用于 MCP 上下文感知扫描
      * 快速扫描单个文件，返回所有匹配的 issues
      * @param filePath 文件绝对路径
      * @param module 模块名（可选，用于规则过滤）
+     * @param source 文件内容（可选，传则替代磁盘读取）
      * @returns 扫描发现的 issues
      */
-    async scanSingleFile(filePath: string, module?: string): Promise<Issue[]> {
+    async scanSingleFile(filePath: string, module?: string, source?: string): Promise<Issue[]> {
         const category = module ? this.moduleToCategory(module) : undefined;
         const activeRules = category
             ? this.filterRules({
@@ -309,16 +311,22 @@ export class RuleEngine {
 
         if (activeRules.length === 0) return [];
 
-        const result = await this.scanFile(filePath, activeRules);
+        const result = await this.scanFile(filePath, activeRules, source);
         return result.issues;
     }
 
     /** 扫描单个文件（带智能缓存 + 大文件跳过） */
-    private async scanFile(filePath: string, rules: Rule[]): Promise<{ issues: Issue[]; skipped?: boolean }> {
+    private async scanFile(
+        filePath: string,
+        rules: Rule[],
+        source?: string
+    ): Promise<{ issues: Issue[]; skipped?: boolean }> {
         try {
-            // v2.4.0: 大文件智能跳过
+            const hasProvidedSource = source !== undefined;
+
+            // v2.4.0: 大文件智能跳过（仅读取磁盘时检查文件大小）
             const threshold = this.options.skipLargeFilesThreshold ?? 512_000;
-            if (threshold > 0) {
+            if (threshold > 0 && !hasProvidedSource) {
                 try {
                     const stats = statSync(filePath);
                     if (stats.size > threshold) {
@@ -334,10 +342,14 @@ export class RuleEngine {
                 }
             }
 
-            const source = readFileSync(filePath, "utf-8");
+            if (!hasProvidedSource) {
+                source = readFileSync(filePath, "utf-8");
+            }
 
-            // Phase 5: 智能缓存命中检查
-            if (this.cache?.isCached(filePath, source)) {
+            const finalSource = source!;
+
+            // Phase 5: 智能缓存命中检查（仅磁盘读取模式启用缓存）
+            if (!hasProvidedSource && this.cache?.isCached(filePath, finalSource)) {
                 const cached = this.cache.get(filePath);
                 if (cached) {
                     return { issues: cached };
@@ -345,10 +357,10 @@ export class RuleEngine {
             }
 
             const allIssues: Issue[] = [];
-            const utils = this.createUtils(filePath, source);
+            const utils = this.createUtils(filePath, finalSource);
             const context: RuleContext = {
                 filePath,
-                source,
+                source: finalSource,
                 config: this.config,
                 projectMeta: this.projectMeta,
                 utils,
@@ -370,11 +382,13 @@ export class RuleEngine {
                 }
             }
 
-            // Phase 5: 缓存结果
-            this.cache?.set(filePath, source, allIssues);
+            // Phase 5: 缓存结果（仅磁盘读取模式）
+            if (!hasProvidedSource) {
+                this.cache?.set(filePath, finalSource, allIssues);
+            }
 
             return { issues: allIssues };
-        } catch (err) {
+        } catch (_err) {
             // 文件读取失败，静默跳过
             return { issues: [] };
         }
@@ -561,8 +575,8 @@ export class RuleEngine {
                             break;
                         }
                         // 支持目录下的 index 文件
-                        if (files.includes(pathResolve(resolved, "index" + ext))) {
-                            resolved = pathResolve(resolved, "index" + ext);
+                        if (files.includes(pathResolve(resolved, `index${ext}`))) {
+                            resolved = pathResolve(resolved, `index${ext}`);
                             found = true;
                             break;
                         }
@@ -573,7 +587,7 @@ export class RuleEngine {
                         if (!reverseMap.has(resolved)) {
                             reverseMap.set(resolved, new Set());
                         }
-                        reverseMap.get(resolved)!.add(file);
+                        reverseMap.get(resolved)?.add(file);
                     }
                 }
             } catch {
@@ -710,23 +724,32 @@ export class RuleEngine {
 
     /**
      * 应用所有可修复的问题
+     * v3.13.0: 支持 sourceOverrides（内存源码）和 writeFiles（控制是否写盘）
      * @param issues 包含 fix 字段的 Issue 列表
+     * @param options 修复选项
      * @returns 修复统计（dryRun 模式下 filesModified 为空，fixedCount 为预览数量）
      */
-    applyFixes(issues: Issue[]): {
+    applyFixes(
+        issues: Issue[],
+        options: { sourceOverrides?: Record<string, string>; writeFiles?: boolean } = {}
+    ): {
         fixedCount: number;
         filesModified: string[];
         errors: string[];
         previews?: FixPreview[];
         skippedByUser?: number;
+        patchedSources?: Record<string, string>;
     } {
         const dryRun = this.options.dryRun;
         const interactive = this.options.interactive;
+        const writeFiles = options.writeFiles !== false;
+        const sourceOverrides = options.sourceOverrides ?? {};
         let fixedCount = 0;
         let skippedByUser = 0;
         const filesModified: string[] = [];
         const errors: string[] = [];
         const previews: FixPreview[] = [];
+        const patchedSources: Record<string, string> = {};
 
         // 按文件分组
         const byFile = new Map<string, Issue[]>();
@@ -739,14 +762,14 @@ export class RuleEngine {
 
         for (const [filePath, fileIssues] of byFile) {
             try {
-                let source = readFileSync(filePath, "utf-8");
+                let source = filePath in sourceOverrides ? sourceOverrides[filePath] : readFileSync(filePath, "utf-8");
                 const originalSource = source;
 
                 // 按行号倒序排列，从文件末尾开始修复，避免行号偏移
                 const sorted = [...fileIssues].sort((a, b) => {
-                    const lineDiff = (b.fix!.start.line || 0) - (a.fix!.start.line || 0);
+                    const lineDiff = (b.fix?.start.line || 0) - (a.fix?.start.line || 0);
                     if (lineDiff !== 0) return lineDiff;
-                    return (b.fix!.start.column || 0) - (a.fix!.start.column || 0);
+                    return (b.fix?.start.column || 0) - (a.fix?.start.column || 0);
                 });
 
                 for (const issue of sorted) {
@@ -795,10 +818,11 @@ export class RuleEngine {
                 }
 
                 if (source !== originalSource) {
-                    if (!dryRun) {
+                    if (!dryRun && writeFiles) {
                         writeFileSync(filePath, source, "utf-8");
                     }
                     filesModified.push(filePath);
+                    patchedSources[filePath] = source;
                 }
             } catch (err) {
                 errors.push(`修复 ${filePath} 失败: ${err}`);
@@ -811,9 +835,13 @@ export class RuleEngine {
             errors: string[];
             previews?: FixPreview[];
             skippedByUser?: number;
+            patchedSources?: Record<string, string>;
         } = { fixedCount, filesModified, errors, skippedByUser };
         if (dryRun) {
             result.previews = previews;
+        }
+        if (Object.keys(patchedSources).length > 0) {
+            result.patchedSources = patchedSources;
         }
         return result;
     }
@@ -859,7 +887,7 @@ export class RuleEngine {
     }
 
     /** 同步读取一行输入 */
-    private readSyncLine(rl: import("node:readline").Interface): string {
+    private readSyncLine(_rl: import("node:readline").Interface): string {
         const { stdin, stdout } = process;
         stdin.setRawMode?.(true);
         stdin.resume();

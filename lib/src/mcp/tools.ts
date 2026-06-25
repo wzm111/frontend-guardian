@@ -2,10 +2,13 @@
  * v3.8.0: MCP 工具定义与分发器
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { globby } from "globby";
 import { ProjectIndexer } from "@/engine/indexer.js";
 import { createEngine, type EngineOptions, type RuleEngine } from "@/engine/rule-engine.js";
+import { createUnifiedDiff } from "@/formatters/unified-diff.js";
 import { formatMiniProgramJson, formatMiniProgramReport, runMiniProgramTest } from "@/integrations/miniprogram.js";
 import { formatPageHealthJson, isPlaywrightAvailable, runPageHealthCheck } from "@/integrations/page-health.js";
 import { playwrightIntegration } from "@/integrations/playwright.js";
@@ -64,6 +67,61 @@ function createMcpEngine(options: MCPServerOptions, overrides: Partial<EngineOpt
         silent: true,
         ...overrides,
     });
+}
+
+/** v3.13.0: 每个 MCP Server 进程缓存一个 ProjectIndexer，避免重复建索引 */
+const projectIndexerCache = new Map<string, ProjectIndexer>();
+
+/** 确保项目索引可用 */
+async function ensureProjectIndexer(projectDir: string): Promise<ProjectIndexer> {
+    const resolvedDir = resolve(projectDir);
+    const cached = projectIndexerCache.get(resolvedDir);
+    if (cached?.isValid()) {
+        return cached;
+    }
+
+    const indexer = new ProjectIndexer(resolvedDir);
+    if (!indexer.isValid()) {
+        const files = await globby(["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"], {
+            cwd: resolvedDir,
+            ignore: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"],
+            absolute: true,
+        });
+        await indexer.buildIndex(files);
+    }
+    projectIndexerCache.set(resolvedDir, indexer);
+    return indexer;
+}
+
+/** v3.13.0: 解析上下文扫描目标文件列表 */
+async function resolveContextFiles(
+    context: import("./types.js").ScanContext,
+    projectDir: string
+): Promise<{ primaryFile: string; expandedFiles: string[] }> {
+    const primaryFile = resolve(projectDir, context.file);
+    const expandedFiles: string[] = [];
+
+    if (context.expand) {
+        const indexer = await ensureProjectIndexer(projectDir);
+        const importers = indexer.getTransitiveImporters(primaryFile);
+        const maxExpanded = 50;
+        for (const file of importers.slice(0, maxExpanded)) {
+            if (file !== primaryFile) {
+                expandedFiles.push(file);
+            }
+        }
+    }
+
+    return { primaryFile, expandedFiles };
+}
+
+/** 判断 issue 行范围是否与上下文范围相交 */
+function issueIntersectsRange(issue: Issue, range: import("./types.js").ScanContextRange): boolean {
+    const startLine = issue.line ?? 1;
+    const endLine = issue.endLine ?? issue.line ?? 1;
+    const rangeStart = range.startLine ?? 1;
+    const rangeEnd = range.endLine ?? rangeStart;
+    return startLine <= rangeEnd && endLine >= rangeStart;
 }
 
 /** 注册指定模块的规则 */
@@ -200,6 +258,34 @@ export function getToolDefinitions(): Tool[] {
                         type: "boolean",
                         description: "Return JSON output instead of Markdown.",
                     },
+                    // v3.13.0: 编辑器上下文感知扫描
+                    context: {
+                        type: "object",
+                        description:
+                            "Editor context for focused scan. Provide file path and optionally range, unsaved content, or expand to related files.",
+                        properties: {
+                            file: {
+                                type: "string",
+                                description: "Absolute or relative path to the file being edited.",
+                            },
+                            range: {
+                                type: "object",
+                                description: "Line range to focus on (1-based, inclusive).",
+                                properties: {
+                                    startLine: { type: "number" },
+                                    startColumn: { type: "number" },
+                                    endLine: { type: "number" },
+                                    endColumn: { type: "number" },
+                                },
+                            },
+                            content: { type: "string", description: "Unsaved editor content (optional)." },
+                            expand: {
+                                type: "boolean",
+                                description: "Expand scan to related files via import graph (default false).",
+                            },
+                        },
+                        required: ["file"],
+                    },
                 },
             },
         },
@@ -227,6 +313,34 @@ export function getToolDefinitions(): Tool[] {
                     diff: { type: "string", description: "Git diff range, e.g. main...feature." },
                     dryRun: { type: "boolean", description: "Show diff preview without applying." },
                     json: { type: "boolean", description: "Return JSON output." },
+                    // v3.13.0: 编辑器上下文感知修复
+                    context: {
+                        type: "object",
+                        description:
+                            "Editor context for focused fix. Provide file path and optionally range, unsaved content, or expand to related files.",
+                        properties: {
+                            file: {
+                                type: "string",
+                                description: "Absolute or relative path to the file being edited.",
+                            },
+                            range: {
+                                type: "object",
+                                description: "Line range to focus on (1-based, inclusive).",
+                                properties: {
+                                    startLine: { type: "number" },
+                                    startColumn: { type: "number" },
+                                    endLine: { type: "number" },
+                                    endColumn: { type: "number" },
+                                },
+                            },
+                            content: { type: "string", description: "Unsaved editor content (optional)." },
+                            expand: {
+                                type: "boolean",
+                                description: "Expand scan to related files via import graph (default false).",
+                            },
+                        },
+                        required: ["file"],
+                    },
                 },
             },
         },
@@ -585,7 +699,115 @@ export async function handleToolCall(
 /** 各工具实现                                                                */
 /** ───────────────────────────────────────────────────────────────────────── */
 
+async function handleContextScan(
+    args: import("./types.js").ScanToolArgs,
+    options: MCPServerOptions
+): Promise<{ scan: ScanResult; fixResult?: ReturnType<RuleEngine["applyFixes"]>; diffs?: Record<string, string> }> {
+    const moduleName = args.module || "context";
+    const context = args.context;
+    if (!context) {
+        throw new Error("Context is required for context-aware scan");
+    }
+    const { primaryFile, expandedFiles } = await resolveContextFiles(context, options.projectDir);
+    const hasContent = context.content !== undefined;
+    const contextContent = context.content;
+    const contextRange = context.range;
+
+    const engine = createMcpEngine(options, {
+        minSeverity: parseSeverity(args.severity),
+        files: expandedFiles,
+        external: args.external,
+        dryRun: args.dryRun,
+    });
+    registerModuleRules(engine, moduleName === "context" ? "all" : moduleName);
+
+    const allIssues: Issue[] = [];
+
+    // 主文件扫描（支持内存中的未保存内容）
+    const primaryModule = moduleName === "context" || moduleName === "all" ? undefined : moduleName;
+    const primaryIssues = await engine.scanSingleFile(
+        primaryFile,
+        primaryModule,
+        hasContent ? contextContent : undefined
+    );
+    allIssues.push(...primaryIssues);
+
+    // 扩展文件扫描（基于 import 图）
+    if (expandedFiles.length > 0) {
+        if (moduleName === "context" || moduleName === "all") {
+            for (const mod of MODULES) {
+                const r = await engine.scan(mod);
+                allIssues.push(...r.issues.critical, ...r.issues.warning, ...r.issues.suggestion);
+            }
+        } else {
+            const r = await engine.scan(moduleName);
+            allIssues.push(...r.issues.critical, ...r.issues.warning, ...r.issues.suggestion);
+        }
+    }
+
+    // 范围过滤（仅对主文件）
+    let filteredIssues = allIssues;
+    if (contextRange) {
+        filteredIssues = allIssues.filter((i) => i.file !== primaryFile || issueIntersectsRange(i, contextRange));
+    }
+
+    const issues: Record<Severity, Issue[]> = { critical: [], warning: [], suggestion: [] };
+    for (const issue of filteredIssues) {
+        issues[issue.severity].push(issue);
+    }
+
+    const scan: ScanResult = {
+        module: moduleName,
+        total: filteredIssues.length,
+        issues,
+        duration: 0,
+        filesScanned: (hasContent ? 0 : 1) + expandedFiles.length,
+        filesWithIssues: new Set(filteredIssues.map((i) => i.file)).size,
+    };
+
+    let fixResult: ReturnType<RuleEngine["applyFixes"]> | undefined;
+    const diffs: Record<string, string> = {};
+
+    if ((args.fix || args.dryRun) && filteredIssues.some((i) => i.file === primaryFile && i.fix)) {
+        const fixable = filteredIssues.filter(
+            (i) => i.file === primaryFile && i.fix && (!contextRange || issueIntersectsRange(i, contextRange))
+        );
+
+        const originalSource = hasContent ? (contextContent as string) : readFileSync(primaryFile, "utf-8");
+
+        fixResult = engine.applyFixes(fixable, {
+            sourceOverrides: { [primaryFile]: originalSource },
+            writeFiles: !hasContent,
+        });
+
+        const patchedSource = fixResult.patchedSources?.[primaryFile];
+        if (patchedSource !== undefined) {
+            diffs[primaryFile] = createUnifiedDiff(primaryFile, originalSource, patchedSource);
+        }
+    }
+
+    return { scan, fixResult, diffs };
+}
+
 async function handleScan(args: import("./types.js").ScanToolArgs, options: MCPServerOptions): Promise<MCPToolResult> {
+    // v3.13.0: 上下文感知扫描分支
+    if (args.context) {
+        const { scan, fixResult, diffs } = await handleContextScan(args, options);
+
+        if (args.fix || args.dryRun) {
+            const payload = { scan, fix: fixResult ?? { fixedCount: 0, filesModified: [], errors: [] }, diffs };
+            if (args.json) {
+                return textResult(JSON.stringify(payload, null, 2));
+            }
+            return textResult(formatFixMarkdown(payload.fix, scan, diffs));
+        }
+
+        if (args.json) {
+            return textResult(JSON.stringify(scan, null, 2));
+        }
+        return textResult(formatScanMarkdown(scan));
+    }
+
     const moduleName = args.module || "all";
     const engine = createMcpEngine(options, {
         minSeverity: parseSeverity(args.severity),
@@ -641,7 +863,11 @@ async function handleFix(args: import("./types.js").FixToolArgs, options: MCPSer
     );
 }
 
-function formatFixMarkdown(fixResult: ReturnType<RuleEngine["applyFixes"]>, scanResult: ScanResult): string {
+function formatFixMarkdown(
+    fixResult: ReturnType<RuleEngine["applyFixes"]>,
+    scanResult: ScanResult,
+    diffs?: Record<string, string>
+): string {
     const lines = [
         `# 自动修复报告`,
         ``,
@@ -657,6 +883,16 @@ function formatFixMarkdown(fixResult: ReturnType<RuleEngine["applyFixes"]>, scan
         for (const p of fixResult.previews) {
             lines.push(`### ${p.file} [${p.ruleId}]`);
             lines.push(p.diff);
+            lines.push("");
+        }
+    }
+    if (diffs && Object.keys(diffs).length > 0) {
+        lines.push(`## Unified Diff`);
+        for (const [file, diff] of Object.entries(diffs)) {
+            lines.push(`### ${file}`);
+            lines.push("```diff");
+            lines.push(diff);
+            lines.push("```");
             lines.push("");
         }
     }
