@@ -64,8 +64,8 @@ export async function runAxeOnPage(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await page.evaluate((opts: any) => {
-        // @ts-ignore — 在浏览器上下文中执行
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // @ts-ignore — 在浏览器上下文中执行
         const win = globalThis as any;
         return win.axe.run(win.document, opts);
     }, runOptions);
@@ -91,15 +91,9 @@ export function mapAxeImpact(impact?: AxeViolation["impact"]): Severity {
 /**
  * 将 axe violations 转换为 Issue 列表
  */
-export function axeViolationsToIssues(
-    violations: AxeViolation[],
-    route: string,
-    url: string
-): Issue[] {
+export function axeViolationsToIssues(violations: AxeViolation[], route: string, url: string): Issue[] {
     return violations.map((violation) => {
-        const targets = violation.nodes
-            .flatMap((node) => node.target)
-            .slice(0, 5);
+        const targets = violation.nodes.flatMap((node) => node.target).slice(0, 5);
 
         return {
             ruleId: `page-health-a11y-runtime-${violation.id}`,

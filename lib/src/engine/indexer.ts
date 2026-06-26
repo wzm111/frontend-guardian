@@ -14,12 +14,13 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { resolve, dirname, relative, basename, extname } from "node:path";
-import { parseAST, getImports, walkAST } from "@/utils/ast-parser.js";
-import type { ImportInfo } from "@/types.js";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { basename, dirname, extname, relative, resolve } from "node:path";
 import type { ParseResult } from "@babel/parser";
 import type { File as BabelFile } from "@babel/types";
+import type { ImportInfo } from "@/types.js";
+import { getImports, parseAST, walkAST } from "@/utils/ast-parser.js";
+import { atomicWriteFileSync } from "@/utils/index-lock.js";
 
 // ── 常量 ───────────────────────────────────────────────────────────────────
 
@@ -319,16 +320,31 @@ export class ProjectIndexer {
 
     // ── 索引持久化 ────────────────────────────────────────────────────────
 
-    /** 保存索引到磁盘 */
+    /** 保存索引到磁盘（原子写） */
     save(): void {
         try {
             if (!existsSync(this.indexDir)) {
                 mkdirSync(this.indexDir, { recursive: true });
             }
-            writeFileSync(this.indexFilePath, JSON.stringify(this.index, null, 2), "utf-8");
+            atomicWriteFileSync(this.indexFilePath, JSON.stringify(this.index, null, 2));
         } catch {
             // 保存失败静默处理
         }
+    }
+
+    /** 重新从磁盘加载索引 */
+    reload(): void {
+        this.index = this.loadIndex();
+    }
+
+    /** 获取索引元数据 */
+    getMeta(): { version: string; projectDir: string; createdAt: number; updatedAt: number } {
+        return {
+            version: this.index.version,
+            projectDir: this.index.projectDir,
+            createdAt: this.index.createdAt,
+            updatedAt: this.index.updatedAt,
+        };
     }
 
     /** 清理索引（删除所有索引数据） */
@@ -430,7 +446,10 @@ export class ProjectIndexer {
     }
 
     /** 从 AST 提取符号信息 */
-    private extractSymbols(ast: ParseResult<BabelFile> | null, content: string): { exports: string[]; symbols: SymbolInfo[] } {
+    private extractSymbols(
+        ast: ParseResult<BabelFile> | null,
+        content: string
+    ): { exports: string[]; symbols: SymbolInfo[] } {
         const exports: string[] = [];
         const symbols: SymbolInfo[] = [];
 

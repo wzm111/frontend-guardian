@@ -17,7 +17,10 @@ export type MCPToolName =
     | "ai-fix"
     | "get-project-meta"
     | "index-project"
-    | "recommend-tests";
+    | "recommend-tests"
+    // v3.14.0
+    | "register-agent"
+    | "list-agents";
 
 /** v3.13.0: 编辑器上下文范围（1-based，含端点） */
 export interface ScanContextRange {
@@ -35,6 +38,30 @@ export interface ScanContext {
     expand?: boolean;
 }
 
+/** v3.14.0: 支持的 AI Agent 类型 */
+export type AgentKind = "claude" | "cursor" | "copilot" | "kimi" | "generic";
+
+/** v3.14.0: Agent 会话信息 */
+export interface AgentInfo {
+    id: string;
+    kind: AgentKind;
+    pid?: number;
+    connectedAt: number;
+    lastSeenAt: number;
+}
+
+/** v3.14.0: register-agent 工具参数 */
+export interface RegisterAgentToolArgs {
+    agent: AgentKind;
+    id?: string;
+    json?: boolean;
+}
+
+/** v3.14.0: list-agents 工具参数 */
+export interface ListAgentsToolArgs {
+    json?: boolean;
+}
+
 /** scan 工具参数 */
 export interface ScanToolArgs {
     module?: string;
@@ -49,6 +76,8 @@ export interface ScanToolArgs {
     json?: boolean;
     // v3.13.0
     context?: ScanContext;
+    // v3.14.0
+    agent?: AgentKind;
 }
 
 /** fix 工具参数 */
@@ -62,6 +91,8 @@ export interface FixToolArgs {
     json?: boolean;
     // v3.13.0
     context?: ScanContext;
+    // v3.14.0
+    agent?: AgentKind;
 }
 
 /** e2e-run 工具参数 */
@@ -158,6 +189,8 @@ export interface AIFixToolArgs {
 export interface IndexProjectToolArgs {
     action?: "build" | "status";
     json?: boolean;
+    // v3.14.0
+    agent?: AgentKind;
 }
 
 /** recommend-tests 工具参数 */
@@ -187,6 +220,9 @@ export type MCPToolArgs =
     | AIFixToolArgs
     | IndexProjectToolArgs
     | RecommendTestsToolArgs
+    // v3.14.0
+    | RegisterAgentToolArgs
+    | ListAgentsToolArgs
     | Record<string, never>;
 
 /** 工具调用返回结构 */

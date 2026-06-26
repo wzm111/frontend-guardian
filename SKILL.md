@@ -242,6 +242,8 @@ fg-server --port 3456 --cors "*"
 | `get-project-meta` | 获取检测到的项目元数据 |
 | `index-project` | 查询/构建项目索引 |
 | `recommend-tests` | 基于变更文件智能推荐需要运行的测试，支持 flaky 风险预警 |
+| `register-agent` | 注册当前 Agent 会话，支持多 Agent 共享索引（v3.14.0） |
+| `list-agents` | 列出当前活跃 Agent（v3.14.0） |
 
 ### MCP 上下文感知扫描 / 修复（v3.13.0）
 
@@ -293,6 +295,47 @@ Cursor / Copilot 配置示例（`.cursor/mcp.json`）：
   }
 }
 ```
+
+### MCP 多 Agent 协作（v3.14.0）
+
+当多个 AI Agent（Claude Code、Cursor、Copilot、Kimi Code 等）同时连接时，它们共享同一份项目索引，避免重复构建：
+
+```json
+{
+  "name": "register-agent",
+  "arguments": {
+    "agent": "claude",
+    "id": "claude-session-1",
+    "json": true
+  }
+}
+```
+
+查询当前活跃 Agent：
+
+```json
+{
+  "name": "list-agents",
+  "arguments": { "json": true }
+}
+```
+
+在 `scan` / `fix` / `index-project` 调用中声明 Agent 身份，系统会自动刷新心跳：
+
+```json
+{
+  "name": "scan",
+  "arguments": {
+    "module": "i18n",
+    "agent": "cursor",
+    "json": true
+  }
+}
+```
+
+- `agent`: `claude` | `cursor` | `copilot` | `kimi` | `generic`
+- 索引构建使用文件锁保护，并发调用安全
+- 离线 Agent 5 分钟无心跳后自动剔除
 
 ## 严重级别定义
 

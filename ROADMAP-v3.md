@@ -247,12 +247,27 @@
 
 - [x] **上下文感知扫描**：Agent 传入当前编辑文件/光标位置，MCP Server 只扫描相关上下文（而非全量扫描）
 - [x] **修复结果反馈**：MCP 返回修复后的代码 diff，Agent 直接应用到编辑器
-- [ ] **多 Agent 协作**：支持同时接入 Claude Code、Cursor、Copilot、Kimi Code，共享同一份扫描索引
+- [x] **多 Agent 协作**：支持同时接入 Claude Code、Cursor、Copilot、Kimi Code，共享同一份扫描索引（v3.14.0 交付）
 
 ### P2 — 排期实现
 
 - [ ] **自动注入使用指引**：MCP Server 初始化时自动向 Agent 发送工具使用说明（类似 CodeGraph 的自动 guidance）
 - [ ] **Agent 记忆持久化**：记录 Agent 的偏好设置（如常用规则集、忽略模式），跨会话保持一致
+
+---
+
+## ✅ v3.14.0 — MCP 多 Agent 协作共享索引（已交付 2026-06-26，779 测试通过，3 个 skip）
+
+**目标**：让多个 AI Agent 通过独立 MCP 进程连接时共享同一份项目索引，避免重复构建并保证并发安全。
+
+### 已完成（v3.14.0）
+
+- [x] Agent 身份声明：`scan` / `fix` / `index-project` 新增可选 `agent` 参数
+- [x] Agent 注册表：新增 `register-agent` / `list-agents` 工具，TTL 心跳机制
+- [x] 索引文件锁：无依赖 `lib/src/utils/index-lock.ts`，`ensureProjectIndexer` 与 `index-project build` 双检锁
+- [x] 索引原子写：`ProjectIndexer.save()` 改为临时文件 + rename
+- [x] 索引热刷新：`ProjectIndexer.reload()` 在内存缓存中加载磁盘最新索引
+- [x] 测试覆盖：`lib/tests/mcp-multi-agent.test.ts`（8 个测试）
 
 ---
 

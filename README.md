@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.13.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.14.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -963,6 +963,18 @@ platform:
 - **引擎增强**：`RuleEngine.scanSingleFile` / `scanFile` 支持传入内存 source；`applyFixes` 支持 `sourceOverrides` 与 `writeFiles`
 - **统一 diff 格式化器**：新增 `lib/src/formatters/unified-diff.ts`
 - **测试覆盖**：新增 `lib/tests/mcp-context.test.ts`（6 个测试）
+
+### v3.14.0 — MCP 多 Agent 协作共享索引（已交付，779 测试通过，3 个 skip）
+
+- **Agent 身份声明**：MCP `scan` / `fix` / `index-project` 工具新增可选 `agent` 参数，支持 `claude`、`cursor`、`copilot`、`kimi`、`generic`
+- **Agent 注册表**：新增 `register-agent` / `list-agents` 工具，记录当前活跃 Agent 会话，5 分钟 TTL 自动清理离线节点
+- **共享索引安全**：
+  - 新增 `lib/src/utils/index-lock.ts` 无依赖文件锁，`ensureProjectIndexer` 与 `index-project build` 加锁后双检锁，避免多 Agent 并发全量重建
+  - `ProjectIndexer.save()` 改为原子写（临时文件 + rename），防止并发写损坏索引
+  - `ProjectIndexer.reload()` 支持在内存缓存中刷新磁盘最新索引
+- **MCP 工具增强**：`index-project` 返回增加 `agents`（活跃 Agent 数）与 `builtByThisCall` 字段
+- **测试覆盖**：新增 `lib/tests/mcp-multi-agent.test.ts`（8 个测试）
+
 ### v3.11.2 — 小程序性能采集（已交付，748 测试通过，3 个 skip）
 
 - **性能采集入口**：`lib/src/utils/miniprogram-cli.ts` 新增 `performanceArgs` 与 `runPerformance`，为各平台开发者工具 CLI 性能参数预留统一入口

@@ -26,8 +26,10 @@ import { svelteRules } from "@/scanners/svelte-scanner.js";
 import type { ComponentLib, Framework, Issue, Platform, Rule, ScanResult, Severity } from "@/types.js";
 import { generateAIFixSuggestions } from "@/utils/ai-fix-suggester.js";
 import { detectE2EGaps, formatE2EGapJson } from "@/utils/e2e-gap-detector.js";
+import { acquireIndexLock } from "@/utils/index-lock.js";
 import { detectProjectMeta } from "@/utils/project-detector.js";
 import { formatRecommendations, formatRecommendationsJson, recommendTests } from "@/utils/test-recommender.js";
+import { AgentRegistry } from "./agent-registry.js";
 import type { MCPServerOptions, MCPToolArgs, MCPToolResult } from "./types.js";
 
 const MODULES = [
@@ -69,40 +71,105 @@ function createMcpEngine(options: MCPServerOptions, overrides: Partial<EngineOpt
     });
 }
 
-/** v3.13.0: 每个 MCP Server 进程缓存一个 ProjectIndexer，避免重复建索引 */
+/** v3.14.0: 每个 MCP Server 进程缓存一个 ProjectIndexer；跨进程共享通过磁盘索引 + 文件锁 */
 const projectIndexerCache = new Map<string, ProjectIndexer>();
 
-/** 确保项目索引可用 */
-async function ensureProjectIndexer(projectDir: string): Promise<ProjectIndexer> {
+/** v3.14.0: 为项目创建 AgentRegistry */
+function getAgentRegistry(projectDir: string): AgentRegistry {
+    return new AgentRegistry({ projectDir });
+}
+
+/** v3.14.0: 记录 Agent 心跳（如提供了 agent 参数） */
+function recordAgentHeartbeat(projectDir: string, agent?: string): void {
+    if (!agent) return;
+    try {
+        const registry = getAgentRegistry(projectDir);
+        registry.heartbeat({ kind: agent as import("./types.js").AgentKind });
+    } catch {
+        // 心跳失败不应影响主流程
+    }
+}
+
+/** 获取源文件 glob 模式 */
+function getSourceGlobPatterns(): string[] {
+    return ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"];
+}
+
+/** 获取源文件列表 */
+async function listSourceFiles(projectDir: string): Promise<string[]> {
+    return globby(getSourceGlobPatterns(), {
+        cwd: projectDir,
+        ignore: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"],
+        absolute: true,
+    });
+}
+
+/** 确保项目索引可用（支持多 Agent 并发安全） */
+async function ensureProjectIndexer(projectDir: string, agent?: string): Promise<ProjectIndexer> {
     const resolvedDir = resolve(projectDir);
     const cached = projectIndexerCache.get(resolvedDir);
+
+    // 1. 内存缓存有效时，尝试刷新磁盘最新状态
     if (cached?.isValid()) {
+        try {
+            const disk = new ProjectIndexer(resolvedDir);
+            if (disk.isValid()) {
+                const diskMeta = disk.getMeta();
+                const cachedMeta = cached.getMeta();
+                if (diskMeta.updatedAt > cachedMeta.updatedAt) {
+                    cached.reload();
+                }
+            }
+        } catch {
+            // 刷新失败继续使用缓存
+        }
         return cached;
     }
 
+    // 2. 无缓存或缓存无效：尝试直接读取磁盘索引
     const indexer = new ProjectIndexer(resolvedDir);
-    if (!indexer.isValid()) {
-        const files = await globby(["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"], {
-            cwd: resolvedDir,
-            ignore: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"],
-            absolute: true,
-        });
-        await indexer.buildIndex(files);
+    if (indexer.isValid()) {
+        projectIndexerCache.set(resolvedDir, indexer);
+        return indexer;
     }
-    projectIndexerCache.set(resolvedDir, indexer);
-    return indexer;
+
+    // 3. 磁盘索引无效：加锁后双检锁，避免多 Agent 同时全量重建
+    let lock: Awaited<ReturnType<typeof acquireIndexLock>> | undefined;
+    try {
+        lock = await acquireIndexLock({ projectDir: resolvedDir, agent });
+
+        // 锁内再次检查缓存和磁盘（可能其他进程已建好）
+        const cachedAfterLock = projectIndexerCache.get(resolvedDir);
+        if (cachedAfterLock?.isValid()) {
+            return cachedAfterLock;
+        }
+
+        const indexerAfterLock = new ProjectIndexer(resolvedDir);
+        if (indexerAfterLock.isValid()) {
+            projectIndexerCache.set(resolvedDir, indexerAfterLock);
+            return indexerAfterLock;
+        }
+
+        const files = await listSourceFiles(resolvedDir);
+        await indexerAfterLock.buildIndex(files);
+        projectIndexerCache.set(resolvedDir, indexerAfterLock);
+        return indexerAfterLock;
+    } finally {
+        lock?.release();
+    }
 }
 
 /** v3.13.0: 解析上下文扫描目标文件列表 */
 async function resolveContextFiles(
     context: import("./types.js").ScanContext,
-    projectDir: string
+    projectDir: string,
+    agent?: string
 ): Promise<{ primaryFile: string; expandedFiles: string[] }> {
     const primaryFile = resolve(projectDir, context.file);
     const expandedFiles: string[] = [];
 
     if (context.expand) {
-        const indexer = await ensureProjectIndexer(projectDir);
+        const indexer = await ensureProjectIndexer(projectDir, agent);
         const importers = indexer.getTransitiveImporters(primaryFile);
         const maxExpanded = 50;
         for (const file of importers.slice(0, maxExpanded)) {
@@ -286,6 +353,12 @@ export function getToolDefinitions(): Tool[] {
                         },
                         required: ["file"],
                     },
+                    // v3.14.0: Agent 身份声明
+                    agent: {
+                        type: "string",
+                        enum: ["claude", "cursor", "copilot", "kimi", "generic"],
+                        description: "Identify the calling AI agent for shared index coordination.",
+                    },
                 },
             },
         },
@@ -340,6 +413,12 @@ export function getToolDefinitions(): Tool[] {
                             },
                         },
                         required: ["file"],
+                    },
+                    // v3.14.0: Agent 身份声明
+                    agent: {
+                        type: "string",
+                        enum: ["claude", "cursor", "copilot", "kimi", "generic"],
+                        description: "Identify the calling AI agent for shared index coordination.",
                     },
                 },
             },
@@ -603,6 +682,47 @@ export function getToolDefinitions(): Tool[] {
                         default: "status",
                     },
                     json: { type: "boolean", description: "Return JSON output." },
+                    // v3.14.0: Agent 身份声明
+                    agent: {
+                        type: "string",
+                        enum: ["claude", "cursor", "copilot", "kimi", "generic"],
+                        description: "Identify the calling AI agent for shared index coordination.",
+                    },
+                },
+            },
+        },
+        // v3.14.0: 多 Agent 协作
+        {
+            name: "register-agent",
+            description:
+                "Register the current AI agent session (Claude Code, Cursor, Copilot, Kimi Code, etc.) " +
+                "so that multiple agents can share the same project index and see each other.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    agent: {
+                        type: "string",
+                        enum: ["claude", "cursor", "copilot", "kimi", "generic"],
+                        description: "The AI agent kind.",
+                    },
+                    id: {
+                        type: "string",
+                        description: "Optional stable agent session identifier. If omitted, one is generated.",
+                    },
+                    json: { type: "boolean", description: "Return JSON output." },
+                },
+                required: ["agent"],
+            },
+        },
+        {
+            name: "list-agents",
+            description:
+                "List currently active AI agents that are sharing this project's index. " +
+                "Agents that have not sent a heartbeat recently are automatically pruned.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    json: { type: "boolean", description: "Return JSON output." },
                 },
             },
         },
@@ -684,6 +804,11 @@ export async function handleToolCall(
                 return handleGetProjectMeta(args as Record<string, never>, options);
             case "index-project":
                 return handleIndexProject(args as import("./types.js").IndexProjectToolArgs, options);
+            // v3.14.0: 多 Agent 协作
+            case "register-agent":
+                return handleRegisterAgent(args as import("./types.js").RegisterAgentToolArgs, options);
+            case "list-agents":
+                return handleListAgents(args as import("./types.js").ListAgentsToolArgs, options);
             case "recommend-tests":
                 return handleRecommendTests(args as import("./types.js").RecommendTestsToolArgs, options);
             default:
@@ -708,7 +833,7 @@ async function handleContextScan(
     if (!context) {
         throw new Error("Context is required for context-aware scan");
     }
-    const { primaryFile, expandedFiles } = await resolveContextFiles(context, options.projectDir);
+    const { primaryFile, expandedFiles } = await resolveContextFiles(context, options.projectDir, args.agent);
     const hasContent = context.content !== undefined;
     const contextContent = context.content;
     const contextRange = context.range;
@@ -790,6 +915,9 @@ async function handleContextScan(
 }
 
 async function handleScan(args: import("./types.js").ScanToolArgs, options: MCPServerOptions): Promise<MCPToolResult> {
+    // v3.14.0: 记录 Agent 心跳
+    recordAgentHeartbeat(options.projectDir, args.agent);
+
     // v3.13.0: 上下文感知扫描分支
     if (args.context) {
         const { scan, fixResult, diffs } = await handleContextScan(args, options);
@@ -1135,23 +1263,99 @@ async function handleIndexProject(
     args: import("./types.js").IndexProjectToolArgs,
     options: MCPServerOptions
 ): Promise<MCPToolResult> {
-    const indexer = new ProjectIndexer(options.projectDir);
+    // v3.14.0: 记录 Agent 心跳
+    recordAgentHeartbeat(options.projectDir, args.agent);
+
+    let indexer: ProjectIndexer;
+    let builtByThisCall = false;
+
     if (args.action === "build") {
-        const files = await globby(["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"], {
-            cwd: options.projectDir,
-            ignore: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"],
-            absolute: true,
-        });
-        await indexer.buildIndex(files);
+        let lock: Awaited<ReturnType<typeof acquireIndexLock>> | undefined;
+        try {
+            lock = await acquireIndexLock({ projectDir: options.projectDir, agent: args.agent });
+
+            // 双检锁：可能其他进程已经建好
+            const cached = projectIndexerCache.get(resolve(options.projectDir));
+            if (cached?.isValid()) {
+                indexer = cached;
+            } else {
+                indexer = new ProjectIndexer(options.projectDir);
+                if (!indexer.isValid()) {
+                    const files = await listSourceFiles(options.projectDir);
+                    await indexer.buildIndex(files);
+                    builtByThisCall = true;
+                }
+                projectIndexerCache.set(resolve(options.projectDir), indexer);
+            }
+        } finally {
+            lock?.release();
+        }
+    } else {
+        indexer = await ensureProjectIndexer(options.projectDir, args.agent);
     }
+
     const stats = indexer.getStats();
-    const payload = { valid: indexer.isValid(), stats };
+    const activeAgents = getAgentRegistry(options.projectDir).list();
+    const payload = {
+        valid: indexer.isValid(),
+        stats,
+        agents: activeAgents.length,
+        builtByThisCall,
+    };
+
     if (args.json) {
         return textResult(JSON.stringify(payload, null, 2));
     }
     return textResult(
-        `# 项目索引\n\n- 有效: ${payload.valid}\n- 文件: ${stats.files}\n- 路由: ${stats.routes}\n- 符号: ${stats.symbols}`
+        `# 项目索引\n\n- 有效: ${payload.valid}\n- 文件: ${stats.files}\n- 路由: ${stats.routes}\n- 符号: ${stats.symbols}\n- 活跃 Agent: ${payload.agents}${
+            builtByThisCall ? "\n- 本次调用已重建索引" : ""
+        }`
     );
+}
+
+// v3.14.0: 多 Agent 协作
+async function handleRegisterAgent(
+    args: import("./types.js").RegisterAgentToolArgs,
+    options: MCPServerOptions
+): Promise<MCPToolResult> {
+    const registry = getAgentRegistry(options.projectDir);
+    const info = registry.heartbeat({
+        kind: args.agent,
+        id: args.id,
+        pid: process.pid,
+    });
+
+    if (args.json) {
+        return textResult(JSON.stringify({ registered: true, agent: info }, null, 2));
+    }
+
+    return textResult(
+        `# Agent 已注册\n\n- ID: ${info.id}\n- 类型: ${info.kind}\n- PID: ${info.pid}\n- 首次连接: ${new Date(info.connectedAt).toISOString()}\n- 最近心跳: ${new Date(info.lastSeenAt).toISOString()}`
+    );
+}
+
+async function handleListAgents(
+    args: import("./types.js").ListAgentsToolArgs,
+    options: MCPServerOptions
+): Promise<MCPToolResult> {
+    const registry = getAgentRegistry(options.projectDir);
+    const agents = registry.list();
+
+    if (args.json) {
+        return textResult(JSON.stringify({ agents }, null, 2));
+    }
+
+    if (agents.length === 0) {
+        return textResult("# 活跃 Agent\n\n当前没有活跃的 Agent。");
+    }
+
+    const lines = ["# 活跃 Agent", ""];
+    lines.push("| ID | 类型 | PID | 最近心跳 |");
+    lines.push("|---|---|---|---|");
+    for (const a of agents) {
+        lines.push(`| ${a.id} | ${a.kind} | ${a.pid ?? "-"} | ${new Date(a.lastSeenAt).toISOString()} |`);
+    }
+    return textResult(lines.join("\n"));
 }
 
 async function handleRecommendTests(
