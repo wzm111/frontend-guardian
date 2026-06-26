@@ -41,6 +41,7 @@ import {
     isPngjsAvailable,
     type VisualRegressionResult,
 } from "@/utils/visual-regression.js";
+import { analyzeVisualRegression, type AIVisionResult } from "@/utils/ai-vision.js";
 
 export type { BrowserName } from "@/utils/page-health-profile.js";
 
@@ -123,6 +124,16 @@ export interface PageHealthOptions {
     viewport?: string;
     /** 使用移动端预设视口（iPhone 14 Pro） */
     viewportMobile?: boolean;
+
+    // ── v3.14.1 ──
+    /** 启用 LLM Vision 判断截图差异是否为噪声 */
+    aiVision?: boolean;
+    /** 即使 AI Vision 判断为噪声也上报 visual regression issue */
+    aiVisionStrict?: boolean;
+    /** 录制页面操作视频 */
+    recordVideo?: boolean;
+    /** 视频保存目录（可选，默认 .frontend-guardian/videos/） */
+    videoDir?: string;
 }
 
 export interface CheckedRoute {
@@ -166,6 +177,10 @@ export interface CheckedRoute {
     browser?: BrowserName;
     /** v3.10.1: 视口/设备标识 */
     viewport?: string;
+    /** v3.14.1: AI 视觉分析结果 */
+    aiVisionResult?: AIVisionResult;
+    /** v3.14.1: 视频回放路径 */
+    videoPath?: string;
 }
 
 export interface PageHealthResult {
@@ -175,6 +190,8 @@ export interface PageHealthResult {
     checkedRoutes: CheckedRoute[];
     /** 截图文件路径 */
     screenshots: string[];
+    /** v3.14.1: 视频文件路径 */
+    videos?: string[];
     /** 总耗时（毫秒） */
     duration: number;
     /** 使用的 baseUrl */
@@ -185,6 +202,7 @@ interface ProfileResult {
     issues: Issue[];
     checkedRoutes: CheckedRoute[];
     screenshots: string[];
+    videos: string[];
 }
 
 // ── 常量 ───────────────────────────────────────────────────────────────────
@@ -390,11 +408,6 @@ async function runPageHealthProfile(
 
     const browser = await browserLauncher.launch({ headless: true });
     const contextOptions = buildContextOptions(pw, options);
-    const context = await browser.newContext(contextOptions);
-
-    const checkedRoutes: CheckedRoute[] = [];
-    const issues: Issue[] = [];
-    const screenshots: string[] = [];
 
     const profileKey = shouldIsolateProfiles(options)
         ? buildProfileKey(browserType, {
@@ -405,6 +418,27 @@ async function runPageHealthProfile(
         : undefined;
 
     const viewportKey = profileKey ? profileKey.split("/")[1] : undefined;
+
+    // v3.14.1: 录制页面操作视频
+    let videoDir: string | undefined;
+    if (options.recordVideo) {
+        const timestamp = new Date().toISOString().replace(/[:T]/g, "-").split(".")[0];
+        videoDir = resolve(screenshotDir, "..", "videos", timestamp, browserType, viewportKey || "default");
+        if (!existsSync(videoDir)) {
+            mkdirSync(videoDir, { recursive: true });
+        }
+        contextOptions.recordVideo = {
+            dir: videoDir,
+            size: contextOptions.viewport || { width: 1280, height: 720 },
+        };
+    }
+
+    const context = await browser.newContext(contextOptions);
+
+    const checkedRoutes: CheckedRoute[] = [];
+    const issues: Issue[] = [];
+    const screenshots: string[] = [];
+    const videos: string[] = [];
 
     const checkConsole = options.checkConsole !== false;
     const checkWhiteScreen = options.checkWhiteScreen !== false;
@@ -610,9 +644,30 @@ async function runPageHealthProfile(
                             (visualRegression.diffPixels > visualRegression.thresholdPixels ||
                                 visualRegression.diffPixelRatio > visualRegression.thresholdRatio)
                         ) {
-                            screenshotChanged = true;
-                            status = status === "error" ? "error" : "warning";
-                            messages.push("截图与基线存在像素级差异（UI 可能发生变化）");
+                            // v3.14.1: AI 视觉降噪
+                            let aiResult: AIVisionResult | null = null;
+                            if (options.aiVision) {
+                                aiResult = await analyzeVisualRegression({
+                                    currentPath: screenshotPath,
+                                    baselinePath,
+                                    diffPath: diffImagePath,
+                                });
+                            }
+
+                            if (aiResult && !aiResult.isAnomaly) {
+                                if (options.aiVisionStrict) {
+                                    screenshotChanged = true;
+                                    status = status === "error" ? "error" : "warning";
+                                    messages.push(`AI 判断为噪声，但 strict 模式仍上报: ${aiResult.description}`);
+                                } else {
+                                    messages.push(`AI 视觉已忽略噪声: ${aiResult.description}`);
+                                }
+                            } else {
+                                screenshotChanged = true;
+                                status = status === "error" ? "error" : "warning";
+                                messages.push(aiResult?.description || "截图与基线存在像素级差异（UI 可能发生变化）");
+                            }
+                            visualRegression.aiVisionResult = aiResult ?? undefined;
                         }
                     } else {
                         // 回退到 SHA256 哈希比对
@@ -626,6 +681,23 @@ async function runPageHealthProfile(
                 }
             } catch {
                 // 截图失败不阻断
+            }
+        }
+
+        // v3.14.1: 获取视频路径
+        let videoPath: string | undefined;
+        if (options.recordVideo) {
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const video = (page as any).video?.();
+                if (video) {
+                    videoPath = await video.path();
+                    if (videoPath) {
+                        videos.push(videoPath);
+                    }
+                }
+            } catch {
+                // 视频路径获取失败不阻断
             }
         }
 
@@ -653,6 +725,7 @@ async function runPageHealthProfile(
             a11yViolations,
             browser: browserType,
             viewport: viewportKey,
+            videoPath,
         };
 
         checkedRoutes.push(checkedRoute);
@@ -696,7 +769,7 @@ async function runPageHealthProfile(
         await browser.close();
     }
 
-    return { issues, checkedRoutes, screenshots };
+    return { issues, checkedRoutes, screenshots, videos };
 }
 
 /**
@@ -767,6 +840,7 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
     const allIssues: Issue[] = [];
     const allCheckedRoutes: CheckedRoute[] = [];
     const allScreenshots: string[] = [];
+    const allVideos: string[] = [];
 
     for (const browserType of browserTypes) {
         const profileResult = await runPageHealthProfile(
@@ -781,6 +855,7 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
         allIssues.push(...profileResult.issues);
         allCheckedRoutes.push(...profileResult.checkedRoutes);
         allScreenshots.push(...profileResult.screenshots);
+        allVideos.push(...profileResult.videos);
     }
 
     if (serverProcess) {
@@ -791,6 +866,7 @@ export async function runPageHealthCheck(options: PageHealthOptions): Promise<Pa
         issues: allIssues,
         checkedRoutes: allCheckedRoutes,
         screenshots: allScreenshots,
+        videos: allVideos,
         duration: Date.now() - start,
         baseUrl,
     };
@@ -810,6 +886,7 @@ function routeToIssues(
         url: route.url,
         ...(route.browser !== undefined ? { browser: route.browser } : {}),
         ...(route.viewport !== undefined ? { viewport: route.viewport } : {}),
+        ...(route.videoPath ? { videoPath: route.videoPath } : {}),
     };
 
     // HTTP 错误
@@ -908,14 +985,17 @@ function routeToIssues(
 
     // v3.10.0: 像素级视觉回归
     if (route.visualRegression) {
+        const aiDesc = route.aiVisionResult?.description;
+        const aiNoise = route.aiVisionResult && !route.aiVisionResult.isAnomaly;
         issues.push({
-            ruleId: "page-health-visual-regression",
-            title: "截图与基线存在像素级差异",
+            ruleId: aiNoise ? "page-health-visual-regression-noise" : "page-health-visual-regression",
+            title: aiNoise ? "截图差异被 AI 判断为噪声" : "截图与基线存在像素级差异",
             description:
                 `路由 ${route.path} 的当前截图与基线截图存在像素级差异。` +
                 `差异像素: ${route.visualRegression.diffPixels} ` +
-                `(${Math.round(route.visualRegression.diffPixelRatio * 10000) / 100}%)。`,
-            severity: "warning",
+                `(${Math.round(route.visualRegression.diffPixelRatio * 10000) / 100}%)。` +
+                (aiDesc ? `\nAI 视觉分析: ${aiDesc}` : ""),
+            severity: aiNoise ? "suggestion" : "warning",
             file: route.path,
             line: 1,
             column: 1,
@@ -927,6 +1007,7 @@ function routeToIssues(
                 baselinePath: route.baselinePath,
                 thresholdPixels: route.visualRegression.thresholdPixels,
                 thresholdRatio: route.visualRegression.thresholdRatio,
+                aiVisionResult: route.aiVisionResult,
             },
         });
     }
@@ -1044,6 +1125,9 @@ export function formatPageHealthReport(result: PageHealthResult): string {
         if (route.a11yViolations && route.a11yViolations.length > 0) {
             lines.push(`      ♿ 无障碍问题: ${route.a11yViolations.length} 个`);
         }
+        if (route.videoPath) {
+            lines.push(`      🎥 视频回放: ${route.videoPath}`);
+        }
         if (route.metrics) {
             const m = route.metrics;
             const parts: string[] = [];
@@ -1089,10 +1173,12 @@ export function formatPageHealthJson(result: PageHealthResult): object {
             duration: result.duration,
             issueCount: result.issues.length,
             screenshotCount: result.screenshots.length,
+            videoCount: result.videos?.length ?? 0,
         },
         routes: result.checkedRoutes,
         issues: result.issues,
         screenshots: result.screenshots,
+        videos: result.videos || [],
     };
 }
 

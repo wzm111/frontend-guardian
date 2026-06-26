@@ -79,12 +79,15 @@ export class AgentRegistry {
         const id = info.id || `${info.kind}-${info.pid ?? process.pid}-${now}`;
 
         const existingIndex = agents.findIndex((a) => a.id === id);
+        const existing = existingIndex >= 0 ? agents[existingIndex] : undefined;
         const entry: AgentInfo = {
             id,
             kind: info.kind,
             pid: info.pid ?? process.pid,
-            connectedAt: existingIndex >= 0 ? agents[existingIndex].connectedAt : now,
+            connectedAt: existing?.connectedAt ?? now,
             lastSeenAt: now,
+            guidanceVersion: existing?.guidanceVersion,
+            lastGuidanceAt: existing?.lastGuidanceAt,
         };
 
         if (existingIndex >= 0) {
@@ -95,6 +98,29 @@ export class AgentRegistry {
 
         this.writeAgents(agents);
         return entry;
+    }
+
+    /**
+     * 按 id 查找单个 Agent（不过期过滤）。
+     */
+    get(id: string): AgentInfo | undefined {
+        return this.readAgents().find((a) => a.id === id);
+    }
+
+    /**
+     * 标记指定 Agent 已接收某版本的使用指引。
+     */
+    markGuidance(id: string, version: string): void {
+        const agents = this.readAgents();
+        const index = agents.findIndex((a) => a.id === id);
+        if (index >= 0) {
+            agents[index] = {
+                ...agents[index],
+                guidanceVersion: version,
+                lastGuidanceAt: Date.now(),
+            };
+            this.writeAgents(agents);
+        }
     }
 
     /**

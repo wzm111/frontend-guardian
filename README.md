@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.14.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.14.1** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -18,6 +18,8 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **♿ 运行时无障碍检测** | 注入 axe-core 检测渲染后 DOM 的可访问性问题 | `fg-core . --page-health --a11y` |
 | **🌐 跨浏览器基线** | 支持 Chromium / Firefox / WebKit 三套独立基线，检测浏览器渲染差异 | `fg-core . --page-health --browser all` |
 | **📱 移动端视口模拟** | 使用 Playwright 设备预设或自定义视口，发现响应式布局问题 | `fg-core . --page-health --device "iPhone 14 Pro"` |
+| **👁️ AI 视觉降噪** | 调用 LLM Vision 判断截图差异是否为有意义 UI 变更，过滤字体/滚动条/anti-aliasing 噪声 | `fg-core . --page-health --page-health-ai-vision` |
+| **🎥 失败录屏回放** | 页面健康检查时录制操作视频，失败路由附带回放路径 | `fg-core . --page-health --page-health-record-video` |
 | **🛰️ 小程序自动化测试** | 自动检测微信/支付宝/抖音小程序，检查页面存在性、包体积、编译错误，支持多平台并行与首页截图基线 | `fg-core . --mini-program all` |
 | **🛠️ 自动修复** | 8 类问题支持一键自动修复，含修复预览（dry-run）和交互式确认 | `fg-core . --scan --fix` |
 | **📊 治理看板** | 扫描结果上报到 Web 看板，团队维度追踪代码质量趋势 | `fg-core . --scan --server <url>` |
@@ -25,6 +27,7 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **📝 E2E 测试治理** | 扫描 Playwright/Cypress 测试代码反模式，检测测试覆盖缺口 | `fg-core . --module e2e` |
 | **⚡ 增量扫描** | 基于 git diff / import 图分析，只扫描变更文件及影响范围 | `fg-core . --scan --staged` |
 | **🤖 MCP Server** | 以 MCP 协议暴露治理能力，供 Claude / Cursor / Copilot 等 AI Agent 调用 | `fg-core . --mcp` |
+| **🧠 MCP Agent 记忆** | Agent 偏好持久化，跨会话记住输出格式、默认模块、忽略规则 | `fg-core . --mcp` |
 | **🎯 智能测试推荐** | 基于代码变更影响分析，自动推荐需要运行的测试文件，减少 CI 全量测试耗时 | `fg-core . --recommend-tests` |
 
 ---
@@ -58,6 +61,12 @@ fg-core . --page-health --serve "npm run dev" --device "iPhone 14 Pro"
 
 # 自定义视口尺寸
 fg-core . --page-health --serve "npm run dev" --viewport 390x844
+
+# AI 视觉降噪：过滤无意义截图差异
+fg-core . --page-health --serve "npm run dev" --page-health-ai-vision
+
+# 失败时录制页面回放视频
+fg-core . --page-health --serve "npm run dev" --page-health-record-video
 ```
 
 **CLI 工具清单**：
@@ -974,6 +983,15 @@ platform:
   - `ProjectIndexer.reload()` 支持在内存缓存中刷新磁盘最新索引
 - **MCP 工具增强**：`index-project` 返回增加 `agents`（活跃 Agent 数）与 `builtByThisCall` 字段
 - **测试覆盖**：新增 `lib/tests/mcp-multi-agent.test.ts`（8 个测试）
+
+### v3.14.1 — MCP 使用指引/Agent 记忆 + 页面健康 AI 视觉/录屏（已交付，796 测试通过，3 个 skip）
+
+- **MCP 自动注入使用指引**：新增 `frontend-guardian-usage` prompt 与 `get-usage-guidance` 工具，Agent 连接后可自动获取工具用法与最佳实践；通过 `guidanceVersion` 避免重复发送
+- **Agent 记忆持久化**：新增 `get-agent-preferences` / `set-agent-preferences` 工具，偏好保存到 `.frontend-guardian/agent-preferences.json`，跨会话记住默认输出格式、默认模块、忽略规则
+- **AI 视觉异常检测**：新增 `--page-health-ai-vision` / `--page-health-ai-vision-strict`，调用 OpenAI `gpt-4o` 或 Claude vision API 判断截图差异是否为有意义 UI 变更，过滤字体渲染/滚动条/anti-aliasing 噪声；无 API key 或调用失败时自动降级到 pixelmatch
+- **失败录屏回放**：新增 `--page-health-record-video` / `--page-health-video-dir`，基于 Playwright `recordVideo` 录制页面操作，失败路由附带回放路径
+- **MCP 工具增强**：`scan` / `fix` / `index-project` / `page-health` 自动应用 Agent 偏好；`page-health` MCP 工具新增 `aiVision`、`aiVisionStrict`、`recordVideo`、`videoDir` 参数
+- **测试覆盖**：新增 `lib/tests/mcp-guidance.test.ts`、`lib/tests/mcp-agent-preferences.test.ts`、`lib/tests/page-health-ai-vision.test.ts`、`lib/tests/page-health-video.test.ts`（共 17 个测试）
 
 ### v3.11.2 — 小程序性能采集（已交付，748 测试通过，3 个 skip）
 

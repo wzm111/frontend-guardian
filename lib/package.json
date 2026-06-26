@@ -1,6 +1,6 @@
 {
     "name": "frontend-guardian-core",
-    "version": "3.14.0",
+    "version": "3.14.1",
     "description": "Core analysis engine for frontend-guardian — AST-based scanning and auto-fixing",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

@@ -20,7 +20,11 @@ export type MCPToolName =
     | "recommend-tests"
     // v3.14.0
     | "register-agent"
-    | "list-agents";
+    | "list-agents"
+    // v3.14.1
+    | "get-usage-guidance"
+    | "get-agent-preferences"
+    | "set-agent-preferences";
 
 /** v3.13.0: 编辑器上下文范围（1-based，含端点） */
 export interface ScanContextRange {
@@ -48,6 +52,9 @@ export interface AgentInfo {
     pid?: number;
     connectedAt: number;
     lastSeenAt: number;
+    // v3.14.1
+    guidanceVersion?: string;
+    lastGuidanceAt?: number;
 }
 
 /** v3.14.0: register-agent 工具参数 */
@@ -59,6 +66,30 @@ export interface RegisterAgentToolArgs {
 
 /** v3.14.0: list-agents 工具参数 */
 export interface ListAgentsToolArgs {
+    json?: boolean;
+}
+
+/** v3.14.1: get-usage-guidance 工具参数 */
+export interface GetUsageGuidanceToolArgs {
+    agent?: AgentKind;
+    id?: string;
+    json?: boolean;
+}
+
+/** v3.14.1: get-agent-preferences 工具参数 */
+export interface GetAgentPreferencesToolArgs {
+    agent?: AgentKind;
+    id?: string;
+    json?: boolean;
+}
+
+/** v3.14.1: set-agent-preferences 工具参数 */
+export interface SetAgentPreferencesToolArgs {
+    agent?: AgentKind;
+    id?: string;
+    defaultOutput?: "json" | "markdown";
+    defaultModules?: string[];
+    ignoredRules?: string[];
     json?: boolean;
 }
 
@@ -149,6 +180,12 @@ export interface PageHealthToolArgs {
     device?: string;
     viewport?: string;
     viewportMobile?: boolean;
+    // v3.14.1
+    agent?: AgentKind;
+    aiVision?: boolean;
+    aiVisionStrict?: boolean;
+    recordVideo?: boolean;
+    videoDir?: string;
 }
 
 /** mini-program 工具参数 */
@@ -223,6 +260,10 @@ export type MCPToolArgs =
     // v3.14.0
     | RegisterAgentToolArgs
     | ListAgentsToolArgs
+    // v3.14.1
+    | GetUsageGuidanceToolArgs
+    | GetAgentPreferencesToolArgs
+    | SetAgentPreferencesToolArgs
     | Record<string, never>;
 
 /** 工具调用返回结构 */

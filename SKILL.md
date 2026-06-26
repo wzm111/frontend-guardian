@@ -186,6 +186,10 @@ fg-server --port 3456 --cors "*"
 /frontend-guardian --page-health --base-url http://localhost:3000 --device "iPhone 14 Pro"
 # 自定义视口
 /frontend-guardian --page-health --base-url http://localhost:3000 --viewport 390x844
+# AI 视觉降噪
+/frontend-guardian --page-health --base-url http://localhost:3000 --page-health-ai-vision
+# 失败时录制回放视频
+/frontend-guardian --page-health --base-url http://localhost:3000 --page-health-record-video
 
 # 小程序自动化测试（自动检测平台）
 /frontend-guardian --mini-program auto
@@ -236,7 +240,7 @@ fg-server --port 3456 --cors "*"
 | `e2e-detect-gaps` | 检测 E2E 覆盖缺口 |
 | `list-rules` | 列出可用规则 |
 | `scan-file` | 单文件快速扫描 |
-| `page-health` | 页面健康检查：白屏/控制台/资源/视觉回归/Lighthouse/无障碍/跨浏览器/移动端视口（需 Playwright） |
+| `page-health` | 页面健康检查：白屏/控制台/资源/视觉回归/Lighthouse/无障碍/跨浏览器/移动端视口/AI 视觉降噪/失败录屏（需 Playwright） |
 | `mini-program` | 小程序自动化测试：自动检测微信/支付宝/抖音小程序，检查页面、包体积、编译错误、首页截图基线；支持 `all` / 逗号分隔多平台；支持 `--miniprogram-performance` 性能采集；支持 `--miniprogram-cross-platform-diff` 跨平台截图差异对比 |
 | `ai-fix` | 为无自动修复的问题生成 AI 建议 |
 | `get-project-meta` | 获取检测到的项目元数据 |
@@ -244,6 +248,9 @@ fg-server --port 3456 --cors "*"
 | `recommend-tests` | 基于变更文件智能推荐需要运行的测试，支持 flaky 风险预警 |
 | `register-agent` | 注册当前 Agent 会话，支持多 Agent 共享索引（v3.14.0） |
 | `list-agents` | 列出当前活跃 Agent（v3.14.0） |
+| `get-usage-guidance` | 获取 MCP 工具使用指引与最佳实践（v3.14.1） |
+| `get-agent-preferences` | 获取当前 Agent 持久化偏好（v3.14.1） |
+| `set-agent-preferences` | 设置当前 Agent 持久化偏好（v3.14.1） |
 
 ### MCP 上下文感知扫描 / 修复（v3.13.0）
 
@@ -336,6 +343,64 @@ Cursor / Copilot 配置示例（`.cursor/mcp.json`）：
 - `agent`: `claude` | `cursor` | `copilot` | `kimi` | `generic`
 - 索引构建使用文件锁保护，并发调用安全
 - 离线 Agent 5 分钟无心跳后自动剔除
+
+### MCP 自动指引与 Agent 记忆（v3.14.1）
+
+连接 MCP Server 后，Agent 可通过 `get-usage-guidance` 获取工具用法与最佳实践；支持 prompts 的客户端会自动拉取 `frontend-guardian-usage` prompt。同一 Agent 在当前版本内不会重复收到指引：
+
+```json
+{
+  "name": "get-usage-guidance",
+  "arguments": { "agent": "cursor", "json": true }
+}
+```
+
+Agent 偏好（输出格式、默认模块、忽略规则）持久化到项目目录 `.frontend-guardian/agent-preferences.json`，跨会话保持一致：
+
+```json
+{
+  "name": "set-agent-preferences",
+  "arguments": {
+    "agent": "cursor",
+    "defaultOutput": "json",
+    "defaultModules": ["i18n", "security"],
+    "json": true
+  }
+}
+```
+
+读取偏好：
+
+```json
+{
+  "name": "get-agent-preferences",
+  "arguments": { "agent": "cursor", "json": true }
+}
+```
+
+- `scan` / `fix` / `index-project` / `page-health` 等工具会按偏好自动补全默认值
+- 显式传入的参数优先级高于偏好，并会被写回偏好以便下次复用
+
+### 页面健康检查 AI 视觉与录屏（v3.14.1）
+
+页面健康检查支持通过 LLM Vision API 判断截图差异是否为有意义 UI 变更，过滤字体渲染、滚动条、anti-aliasing 等噪声：
+
+```text
+/frontend-guardian --page-health --base-url http://localhost:3000 --page-health-ai-vision
+```
+
+- `--page-health-ai-vision-strict`：即使 AI 判断为噪声，也生成 warning 级 issue
+- 支持环境变量 `FG_AI_PROVIDER` / `FG_AI_API_KEY` / `FG_AI_MODEL`，兼容 OpenAI 与 Claude
+- 未配置 API key 或调用失败时自动降级为 pixelmatch 行为
+
+同时支持录制页面操作视频，失败路由附带回放路径：
+
+```text
+/frontend-guardian --page-health --base-url http://localhost:3000 --page-health-record-video
+```
+
+- 视频默认保存到 `.frontend-guardian/videos/`
+- `--page-health-video-dir <dir>` 可覆盖输出目录
 
 ## 严重级别定义
 

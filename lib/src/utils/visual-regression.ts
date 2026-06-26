@@ -27,6 +27,8 @@ export interface VisualRegressionResult {
     thresholdPixels: number;
     /** 使用的比例阈值 */
     thresholdRatio: number;
+    /** v3.14.1: AI 视觉分析结果 */
+    aiVisionResult?: import("./ai-vision.js").AIVisionResult;
 }
 
 const DEFAULT_MAX_DIFF_PIXELS = 100;

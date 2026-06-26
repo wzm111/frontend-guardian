@@ -251,8 +251,8 @@
 
 ### P2 — 排期实现
 
-- [ ] **自动注入使用指引**：MCP Server 初始化时自动向 Agent 发送工具使用说明（类似 CodeGraph 的自动 guidance）
-- [ ] **Agent 记忆持久化**：记录 Agent 的偏好设置（如常用规则集、忽略模式），跨会话保持一致
+- [x] **自动注入使用指引**：MCP Server 初始化时自动向 Agent 发送工具使用说明（类似 CodeGraph 的自动 guidance）
+- [x] **Agent 记忆持久化**：记录 Agent 的偏好设置（如常用规则集、忽略模式），跨会话保持一致
 
 ---
 
@@ -268,6 +268,47 @@
 - [x] 索引原子写：`ProjectIndexer.save()` 改为临时文件 + rename
 - [x] 索引热刷新：`ProjectIndexer.reload()` 在内存缓存中加载磁盘最新索引
 - [x] 测试覆盖：`lib/tests/mcp-multi-agent.test.ts`（8 个测试）
+
+---
+
+## ✅ v3.14.1 — P2 遗留补全（已交付 2026-06-26，796 测试通过，3 个 skip）
+
+**目标**：在 v4.0.0 移动端应用测试之前，补齐 v3.8.0 P2 与 v3.10.0 P2 遗留的高价值能力。
+
+### 已完成（v3.14.1）
+
+- [x] **MCP 自动注入使用指引**：
+  - MCP Server 声明 `prompts` capability，注册 `frontend-guardian-usage` prompt
+  - 新增 `get-usage-guidance` MCP tool 作为不支持 prompts 客户端的兜底
+  - `guidanceVersion` 避免同一 Agent 重复接收指引
+- [x] **Agent 记忆持久化**：
+  - 新增 `get-agent-preferences` / `set-agent-preferences` 工具
+  - 偏好保存到 `{projectDir}/.frontend-guardian/agent-preferences.json`
+  - 复用 `acquireIndexLock` + 原子写保证多进程安全
+  - `scan` / `fix` / `index-project` / `page-health` 自动应用偏好并记住显式选择
+- [x] **AI 视觉异常检测**：
+  - 新增 `lib/src/utils/ai-vision.ts`，支持 OpenAI `gpt-4o` / Claude vision
+  - `analyzeVisualRegression` 返回 `isAnomaly` / `description` / `confidence`
+  - 无 API key 或调用失败返回 `null`，降级到 pixelmatch
+  - `--page-health-ai-vision` / `--page-health-ai-vision-strict` CLI 参数
+- [x] **录屏回放**：
+  - 基于 Playwright `recordVideo` 录制页面操作
+  - `--page-health-record-video` / `--page-health-video-dir` CLI 参数
+  - 失败路由 `videoPath` 写入 issue `meta` 与报告
+- [x] **测试覆盖**：新增 4 个测试文件共 17 个测试
+  - `lib/tests/mcp-guidance.test.ts`
+  - `lib/tests/mcp-agent-preferences.test.ts`
+  - `lib/tests/page-health-ai-vision.test.ts`
+  - `lib/tests/page-health-video.test.ts`
+
+### 关键文件
+
+- `lib/src/mcp/guidance.ts`
+- `lib/src/mcp/agent-preferences.ts`
+- `lib/src/utils/ai-vision.ts`
+- `lib/src/integrations/page-health.ts`（AI vision + video 集成）
+- `lib/src/mcp/mcp-server.ts`（prompts capability）
+- `lib/src/mcp/tools.ts`（新 tools + 偏好应用）
 
 ---
 
@@ -377,10 +418,10 @@
 
 ### P2 — 排期实现
 
-- [ ] **AI 视觉异常检测**：对接 LLM Vision API，判断截图变化是否为「有意义的 UI 变更」而非噪声
+- [x] **AI 视觉异常检测**：对接 LLM Vision API，判断截图变化是否为「有意义的 UI 变更」而非噪声
   - 过滤字体渲染差异、滚动条变化、anti-aliasing 差异
   - 为变化区域生成自然语言描述（如"按钮颜色从蓝色变为红色"）
-- [ ] **录屏回放**：页面健康检查时录制视频（Playwright `recordVideo`），失败时提供回放链路
+- [x] **录屏回放**：页面健康检查时录制视频（Playwright `recordVideo`），失败时提供回放链路
   - 视频保存到 `.frontend-guardian/videos/`，与截图同目录
   - Dashboard 支持视频在线播放
 

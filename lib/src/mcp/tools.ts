@@ -30,6 +30,8 @@ import { acquireIndexLock } from "@/utils/index-lock.js";
 import { detectProjectMeta } from "@/utils/project-detector.js";
 import { formatRecommendations, formatRecommendationsJson, recommendTests } from "@/utils/test-recommender.js";
 import { AgentRegistry } from "./agent-registry.js";
+import { AgentPreferencesStore, resolveJsonOutput, resolveModule } from "./agent-preferences.js";
+import { getUsageGuidance, shouldSendGuidance, USAGE_GUIDANCE_VERSION } from "./guidance.js";
 import type { MCPServerOptions, MCPToolArgs, MCPToolResult } from "./types.js";
 
 const MODULES = [
@@ -77,6 +79,53 @@ const projectIndexerCache = new Map<string, ProjectIndexer>();
 /** v3.14.0: 为项目创建 AgentRegistry */
 function getAgentRegistry(projectDir: string): AgentRegistry {
     return new AgentRegistry({ projectDir });
+}
+
+/** v3.14.1: 为项目创建 AgentPreferencesStore */
+function getAgentPreferencesStore(projectDir: string): AgentPreferencesStore {
+    return new AgentPreferencesStore({ projectDir });
+}
+
+/** v3.14.1: 根据 agent/id 生成稳定的偏好键 */
+function resolveAgentId(kind?: string, id?: string): string {
+    if (id) return id;
+    return kind ? `${kind}-${process.pid}` : `generic-${process.pid}`;
+}
+
+/** v3.14.1: 把 Agent 的显式选择写回偏好（异步，失败不影响主流程） */
+async function rememberAgentChoices(
+    projectDir: string,
+    agentId: string,
+    agentKind?: string,
+    explicitJson?: boolean,
+    explicitModule?: string
+): Promise<void> {
+    try {
+        const store = getAgentPreferencesStore(projectDir);
+        const prefs = store.get(agentId);
+        const update: Partial<import("./agent-preferences.js").AgentPreferences> = {};
+        if (agentKind) {
+            update.lastAgentKind = agentKind as import("./types.js").AgentKind;
+        }
+        if (explicitJson !== undefined) {
+            const next = explicitJson ? "json" : "markdown";
+            if (prefs.defaultOutput !== next) {
+                update.defaultOutput = next;
+            }
+        }
+        if (explicitModule !== undefined) {
+            const modules = explicitModule.split(",").map((m) => m.trim()).filter(Boolean);
+            const current = prefs.defaultModules || [];
+            if (modules.length > 0 && JSON.stringify(modules) !== JSON.stringify(current)) {
+                update.defaultModules = modules;
+            }
+        }
+        if (Object.keys(update).length > 0) {
+            await store.set(agentId, update);
+        }
+    } catch {
+        // 记忆写入失败不应影响主流程
+    }
 }
 
 /** v3.14.0: 记录 Agent 心跳（如提供了 agent 参数） */
@@ -557,6 +606,28 @@ export function getToolDefinitions(): Tool[] {
                         type: "boolean",
                         description: "Use mobile viewport preset.",
                     },
+                    // v3.14.1
+                    agent: {
+                        type: "string",
+                        enum: ["claude", "cursor", "copilot", "kimi", "generic"],
+                        description: "Identify the calling AI agent for shared index coordination.",
+                    },
+                    aiVision: {
+                        type: "boolean",
+                        description: "Use LLM Vision to classify screenshot diffs as meaningful change or noise.",
+                    },
+                    aiVisionStrict: {
+                        type: "boolean",
+                        description: "Still report visual regression issues even when AI Vision classifies them as noise.",
+                    },
+                    recordVideo: {
+                        type: "boolean",
+                        description: "Record a video of each page navigation for failed checks.",
+                    },
+                    videoDir: {
+                        type: "string",
+                        description: "Directory to save recorded videos. Default: .frontend-guardian/videos/.",
+                    },
                 },
             },
         },
@@ -726,6 +797,85 @@ export function getToolDefinitions(): Tool[] {
                 },
             },
         },
+        // v3.14.1: 自动指引与 Agent 记忆
+        {
+            name: "get-usage-guidance",
+            description:
+                "Get frontend-guardian MCP usage guidance. " +
+                "Returns onboarding instructions tailored to the calling AI agent.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    agent: {
+                        type: "string",
+                        enum: ["claude", "cursor", "copilot", "kimi", "generic"],
+                        description: "The AI agent kind for tailored examples.",
+                    },
+                    id: {
+                        type: "string",
+                        description: "Optional stable agent session identifier. Used to avoid sending guidance repeatedly.",
+                    },
+                    json: { type: "boolean", description: "Return JSON output." },
+                },
+            },
+        },
+        {
+            name: "get-agent-preferences",
+            description:
+                "Get persisted preferences for the current AI agent session, " +
+                "such as default output format and default scan modules.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    agent: {
+                        type: "string",
+                        enum: ["claude", "cursor", "copilot", "kimi", "generic"],
+                        description: "The AI agent kind.",
+                    },
+                    id: {
+                        type: "string",
+                        description: "Optional stable agent session identifier.",
+                    },
+                    json: { type: "boolean", description: "Return JSON output." },
+                },
+            },
+        },
+        {
+            name: "set-agent-preferences",
+            description:
+                "Persist preferences for the current AI agent session. " +
+                "These preferences are used as defaults for future scan/fix/index-project calls.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    agent: {
+                        type: "string",
+                        enum: ["claude", "cursor", "copilot", "kimi", "generic"],
+                        description: "The AI agent kind.",
+                    },
+                    id: {
+                        type: "string",
+                        description: "Optional stable agent session identifier.",
+                    },
+                    defaultOutput: {
+                        type: "string",
+                        enum: ["json", "markdown"],
+                        description: "Default output format for scan/fix results.",
+                    },
+                    defaultModules: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Default modules to scan when module is not specified.",
+                    },
+                    ignoredRules: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Rule IDs to ignore by default.",
+                    },
+                    json: { type: "boolean", description: "Return JSON output." },
+                },
+            },
+        },
         {
             name: "recommend-tests",
             description:
@@ -809,6 +959,13 @@ export async function handleToolCall(
                 return handleRegisterAgent(args as import("./types.js").RegisterAgentToolArgs, options);
             case "list-agents":
                 return handleListAgents(args as import("./types.js").ListAgentsToolArgs, options);
+            // v3.14.1: 自动指引与 Agent 记忆
+            case "get-usage-guidance":
+                return handleGetUsageGuidance(args as import("./types.js").GetUsageGuidanceToolArgs, options);
+            case "get-agent-preferences":
+                return handleGetAgentPreferences(args as import("./types.js").GetAgentPreferencesToolArgs, options);
+            case "set-agent-preferences":
+                return handleSetAgentPreferences(args as import("./types.js").SetAgentPreferencesToolArgs, options);
             case "recommend-tests":
                 return handleRecommendTests(args as import("./types.js").RecommendTestsToolArgs, options);
             default:
@@ -918,25 +1075,35 @@ async function handleScan(args: import("./types.js").ScanToolArgs, options: MCPS
     // v3.14.0: 记录 Agent 心跳
     recordAgentHeartbeat(options.projectDir, args.agent);
 
+    // v3.14.1: 应用 Agent 偏好默认值
+    const agentId = resolveAgentId(args.agent);
+    const store = getAgentPreferencesStore(options.projectDir);
+    const prefs = store.get(agentId);
+    const effectiveJson = resolveJsonOutput(args.json, prefs);
+    const effectiveModule = resolveModule(args.module, prefs) || args.module || "all";
+
     // v3.13.0: 上下文感知扫描分支
     if (args.context) {
-        const { scan, fixResult, diffs } = await handleContextScan(args, options);
+        const { scan, fixResult, diffs } = await handleContextScan(
+            { ...args, json: effectiveJson, module: effectiveModule },
+            options
+        );
 
         if (args.fix || args.dryRun) {
             const payload = { scan, fix: fixResult ?? { fixedCount: 0, filesModified: [], errors: [] }, diffs };
-            if (args.json) {
+            if (effectiveJson) {
                 return textResult(JSON.stringify(payload, null, 2));
             }
             return textResult(formatFixMarkdown(payload.fix, scan, diffs));
         }
 
-        if (args.json) {
+        if (effectiveJson) {
             return textResult(JSON.stringify(scan, null, 2));
         }
         return textResult(formatScanMarkdown(scan));
     }
 
-    const moduleName = args.module || "all";
+    const moduleName = effectiveModule;
     const engine = createMcpEngine(options, {
         minSeverity: parseSeverity(args.severity),
         files: args.files,
@@ -966,14 +1133,16 @@ async function handleScan(args: import("./types.js").ScanToolArgs, options: MCPS
         );
         if (fixable.length > 0) {
             const fixResult = engine.applyFixes(fixable);
-            if (args.json) {
+            await rememberAgentChoices(options.projectDir, agentId, args.agent, args.json, args.module);
+            if (effectiveJson) {
                 return textResult(JSON.stringify({ scan: result, fix: fixResult }, null, 2));
             }
             return textResult(formatFixMarkdown(fixResult, result));
         }
     }
 
-    if (args.json) {
+    await rememberAgentChoices(options.projectDir, agentId, args.agent, args.json, args.module);
+    if (effectiveJson) {
         return textResult(JSON.stringify(result, null, 2));
     }
     return textResult(formatScanMarkdown(result));
@@ -1139,6 +1308,13 @@ async function handlePageHealth(
     args: import("./types.js").PageHealthToolArgs,
     options: MCPServerOptions
 ): Promise<MCPToolResult> {
+    // v3.14.1: 记录 Agent 心跳并应用偏好
+    recordAgentHeartbeat(options.projectDir, args.agent);
+    const agentId = resolveAgentId(args.agent);
+    const store = getAgentPreferencesStore(options.projectDir);
+    const prefs = store.get(agentId);
+    const effectiveJson = resolveJsonOutput(args.json, prefs);
+
     if (!isPlaywrightAvailable()) {
         return textResult("Playwright is not installed. Please run: npm install -D playwright", true);
     }
@@ -1165,8 +1341,14 @@ async function handlePageHealth(
         device: args.device,
         viewport: args.viewport,
         viewportMobile: args.viewportMobile,
+        // v3.14.1
+        aiVision: args.aiVision,
+        aiVisionStrict: args.aiVisionStrict,
+        recordVideo: args.recordVideo,
+        videoDir: args.videoDir,
     });
-    if (args.json) {
+    await rememberAgentChoices(options.projectDir, agentId, args.agent, args.json, undefined);
+    if (effectiveJson) {
         return textResult(JSON.stringify(formatPageHealthJson(result), null, 2));
     }
     return textResult(formatPageHealthMarkdown(result));
@@ -1266,6 +1448,12 @@ async function handleIndexProject(
     // v3.14.0: 记录 Agent 心跳
     recordAgentHeartbeat(options.projectDir, args.agent);
 
+    // v3.14.1: 应用 Agent 偏好默认值
+    const agentId = resolveAgentId(args.agent);
+    const store = getAgentPreferencesStore(options.projectDir);
+    const prefs = store.get(agentId);
+    const effectiveJson = resolveJsonOutput(args.json, prefs);
+
     let indexer: ProjectIndexer;
     let builtByThisCall = false;
 
@@ -1303,7 +1491,8 @@ async function handleIndexProject(
         builtByThisCall,
     };
 
-    if (args.json) {
+    await rememberAgentChoices(options.projectDir, agentId, args.agent, args.json, undefined);
+    if (effectiveJson) {
         return textResult(JSON.stringify(payload, null, 2));
     }
     return textResult(
@@ -1324,6 +1513,13 @@ async function handleRegisterAgent(
         id: args.id,
         pid: process.pid,
     });
+
+    // v3.14.1: 首次注册时自动标记指引已发送，避免后续重复推送
+    if (shouldSendGuidance(info)) {
+        registry.markGuidance(info.id, USAGE_GUIDANCE_VERSION);
+        info.guidanceVersion = USAGE_GUIDANCE_VERSION;
+        info.lastGuidanceAt = Date.now();
+    }
 
     if (args.json) {
         return textResult(JSON.stringify({ registered: true, agent: info }, null, 2));
@@ -1356,6 +1552,86 @@ async function handleListAgents(
         lines.push(`| ${a.id} | ${a.kind} | ${a.pid ?? "-"} | ${new Date(a.lastSeenAt).toISOString()} |`);
     }
     return textResult(lines.join("\n"));
+}
+
+// v3.14.1: 自动指引与 Agent 记忆
+async function handleGetUsageGuidance(
+    args: import("./types.js").GetUsageGuidanceToolArgs,
+    options: MCPServerOptions
+): Promise<MCPToolResult> {
+    const agentId = resolveAgentId(args.agent, args.id);
+    const registry = getAgentRegistry(options.projectDir);
+    const existing = registry.get(agentId);
+    const needSend = shouldSendGuidance(existing);
+    if (needSend && args.agent) {
+        // 先注册心跳，再标记指引已发送
+        registry.heartbeat({ kind: args.agent, id: args.id, pid: process.pid });
+        registry.markGuidance(agentId, USAGE_GUIDANCE_VERSION);
+    } else if (needSend) {
+        registry.markGuidance(agentId, USAGE_GUIDANCE_VERSION);
+    }
+
+    const guidance = getUsageGuidance(args.agent);
+    const payload = {
+        guidance,
+        version: USAGE_GUIDANCE_VERSION,
+        alreadyGuided: !needSend,
+    };
+    if (args.json) {
+        return textResult(JSON.stringify(payload, null, 2));
+    }
+    return textResult(
+        `# frontend-guardian 使用指引\n\n${guidance}\n\n_版本: ${USAGE_GUIDANCE_VERSION}_`
+    );
+}
+
+async function handleGetAgentPreferences(
+    args: import("./types.js").GetAgentPreferencesToolArgs,
+    options: MCPServerOptions
+): Promise<MCPToolResult> {
+    const agentId = resolveAgentId(args.agent, args.id);
+    const store = getAgentPreferencesStore(options.projectDir);
+    const prefs = store.get(agentId);
+    if (args.json) {
+        return textResult(JSON.stringify({ agentId, preferences: prefs }, null, 2));
+    }
+    const lines = [
+        `# Agent 偏好`,
+        "",
+        `- Agent ID: ${agentId}`,
+        `- 默认输出: ${prefs.defaultOutput || "未设置"}`,
+        `- 默认模块: ${prefs.defaultModules?.join(", ") || "未设置"}`,
+        `- 忽略规则: ${prefs.ignoredRules?.join(", ") || "未设置"}`,
+        `- 最近使用 Agent: ${prefs.lastAgentKind || "未设置"}`,
+    ];
+    return textResult(lines.join("\n"));
+}
+
+async function handleSetAgentPreferences(
+    args: import("./types.js").SetAgentPreferencesToolArgs,
+    options: MCPServerOptions
+): Promise<MCPToolResult> {
+    const agentId = resolveAgentId(args.agent, args.id);
+    const store = getAgentPreferencesStore(options.projectDir);
+    const update: Partial<import("./agent-preferences.js").AgentPreferences> = {};
+    if (args.defaultOutput) {
+        update.defaultOutput = args.defaultOutput;
+    }
+    if (args.defaultModules) {
+        update.defaultModules = args.defaultModules;
+    }
+    if (args.ignoredRules) {
+        update.ignoredRules = args.ignoredRules;
+    }
+    if (args.agent) {
+        update.lastAgentKind = args.agent as import("./types.js").AgentKind;
+    }
+    await store.set(agentId, update);
+    const prefs = store.get(agentId);
+    if (args.json) {
+        return textResult(JSON.stringify({ agentId, preferences: prefs, updated: true }, null, 2));
+    }
+    return textResult(`# Agent 偏好已更新\n\n- Agent ID: ${agentId}\n- 默认输出: ${prefs.defaultOutput || "未设置"}`);
 }
 
 async function handleRecommendTests(

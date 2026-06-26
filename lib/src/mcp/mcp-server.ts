@@ -7,7 +7,13 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import {
+    CallToolRequestSchema,
+    GetPromptRequestSchema,
+    ListPromptsRequestSchema,
+    ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import { getUsageGuidance } from "./guidance.js";
 import { getToolDefinitions, handleToolCall } from "./tools.js";
 
 export interface MCPServerOptions {
@@ -23,11 +29,41 @@ export interface MCPServerOptions {
 export async function runMCPServer(options: MCPServerOptions): Promise<void> {
     // MCP 占用 stdout；启动前必须停止所有向 stdout 的写入。
     // stderr 仍可自由使用，因为 stdio transport 只读 stdin / 只写 stdout。
-    const server = new Server({ name: "frontend-guardian", version: "3.14.0" }, { capabilities: { tools: {} } });
+    const server = new Server(
+        { name: "frontend-guardian", version: "3.14.1" },
+        { capabilities: { tools: {}, prompts: {} } }
+    );
 
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
         tools: getToolDefinitions(),
     }));
+
+    server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+        prompts: [
+            {
+                name: "frontend-guardian-usage",
+                description: "frontend-guardian MCP 工具使用指引与最佳实践",
+            },
+        ],
+    }));
+
+    server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+        const name = request.params.name;
+        if (name !== "frontend-guardian-usage") {
+            throw new Error(`Unknown prompt: ${name}`);
+        }
+        const args = (request.params.arguments ?? {}) as Record<string, unknown>;
+        const agentKind = typeof args.agent === "string" ? (args.agent as import("./types.js").AgentKind) : undefined;
+        return {
+            description: "frontend-guardian MCP 工具使用指引",
+            messages: [
+                {
+                    role: "user",
+                    content: { type: "text", text: getUsageGuidance(agentKind) },
+                },
+            ],
+        } as unknown as import("@modelcontextprotocol/sdk/types.js").GetPromptResult;
+    });
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await handleToolCall(

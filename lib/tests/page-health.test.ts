@@ -163,10 +163,12 @@ describe("v3.7.1 — 页面健康检查", () => {
                     duration: 500,
                     issueCount: 1,
                     screenshotCount: 1,
+                    videoCount: 0,
                 },
                 routes: result.checkedRoutes,
                 issues: result.issues,
                 screenshots: ["/tmp/screenshot.png"],
+                videos: [],
             });
         });
     });
