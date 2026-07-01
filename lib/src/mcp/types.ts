@@ -129,6 +129,8 @@ export interface FixToolArgs {
 /** e2e-run 工具参数 */
 export interface E2ERunToolArgs {
     json?: boolean;
+    // v3.16.0
+    tool?: "playwright" | "cypress" | "selenium" | "katalon" | "auto";
 }
 
 /** e2e-detect-gaps 工具参数 */
@@ -242,6 +244,9 @@ export interface RecommendTestsToolArgs {
         flipRate?: number;
         minRuns?: number;
     };
+    // v3.16.0
+    impactGraph?: boolean;
+    impactGraphFormat?: "json" | "mermaid" | "dot";
 }
 
 /** 工具分发器接受的参数 */

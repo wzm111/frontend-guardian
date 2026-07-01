@@ -184,18 +184,29 @@ export async function loadBaselineAsync(
     return loadBaseline(filePath);
 }
 
-/** 保存 baseline 文件 */
+/** 保存 baseline 文件（v3.15.0: 自动与已有 baseline 合并，实现增量记录） */
 export function saveBaseline(
     filePath: string,
     issues: Issue[] | BaselineIssue[],
     meta?: BaselineFile["meta"]
 ): void {
+    // v3.15.0: 增量 baseline — 加载已有记录并去重合并，避免文件膨胀
+    const existing = loadBaseline(filePath);
+    const existingIssues = existing?.issues ?? [];
+    const mergedMap = new Map<string, BaselineIssue>();
+    for (const i of existingIssues) {
+        mergedMap.set(issueKey(i), i);
+    }
+    for (const i of issues) {
+        const baselineIssue = "description" in i ? toBaselineIssue(i as Issue) : (i as BaselineIssue);
+        mergedMap.set(issueKey(baselineIssue), baselineIssue);
+    }
+    const merged = Array.from(mergedMap.values());
+
     const baseline: BaselineFile = {
         version: "1.0",
         generatedAt: Date.now(),
-        issues: issues.map((i) =>
-            "description" in i ? toBaselineIssue(i as Issue) : (i as BaselineIssue)
-        ),
+        issues: merged,
         meta: {
             toolVersion: "2.3.0",
             ...meta,

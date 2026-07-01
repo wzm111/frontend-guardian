@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.14.1** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v3.20.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
 
 ## 核心能力
 
@@ -10,7 +10,7 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 
 | 能力 | 说明 | 对应命令 |
 | ------ | ------ | ---------- |
-| **🔍 代码扫描** | 9 大模块、50+ 条规则，检测 i18n、性能、安全、可访问性、命名规范、Hooks 等问题 | `fg-core . --scan` |
+| **🔍 代码扫描** | 14 大模块、75+ 条规则，检测 i18n、性能、安全、可访问性、命名规范、Hooks、CSS/SCSS、JSON/YAML/Markdown、Node.js/Go/Rust 后端等问题 | `fg-core . --scan` |
 | **🧪 页面健康检查** | 启动真实浏览器遍历路由，发现白屏、控制台报错、资源加载失败、交互元素异常 | `fg-core . --page-health` |
 | **📸 像素级视觉回归** | 像素级对比截图基线，生成差异高亮图，支持元素级截图 | `fg-core . --page-health --max-diff-pixels 50` |
 | **🎭 动态内容遮罩** | 自动遮罩时间戳/广告等不稳定元素，降低视觉回归误报 | `fg-core . --page-health --mask-selectors ".clock"` |
@@ -20,6 +20,10 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **📱 移动端视口模拟** | 使用 Playwright 设备预设或自定义视口，发现响应式布局问题 | `fg-core . --page-health --device "iPhone 14 Pro"` |
 | **👁️ AI 视觉降噪** | 调用 LLM Vision 判断截图差异是否为有意义 UI 变更，过滤字体/滚动条/anti-aliasing 噪声 | `fg-core . --page-health --page-health-ai-vision` |
 | **🎥 失败录屏回放** | 页面健康检查时录制操作视频，失败路由附带回放路径 | `fg-core . --page-health --page-health-record-video` |
+| **⏱️ 扫描耗时分析** | `--profile` 输出规则/文件耗时排名，快速定位性能瓶颈 | `fg-core . --scan --profile` |
+| **📊 实时进度条** | 长扫描任务显示进度条、已完成数、ETA | `fg-core . --scan` |
+| **👁️ Watch 增量优化** | 文件变更后只扫描相关模块，减少重复扫描 | `fg-core . --scan --watch` |
+| **🔧 智能配置推荐** | 根据项目规模/框架自动推荐并发数、模块、缓存策略 | `fg-core . --recommend-config` |
 | **🛰️ 小程序自动化测试** | 自动检测微信/支付宝/抖音小程序，检查页面存在性、包体积、编译错误，支持多平台并行与首页截图基线 | `fg-core . --mini-program all` |
 | **🛠️ 自动修复** | 8 类问题支持一键自动修复，含修复预览（dry-run）和交互式确认 | `fg-core . --scan --fix` |
 | **📊 治理看板** | 扫描结果上报到 Web 看板，团队维度追踪代码质量趋势 | `fg-core . --scan --server <url>` |
@@ -29,6 +33,10 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **🤖 MCP Server** | 以 MCP 协议暴露治理能力，供 Claude / Cursor / Copilot 等 AI Agent 调用 | `fg-core . --mcp` |
 | **🧠 MCP Agent 记忆** | Agent 偏好持久化，跨会话记住输出格式、默认模块、忽略规则 | `fg-core . --mcp` |
 | **🎯 智能测试推荐** | 基于代码变更影响分析，自动推荐需要运行的测试文件，减少 CI 全量测试耗时 | `fg-core . --recommend-tests` |
+| **🛠️ 规则模板生成器** | 一键生成规则文件 + 测试文件模板，降低自定义规则开发成本 | `fg-core . --create-rule my-rule` |
+| **📦 规则市场索引** | 维护可本地/远程加载的规则包索引，支持 `extends: market:xxx` | `fg-core . --market-index` |
+| **⭐ 规则评分** | 基于本地扫描历史计算规则综合评分，辅助规则选型 | `fg-core . --rule-scores` |
+| **🔄 自定义规则热重载** | Watch 模式下自定义规则文件变更后自动重载 | `fg-core . --scan --watch` |
 
 ---
 
@@ -272,6 +280,12 @@ fg-core . --recommend-tests
 fg-core . --recommend-tests --staged
 fg-core . --recommend-tests --diff main...feature
 fg-core . --recommend-tests --json
+fg-core . --recommend-tests --impact-graph --impact-graph-format mermaid
+
+# 8️⃣🅰️ 运行 E2E 测试（自动检测或指定框架）
+fg-core . --e2e-run
+fg-core . --e2e-run --e2e-tool cypress
+fg-core . --e2e-run --e2e-tool selenium --json
 
 # 9️⃣ 初始化项目配置
 fg-core . --init-config
@@ -300,6 +314,8 @@ fg-core . --module a11y            # 可访问性
 fg-core . --module naming          # 命名规范
 fg-core . --module cross-file      # 跨文件分析
 fg-core . --module svelte          # Svelte 专项检查
+fg-core . --module css             # CSS/SCSS 规范
+fg-core . --module data            # JSON/YAML/Markdown 规范
 ```
 
 > 💡 AI Skill 用法：`/frontend-guardian --module i18n`（其余模块同理）
@@ -345,7 +361,7 @@ fg-core . --scan --post-comment
 
 | 参数 | 说明 | 默认值 |
 | ---- | ---- | ------ |
-| `--module <name>` | 扫描模块：`i18n` / `performance` / `a11y` / `security` / `naming` / `cross-file` / `component` / `hooks` / `platform` / `svelte` / `all` | `all` |
+| `--module <name>` | 扫描模块：`i18n` / `performance` / `a11y` / `security` / `naming` / `cross-file` / `component` / `hooks` / `platform` / `svelte` / `css` / `data` / `backend` / `all` | `all` |
 | `--severity <level>` | 最低输出严重级别：`critical` / `warning` / `suggestion` | `suggestion` |
 | `--staged` | 仅检查 git staged 文件 | false |
 | `--diff <range>` | git diff 范围，如 `main...feature` | - |
@@ -429,7 +445,7 @@ cd lib && npm install && npm run build
 npx fg-core ./my-project --module i18n --severity warning
 ```
 
-### 支持的扫描模块（9 大模块，48 条规则）
+### 支持的扫描模块（14 大模块，75+ 条规则）
 
 | 模块 | CLI | 规则数 | 说明 |
 | ------ | ----- | ------ | ------ |
@@ -440,9 +456,13 @@ npx fg-core ./my-project --module i18n --severity warning
 | naming | `--module naming` | 8 | 类、接口、函数、变量、枚举、私有成员、文件/文件夹命名 |
 | cross-file | `--module cross-file` | 5 | 未使用 props、缺失 props、Context 过度使用、重复代码、公共逻辑提取 |
 | component | `--module component` | 3 | 反模式（Form/Table/Modal）、硬编码 token、性能陷阱 |
-| hooks | `--module hooks` | 6 | useEffect 依赖、定时器清理、Hook 命名、Vue reactive、computed 副作用、状态提升 |
+| hooks | `--module hooks` | 10 | useEffect 依赖、定时器清理、Hook 命名、Vue reactive、computed 副作用、状态提升 |
 | platform | `--module platform` | 6 | 小程序体积/base64/HTTP、安全区域、鸿蒙规范、响应式断点 |
-| **all** | **`--module all`** | **48** | **一次扫描全部 9 个模块** |
+| svelte | `--module svelte` | 4 | Svelte 组件反模式、store 用法、响应式声明 |
+| css | `--module css` | 5 | CSS/SCSS 规范、选择器深度、!important、未声明变量 |
+| data | `--module data` | 9 | JSON/YAML/Markdown 语法、重复键、空值、文档规范 |
+| backend | `--module backend` | 9 | Node.js/Go/Rust 后端安全、命名规范、错误处理 |
+| **all** | **`--module all`** | **76** | **一次扫描全部 13 个模块** |
 
 ### 自动修复（--fix）
 
@@ -474,7 +494,7 @@ npx fg-core ./my-project --module component --fix
 
 ### 与 Bash 引擎的关系（v2.0 统一架构）
 
-- **AST 引擎（主要）**：`fg-core --module all` 一次调用扫描全部 9 个模块，48 条规则，精确到语法树节点
+- **AST 引擎（主要）**：`fg-core --module all` 一次调用扫描全部 13 个模块，76 条规则，精确到语法树节点
 - **Bash 引擎（补充）**：覆盖 AST 引擎尚未迁移的规则（如小程序 `#ifdef` 检查、平台专有 API 检测）
 - **外部工具（Knip）**：检测未使用依赖/导出/文件
 
@@ -992,6 +1012,89 @@ platform:
 - **失败录屏回放**：新增 `--page-health-record-video` / `--page-health-video-dir`，基于 Playwright `recordVideo` 录制页面操作，失败路由附带回放路径
 - **MCP 工具增强**：`scan` / `fix` / `index-project` / `page-health` 自动应用 Agent 偏好；`page-health` MCP 工具新增 `aiVision`、`aiVisionStrict`、`recordVideo`、`videoDir` 参数
 - **测试覆盖**：新增 `lib/tests/mcp-guidance.test.ts`、`lib/tests/mcp-agent-preferences.test.ts`、`lib/tests/page-health-ai-vision.test.ts`、`lib/tests/page-health-video.test.ts`（共 17 个测试）
+
+### v3.18.0 — 规则生态收尾（已交付，855 测试通过，3 个 skip）
+
+- **规则文档自动生成**：新增 `lib/src/utils/rule-doc-generator.ts`，从 `Rule` 元数据生成 Markdown 文档
+  - CLI：`--generate-rule-docs` / `--generate-rule-docs-dir <dir>`
+  - 按分类输出到 `docs/rules/{category}/{rule-id}.md`，并生成 `docs/rules/README.md` 索引
+- **规则兼容性检查**：新增 `lib/src/utils/rule-compatibility.ts`，检测规则间冲突、缺失依赖、被取代但仍启用的旧规则
+  - 扩展 `Rule` 类型：`conflictsWith` / `requires` / `supersedes`
+  - CLI：`--check-rule-compat` / `--check-rule-compat --json`
+  - `RuleRegistry` 新增 `getCompatibilityReport()`，`RuleEngine` 新增 `checkRuleCompatibility()`
+- **CSS/SCSS 扫描器**：新增 `lib/src/scanners/css-scanner.ts`
+  - 规则：`css-no-important`、`css-max-selector-depth`、`css-too-many-imports`、`css-no-undeclared-scss-variables`、`css-missing-vendor-prefix`
+  - CLI：`--module css`
+- **测试覆盖**：新增 `lib/tests/v3.18.0-rule-ecosystem-completion.test.ts`（16 个测试）
+
+### v3.20.0 — 后端语言扫描器（已交付，测试通过，3 个 skip）
+
+- **新增 `backend` 扫描模块**：`lib/src/scanners/backend-scanner.ts`
+  - Node.js 规则：`backend-node-unhandled-async`、`backend-node-dangerous-eval`、`backend-node-hardcoded-secret`
+  - Go 规则：`backend-go-panic-in-handler`、`backend-go-ignored-error`、`backend-go-hardcoded-secret`
+  - Rust 规则：`backend-rust-unwrap-in-request`、`backend-rust-hardcoded-secret`、`backend-rust-unsafe-block`
+  - CLI：`--module backend`
+- **默认扫描扩展名**：`init-config.ts` 默认加入 `.go`、`.rs`
+- **配置推荐器**：默认启用模块加入 `backend`；检测到 Go/Rust 文件时自动推荐扩展名
+- **Watch 模式**：支持监听 `.go`、`.rs` 并增量扫描 `backend` 模块
+- **MCP 工具**：`mcp/tools.ts` 与 `mcp/guidance.ts` 同步注册 `backend` 模块
+- **规则文档**：补齐 `docs/rules/backend/*.md` 9 条后端规则文档
+- **README 更新**：能力矩阵更新为「14 大模块、75+ 条规则」，模块矩阵表与 CLI 示例增加 `backend`
+- **版本同步**：`lib/package.json` 与 CLI/MCP/Server/LSP 版本升级到 `3.20.0`
+- **测试覆盖**：新增 `lib/tests/v3.20.0-backend-scanner.test.ts`（18 个测试）
+
+### v3.19.0 — JSON/YAML/Markdown 扫描器（已交付，876 测试通过，3 个 skip）
+
+- **新增 `data` 扫描模块**：`lib/src/scanners/data-scanner.ts`
+  - JSON 规则：`json-invalid-syntax`、`json-trailing-comma`、`json-duplicate-key`
+  - YAML 规则：`yaml-invalid-syntax`、`yaml-duplicate-key`、`yaml-empty-value`
+  - Markdown 规则：`markdown-no-todo-link`、`markdown-empty-link`、`markdown-duplicate-heading`
+  - CLI：`--module data`
+- **默认扫描扩展名**：`init-config.ts` 默认加入 `.yaml`、`.yml`、`.md`、`.markdown`
+- **配置推荐器**：默认启用模块加入 `data`，检测到 YAML/Markdown 文件时自动推荐扩展名
+- **Watch 模式**：支持监听 `.json/.yaml/.yml/.md/.markdown` 并增量扫描 `data` 模块，同时补全 v3.18.0 遗漏的 `css` 模块监听
+- **MCP 工具**：`mcp/tools.ts` 与 `mcp/guidance.ts` 同步注册 `css`、`data` 模块
+- **规则文档**：补齐 `docs/rules/data/*.md` 9 条规则文档；补齐 v3.18.0 遗漏的 `docs/rules/style/*.md`、`docs/rules/performance/css-too-many-imports.md` 5 条 CSS 规则文档
+- **README 修正**：能力矩阵更新为「13 大模块、65+ 条规则」，模块矩阵表与 CLI 示例增加 `css`、`data`；修正 hooks 模块实际规则数为 10，AST 引擎总规则数更新为 67
+- **测试覆盖**：新增 `lib/tests/v3.19.0-json-yaml-markdown-scanner.test.ts`（18 个测试）
+
+### v3.17.0 — 规则生态与扩展（已交付，842 测试通过，3 个 skip）
+
+- **规则模板生成器**：新增 `--create-rule <id>`，一键生成规则文件 + 测试文件模板
+  - 支持 `--create-rule-dir`、`-category`、`-severity`、`-fix`、`-lang <js|ts>` 选项
+  - 生成文件可直接作为 `customRules` 加载到扫描流程
+- **规则市场索引**：新增 `lib/market/index.json` 与市场索引加载器 `lib/src/utils/market-index.ts`
+  - 支持 `extends: market:<alias>` 从索引解析到 npm 包并加载规则
+  - 支持 `--market-index` / `--market-index-json` 查看市场包，支持 `--market-index-url` 覆盖远程索引
+- **规则评分系统**：新增 `lib/src/utils/rule-scoring.ts`，基于本地扫描历史计算规则综合评分
+  - 评分维度：使用率、准确率、修复成功率、用户评分
+  - CLI：`--rule-scores` / `--rule-scores-json`
+- **自定义规则热重载**：`--watch` 模式下，自定义规则文件变更后自动 `reloadCustomRule` 并重新扫描
+- **测试覆盖**：新增 `lib/tests/v3.17.0-rule-ecosystem.test.ts`（15 个测试）
+
+### v3.16.0 — 智能测试推荐补全（已交付，822 测试通过，3 个 skip）
+
+- **可视化影响图**：`--recommend-tests` 新增 `--impact-graph` / `--impact-graph-format`，输出“变更文件 → 模块 → 路由 → 测试”的依赖图
+  - 支持 `json` / `mermaid` / `dot` 三种格式，可直接粘贴到 Markdown 或 Graphviz 渲染
+  - 新增 `lib/src/utils/impact-graph.ts`，提供 `buildImpactGraph`、`formatImpactGraph`、`toMermaid`、`toDot`
+  - `recommendTests()` 增加 `includeImpactGraph` 选项，`RecommendTestsResult` 增加 `impactGraph` 字段
+- **多框架 E2E 运行集成**：`--e2e-run` 新增 `--e2e-tool <auto|playwright|cypress|selenium|katalon>`，默认 `auto` 保持 Playwright 优先
+  - 新增 `cypressIntegration`、`seleniumIntegration`、`katalonIntegration`，调用对应 CLI 并解析失败用例为 `Issue`
+  - `auto` 模式按 Playwright → Cypress → Selenium → Katalon 顺序检测可用工具
+  - Selenium 优先支持 WebdriverIO（`wdio.conf.*`），无配置时给出友好提示
+- **E2E 检测扩展**：`e2e-gap-detector.ts` 新增 Selenium/Katalon URL 提取、框架识别与测试目录发现
+- **MCP 增强**：`recommend-tests` 工具新增 `impactGraph` / `impactGraphFormat`；`e2e-run` 工具新增 `tool` 参数
+- **测试覆盖**：新增 `lib/tests/v3.16.0-impact-graph.test.ts`（6 个测试）、`lib/tests/v3.16.0-e2e-frameworks.test.ts`（13 个测试），扩展 `v3.9.0-test-recommender.test.ts`
+
+### v3.15.0 — 扫描体验与性能分析（已交付，802 测试通过，3 个 skip）
+
+- **扫描耗时分析**：新增 `--profile`，按规则/文件输出扫描耗时排名，帮助定位性能瓶颈
+  - `RuleEngine.scan()` 返回 `ScanResult.profile`，包含每条规则的 `totalMs / avgMs / maxMs / count` 和每个文件的 `totalMs / ruleCount`
+  - 终端自动输出 Top 10 规则与 Top 10 文件耗时
+- **实时进度条**：长扫描任务默认显示进度条（已扫描文件数 / 总文件数 / ETA）；`--no-progress` 可关闭
+- **Watch 模式增量优化**：`--watch` 模式下文件变更后，根据变更文件类型推断相关模块，仅扫描涉及模块而非全量重新扫描
+- **智能配置推荐**：新增 `--recommend-config`，根据项目规模、框架、文件结构自动推荐 `scan.includeExtensions`、`excludeDirs`、`concurrency`、`cacheTtlHours`、`strategy`、`modules`
+- **测试覆盖**：新增 `lib/tests/v3.15.0-scan-experience.test.ts`（6 个测试）
 
 ### v3.11.2 — 小程序性能采集（已交付，748 测试通过，3 个 skip）
 

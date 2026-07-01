@@ -14,7 +14,7 @@ export type {
 // v3.7.0: Incremental Index & Impact Analysis
 export { ProjectIndexer } from "./engine/indexer.js";
 export type { EngineOptions } from "./engine/rule-engine.js";
-export { createEngine, RuleEngine } from "./engine/rule-engine.js";
+export { createEngine, formatScanProfile, RuleEngine } from "./engine/rule-engine.js";
 // Phase v2.3.0: GitHub Actions Annotation
 export {
     formatAllAnnotations,
@@ -86,6 +86,7 @@ export {
     runMiniProgramTest,
     runPageHealthCheck,
     safeRouteName,
+    seleniumIntegration,
     stylelintIntegration,
     toMiniProgramScanResult,
     toScanResult,
@@ -93,6 +94,8 @@ export {
     uploadMiniProgramResult,
     uploadPageHealthResult,
 } from "./integrations/index.js";
+// v3.16.0: 多框架 E2E 运行集成
+export { cypressIntegration, katalonIntegration } from "./integrations/index.js";
 export type { MCPServerOptions } from "./mcp/mcp-server.js";
 // v3.8.0: MCP Server
 export { runMCPServer } from "./mcp/mcp-server.js";
@@ -101,6 +104,12 @@ export { createRegistry, RuleRegistry } from "./rules/registry.js";
 export { a11yRules } from "./scanners/a11y-scanner.js";
 export { componentRules } from "./scanners/component-scanner.js";
 export { crossFileRules } from "./scanners/cross-file-scanner.js";
+// v3.18.0: CSS/SCSS 扫描器
+export { cssRules } from "./scanners/css-scanner.js";
+// v3.19.0: JSON/YAML/Markdown 扫描器
+export { dataRules } from "./scanners/data-scanner.js";
+// v3.20.0: 后端语言扫描器
+export { backendRules } from "./scanners/backend-scanner.js";
 // v3.6.0: E2E 测试治理
 export { e2eRules } from "./scanners/e2e-scanner.js";
 export { hooksRules } from "./scanners/hooks-scanner.js";
@@ -122,11 +131,14 @@ export type {
 export { DashboardServer } from "./server/dashboard-server.js";
 export type {
     ComponentLib,
+    CreateRuleOptions,
     CustomRuleConfig,
     Fix,
     Framework as BaseFramework,
     ImportInfo,
     Issue,
+    MarketIndex,
+    MarketPackage,
     ParseOptions,
     Platform,
     Position,
@@ -136,7 +148,12 @@ export type {
     RuleCategory,
     RuleConfig,
     RuleContext,
+    RuleScore,
+    RuleScoreSummary,
     RuleUtils,
+    ScanProfile,
+    ScanProfileFileTiming,
+    ScanProfileRuleTiming,
     ScanResult,
     Severity,
 } from "./types.js";
@@ -179,6 +196,8 @@ export {
 } from "./utils/compliance.js";
 export { getAdaptiveConcurrency } from "./utils/concurrent.js";
 export { loadConfig } from "./utils/config-loader.js";
+export type { RecommendedConfig } from "./utils/config-recommender.js";
+export { formatRecommendedConfig, recommendConfig } from "./utils/config-recommender.js";
 export type { DashboardOptions } from "./utils/dashboard.js";
 // v2.8.0: 趋势看板
 export { generateDashboard } from "./utils/dashboard.js";
@@ -204,6 +223,50 @@ export {
     formatE2EGapReport,
 } from "./utils/e2e-gap-detector.js";
 export type { WatchOptions } from "./utils/file-watcher.js";
+// v3.16.0: 可视化影响图
+export type {
+    BuildImpactGraphOptions,
+    ImpactEdge,
+    ImpactGraph,
+    ImpactGraphFormat,
+    ImpactNode,
+    ImpactNodeType,
+} from "./utils/impact-graph.js";
+export { buildImpactGraph, formatImpactGraph, toDot, toMermaid } from "./utils/impact-graph.js";
+// v3.17.0: 规则市场索引
+export type { LoadMarketIndexOptions } from "./utils/market-index.js";
+export {
+    formatMarketIndex,
+    formatMarketIndexJson,
+    listMarketPackages,
+    loadDefaultMarketIndexSync,
+    loadMarketIndex,
+    resolveMarketPackage,
+} from "./utils/market-index.js";
+// v3.17.0: 规则模板生成器
+export type { GeneratedRuleFiles } from "./utils/rule-template-generator.js";
+export { generateRuleTemplate } from "./utils/rule-template-generator.js";
+// v3.17.0: 规则评分
+export {
+    computeRuleScores,
+    formatRuleScores,
+    formatRuleScoresJson,
+    recordFixSuccess,
+    setRuleUserRating,
+} from "./utils/rule-scoring.js";
+// v3.17.0: 自定义规则热重载
+export type { WatchCustomRulesResult } from "./utils/rule-hot-reload.js";
+export { watchCustomRules } from "./utils/rule-hot-reload.js";
+// v3.18.0: 规则文档生成器
+export type { GeneratedRuleDocs } from "./utils/rule-doc-generator.js";
+export { formatGeneratedDocs, generateRuleDoc, generateRuleDocs } from "./utils/rule-doc-generator.js";
+// v3.18.0: 规则兼容性检查
+export {
+    checkRuleCompatibility,
+    formatCompatibilityReport,
+    formatCompatibilityReportJson,
+    isCompatibilityReportClean,
+} from "./utils/rule-compatibility.js";
 export { FileWatcher, watchProject } from "./utils/file-watcher.js";
 export type { FixBotConfig, FixBotResult } from "./utils/fix-bot.js";
 // v2.6.0: 自动修复 Bot

@@ -154,4 +154,24 @@ describe("v3.9.0 — Intelligent Test Recommendation", () => {
         const json = formatRecommendationsJson(result) as Record<string, unknown>;
         expect(json.flakyTests).toHaveLength(1);
     });
+
+    it("v3.16.0: includeImpactGraph: true 时 result.impactGraph 应包含 nodes/edges", async () => {
+        writeFile("package.json", JSON.stringify({ name: "test", devDependencies: { jest: "^29.0.0" } }));
+        writeFile("src/utils.ts", "export function add(a: number, b: number) { return a + b; }\n");
+        writeFile(
+            "src/utils.test.ts",
+            'import { add } from "./utils";\ntest("add", () => { expect(add(1, 2)).toBe(3); });\n'
+        );
+
+        const result = await recommendTests({
+            projectDir: tempDir,
+            changedFiles: [join(tempDir, "src/utils.ts")],
+            includeImpactGraph: true,
+        });
+
+        expect(result.impactGraph).toBeDefined();
+        expect(result.impactGraph?.nodes.length).toBeGreaterThan(0);
+        expect(result.impactGraph?.edges.length).toBeGreaterThan(0);
+        expect(result.impactGraph?.changedFiles).toContain("src/utils.ts");
+    });
 });

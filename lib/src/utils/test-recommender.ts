@@ -14,6 +14,7 @@ import { globby } from "globby";
 import pc from "picocolors";
 import { ProjectIndexer, type RouteInfo } from "@/engine/indexer.js";
 import type { TestFramework } from "@/types.js";
+import { buildImpactGraph, type ImpactGraph } from "@/utils/impact-graph.js";
 import { collectTestFiles, extractCoveredPaths } from "@/utils/e2e-gap-detector.js";
 import { detectProjectMeta } from "@/utils/project-detector.js";
 import { type FlakyTestInfo, type FlakyTestThresholds, TestHistoryReport } from "@/utils/test-history.js";
@@ -33,6 +34,8 @@ export interface RecommendTestsOptions {
     minPriority?: number;
     /** flaky 检测阈值 */
     flakyThresholds?: FlakyTestThresholds;
+    /** v3.16.0: 是否构建可视化影响图 */
+    includeImpactGraph?: boolean;
 }
 
 export interface TestRecommendation {
@@ -75,6 +78,8 @@ export interface RecommendTestsResult {
         uncovered: number;
         flaky: number;
     };
+    /** v3.16.0: 可视化影响图 */
+    impactGraph?: ImpactGraph;
 }
 
 const SOURCE_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".vue"]);
@@ -174,7 +179,7 @@ async function ensureIndexer(projectDir: string): Promise<{ indexer: ProjectInde
 
 /** 推断测试类型 */
 function inferTestType(testFile: string): "unit" | "integration" | "e2e" {
-    if (/[\\/](?:e2e|cypress)[\\/]/.test(testFile) || /\.e2e\./.test(testFile)) {
+    if (/[\\/](?:e2e|cypress|selenium|wdio|katalon)[\\/]/.test(testFile) || /\.(e2e|cy)\./.test(testFile)) {
         return "e2e";
     }
     if (/[\\/](?:integration|__tests__)[\\/]/.test(testFile)) {
@@ -195,6 +200,10 @@ function suggestCommand(testFile: string, framework: TestFramework | undefined, 
             return `npx playwright test ${relPath}`;
         case "cypress":
             return `npx cypress run --spec ${relPath}`;
+        case "selenium":
+            return `npx wdio run --spec ${relPath}`;
+        case "katalon":
+            return `katalon -runMode=console -testSuitePath="${relPath}"`;
         case "mocha":
             return `npx mocha ${relPath}`;
         case "ava":
@@ -408,6 +417,19 @@ export async function recommendTests(options: RecommendTestsOptions): Promise<Re
         flaky: recommendations.filter((r) => r.flakyRisk).length,
     };
 
+    // v3.16.0: 构建可视化影响图
+    let impactGraph: ImpactGraph | undefined;
+    if (options.includeImpactGraph) {
+        impactGraph = buildImpactGraph({
+            projectDir,
+            indexer,
+            changedFiles,
+            routeMap,
+            e2eRouteCoverage,
+            recommendations: recommendationMap,
+        });
+    }
+
     return {
         changedFiles,
         scope,
@@ -417,6 +439,7 @@ export async function recommendTests(options: RecommendTestsOptions): Promise<Re
         uncoveredChanges,
         flakyTests,
         summary,
+        impactGraph,
     };
 }
 
@@ -505,5 +528,6 @@ export function formatRecommendationsJson(result: RecommendTestsResult): object 
         uncoveredChanges: result.uncoveredChanges,
         flakyTests: result.flakyTests,
         summary: result.summary,
+        impactGraph: result.impactGraph,
     };
 }

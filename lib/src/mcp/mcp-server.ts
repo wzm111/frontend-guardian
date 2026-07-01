@@ -30,7 +30,7 @@ export async function runMCPServer(options: MCPServerOptions): Promise<void> {
     // MCP 占用 stdout；启动前必须停止所有向 stdout 的写入。
     // stderr 仍可自由使用，因为 stdio transport 只读 stdin / 只写 stdout。
     const server = new Server(
-        { name: "frontend-guardian", version: "3.14.1" },
+        { name: "frontend-guardian", version: "3.20.0" },
         { capabilities: { tools: {}, prompts: {} } }
     );
 

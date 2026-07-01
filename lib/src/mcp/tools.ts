@@ -12,9 +12,17 @@ import { createUnifiedDiff } from "@/formatters/unified-diff.js";
 import { formatMiniProgramJson, formatMiniProgramReport, runMiniProgramTest } from "@/integrations/miniprogram.js";
 import { formatPageHealthJson, isPlaywrightAvailable, runPageHealthCheck } from "@/integrations/page-health.js";
 import { playwrightIntegration } from "@/integrations/playwright.js";
+// v3.16.0
+import { cypressIntegration, katalonIntegration, seleniumIntegration } from "@/integrations/index.js";
 import { a11yRules } from "@/scanners/a11y-scanner.js";
 import { componentRules } from "@/scanners/component-scanner.js";
 import { crossFileRules } from "@/scanners/cross-file-scanner.js";
+// v3.18.0
+import { cssRules } from "@/scanners/css-scanner.js";
+// v3.19.0
+import { dataRules } from "@/scanners/data-scanner.js";
+// v3.20.0
+import { backendRules } from "@/scanners/backend-scanner.js";
 import { e2eRules } from "@/scanners/e2e-scanner.js";
 import { hooksRules } from "@/scanners/hooks-scanner.js";
 import { i18nRules } from "@/scanners/i18n-scanner.js";
@@ -46,6 +54,9 @@ const MODULES = [
     "platform",
     "svelte",
     "e2e",
+    "css",
+    "data",
+    "backend",
 ] as const;
 
 const MODULE_RULES: Record<string, Rule[]> = {
@@ -60,6 +71,9 @@ const MODULE_RULES: Record<string, Rule[]> = {
     platform: platformRules,
     svelte: svelteRules,
     e2e: e2eRules,
+    css: cssRules,
+    data: dataRules,
+    backend: backendRules,
 };
 
 /** 构造引擎实例（MCP 场景默认静默） */
@@ -326,7 +340,7 @@ export function getToolDefinitions(): Tool[] {
             name: "scan",
             description:
                 "Run a frontend governance scan on the project. " +
-                "Optionally filter by module (i18n, performance, a11y, security, naming, cross-file, component, hooks, platform, svelte, e2e, all), " +
+                "Optionally filter by module (i18n, performance, a11y, security, naming, cross-file, component, hooks, platform, svelte, e2e, css, data, backend, all), " +
                 "severity level, or file scope (staged, diff, specific files). " +
                 "Returns a structured report with issues grouped by severity.",
             inputSchema: {
@@ -475,13 +489,20 @@ export function getToolDefinitions(): Tool[] {
         {
             name: "e2e-run",
             description:
-                "Run Playwright E2E tests and return a governance report. " +
-                "Detects Playwright configuration automatically. " +
+                "Run E2E tests and return a governance report. " +
+                "Supports Playwright, Cypress, Selenium (WebdriverIO), and Katalon. " +
+                "Auto-detects available framework unless a tool is specified. " +
                 "Returns test failures as structured issues.",
             inputSchema: {
                 type: "object",
                 properties: {
                     json: { type: "boolean", description: "Return JSON output." },
+                    // v3.16.0
+                    tool: {
+                        type: "string",
+                        enum: ["auto", "playwright", "cypress", "selenium", "katalon"],
+                        description: "E2E tool to run. Default: auto.",
+                    },
                 },
             },
         },
@@ -915,6 +936,16 @@ export function getToolDefinitions(): Tool[] {
                             minRuns: { type: "number", description: "Minimum historical runs required (default 3)." },
                         },
                     },
+                    // v3.16.0
+                    impactGraph: {
+                        type: "boolean",
+                        description: "Include visual impact graph in the result.",
+                    },
+                    impactGraphFormat: {
+                        type: "string",
+                        enum: ["json", "mermaid", "dot"],
+                        description: "Format for impact graph when returning Markdown. Default: mermaid.",
+                    },
                 },
             },
         },
@@ -1212,18 +1243,39 @@ async function handleE2ERun(
     args: import("./types.js").E2ERunToolArgs,
     options: MCPServerOptions
 ): Promise<MCPToolResult> {
-    if (!playwrightIntegration.isAvailable(options.projectDir)) {
+    const tools = [
+        { name: "Playwright", integration: playwrightIntegration },
+        { name: "Cypress", integration: cypressIntegration },
+        { name: "Selenium", integration: seleniumIntegration },
+        { name: "Katalon", integration: katalonIntegration },
+    ];
+
+    const requestedTool = args.tool || "auto";
+    let selected;
+    if (requestedTool === "auto") {
+        selected = tools.find((t) => t.integration.isAvailable(options.projectDir));
+    } else {
+        selected = tools.find((t) => t.name.toLowerCase() === requestedTool.toLowerCase());
+    }
+
+    if (!selected) {
         return textResult(
-            "Playwright is not available in this project. " +
-                "Please install @playwright/test or add a playwright.config.{ts,js,mjs,cjs} file.",
+            requestedTool === "auto"
+                ? "No supported E2E tool detected (Playwright / Cypress / Selenium / Katalon)."
+                : `E2E tool '${requestedTool}' is not available in this project.`,
             true
         );
     }
-    const issues = playwrightIntegration.run(options.projectDir);
-    if (args.json) {
-        return textResult(JSON.stringify({ issues }, null, 2));
+
+    if (requestedTool !== "auto" && !selected.integration.isAvailable(options.projectDir)) {
+        return textResult(`E2E tool '${requestedTool}' is not available in this project.`, true);
     }
-    const lines = ["# Playwright E2E 测试结果", "", `失败/超时 Issue: ${issues.length}`, ""];
+
+    const issues = selected.integration.run(options.projectDir);
+    if (args.json) {
+        return textResult(JSON.stringify({ tool: selected.name, issues }, null, 2));
+    }
+    const lines = [`# ${selected.name} E2E 测试结果`, "", `失败/超时 Issue: ${issues.length}`, ""];
     for (const issue of issues) {
         lines.push(`- [${issue.severity}] ${issue.file}:${issue.line} ${issue.title}`);
         if (issue.description) lines.push(`  ${issue.description}`);
@@ -1646,10 +1698,19 @@ async function handleRecommendTests(
         changedFiles: args.scope === "explicit" ? args.changedFiles : undefined,
         minPriority: args.minPriority ?? 1,
         flakyThresholds: args.flakyThresholds,
+        includeImpactGraph: args.impactGraph,
     });
 
     if (args.json) {
         return textResult(JSON.stringify(formatRecommendationsJson(result), null, 2));
     }
-    return textResult(formatRecommendations(result));
+
+    const lines = [formatRecommendations(result)];
+    if (args.impactGraph && result.impactGraph) {
+        const { formatImpactGraph } = await import("@/utils/impact-graph.js");
+        lines.push("");
+        lines.push("## Impact Graph");
+        lines.push(formatImpactGraph(result.impactGraph, args.impactGraphFormat || "mermaid") as string);
+    }
+    return textResult(lines.join("\n"));
 }

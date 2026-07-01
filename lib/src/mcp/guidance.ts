@@ -7,7 +7,7 @@
 import type { AgentKind } from "./types.js";
 
 /** 指引版本号，更新内容后应同步递增 */
-export const USAGE_GUIDANCE_VERSION = "3.14.1";
+export const USAGE_GUIDANCE_VERSION = "3.20.0";
 
 /**
  * 返回 frontend-guardian MCP 工具的使用指引。
@@ -31,7 +31,7 @@ export function getUsageGuidance(agentKind?: AgentKind): string {
    - 索引会持久化到 \`.frontend-guardian/index/index.json\`，多 Agent 共享。
 
 3. **执行扫描**
-   - 模块选择：\`i18n\` | \`performance\` | \`a11y\` | \`security\` | \`naming\` | \`cross-file\` | \`component\` | \`hooks\` | \`platform\` | \`svelte\` | \`e2e\` | \`all\`
+   - 模块选择：\`i18n\` | \`performance\` | \`a11y\` | \`security\` | \`naming\` | \`cross-file\` | \`component\` | \`hooks\` | \`platform\` | \`svelte\` | \`e2e\` | \`css\` | \`data\` | \`backend\` | \`all\`
    - 示例：\`scan: { module: "i18n", agent: "${kind}", json: true }\`
    - 想只看当前编辑文件：\`scan: { module: "i18n", context: { file: "src/App.tsx" } }\`
 

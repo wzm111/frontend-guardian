@@ -1,0 +1,50 @@
+{
+    "version": "1.0.0",
+    "updatedAt": "2026-07-01T00:00:00.000Z",
+    "packages": [
+        {
+            "name": "react-hooks",
+            "npmName": "frontend-guardian-plugin-react-hooks",
+            "description": "React Hooks 最佳实践规则集：检查 useEffect 依赖、useMemo/useCallback 误用、Hook 命名规范等。",
+            "author": "frontend-guardian community",
+            "tags": ["react", "hooks", "best-practice"],
+            "minEngineVersion": "3.17.0",
+            "categories": ["hooks"],
+            "rules": ["react-hooks-deps", "react-hooks-naming", "react-usememo-usage"],
+            "docsUrl": "https://github.com/wzm111/frontend-guardian/tree/main/market#react-hooks"
+        },
+        {
+            "name": "vue",
+            "npmName": "frontend-guardian-plugin-vue",
+            "description": "Vue 生态规则集：组合式 API 规范、Props 校验、事件命名、Transition 使用等。",
+            "author": "frontend-guardian community",
+            "tags": ["vue", "component", "best-practice"],
+            "minEngineVersion": "3.17.0",
+            "categories": ["component", "platform"],
+            "rules": ["vue-prop-types", "vue-event-naming", "vue-composable-order"],
+            "docsUrl": "https://github.com/wzm111/frontend-guardian/tree/main/market#vue"
+        },
+        {
+            "name": "security",
+            "npmName": "frontend-guardian-plugin-security",
+            "description": "前端安全加固规则集：XSS、CSRF、敏感信息泄露、unsafe-eval 等。",
+            "author": "frontend-guardian community",
+            "tags": ["security", "xss", "csrf"],
+            "minEngineVersion": "3.17.0",
+            "categories": ["security"],
+            "rules": ["no-inner-html", "no-eval", "no-hardcoded-secrets"],
+            "docsUrl": "https://github.com/wzm111/frontend-guardian/tree/main/market#security"
+        },
+        {
+            "name": "mini-program",
+            "npmName": "frontend-guardian-plugin-mini-program",
+            "description": "小程序治理规则集：包体积、setData 性能、平台 API 差异、页面注册规范等。",
+            "author": "frontend-guardian community",
+            "tags": ["mini-program", "wechat", "alipay", "douyin", "performance"],
+            "minEngineVersion": "3.17.0",
+            "categories": ["platform", "performance"],
+            "rules": ["mp-package-size", "mp-setdata-limit", "mp-page-registration"],
+            "docsUrl": "https://github.com/wzm111/frontend-guardian/tree/main/market#mini-program"
+        }
+    ]
+}

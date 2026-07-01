@@ -9,6 +9,7 @@ import { resolve, dirname } from "node:path";
 import YAML from "yaml";
 import type { ProjectConfig, RuleConfig, Rule } from "@/types.js";
 import pc from "picocolors";
+import { loadDefaultMarketIndexSync, resolveMarketPackage } from "./market-index.js";
 
 export function loadConfig(projectDir: string, configFile?: string): ProjectConfig {
     // 1. 尝试指定配置文件
@@ -80,6 +81,18 @@ function resolveExtends(config: ProjectConfig, baseDir: string): ProjectConfig {
     if (config.extends.startsWith("npm:")) {
         const packageName = config.extends.slice(4);
         const loaded = loadNpmPackage(packageName);
+        baseConfig = loaded.config;
+        pluginRules = loaded.rules;
+    } else if (config.extends.startsWith("market:")) {
+        // v3.17.0: 支持 market:alias 从规则市场索引解析到 npm 包
+        const alias = config.extends.slice(7);
+        const index = loadDefaultMarketIndexSync();
+        const pkg = resolveMarketPackage(alias, index);
+        if (!pkg) {
+            console.warn(pc.yellow(`⚠️  规则市场索引中未找到别名: ${alias}`));
+            return config;
+        }
+        const loaded = loadNpmPackage(pkg.npmName);
         baseConfig = loaded.config;
         pluginRules = loaded.rules;
     } else {

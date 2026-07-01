@@ -18,14 +18,14 @@
 
 ### P1 — 尽量完成
 
-- [ ] **扫描进度显示**：长扫描任务显示实时进度条（已扫描文件数 / 总文件数 / 预估剩余时间）
-- [ ] **Watch 模式增量优化**：文件变更后只重新扫描变更文件涉及的规则，而非全量重新扫描
-- [ ] **配置推荐**：根据项目规模和框架自动推荐最优配置（并发数、缓存策略、规则集）
+- [x] **扫描进度显示**：长扫描任务显示实时进度条（已扫描文件数 / 总文件数 / 预估剩余时间）
+- [x] **Watch 模式增量优化**：文件变更后只重新扫描变更文件涉及的规则，而非全量重新扫描
+- [x] **配置推荐**：根据项目规模和框架自动推荐最优配置（并发数、缓存策略、规则集）
 
 ### P2 — 排期实现
 
-- [ ] **扫描耗时分析**：`--profile` 参数输出各规则/各文件的扫描耗时排名，帮助定位性能瓶颈
-- [ ] **增量 baseline**：baseline 文件只记录新增问题，不重复记录已知问题，减少 baseline 文件膨胀
+- [x] **扫描耗时分析**：`--profile` 参数输出各规则/各文件的扫描耗时排名，帮助定位性能瓶颈
+- [x] **增量 baseline**：baseline 文件只记录新增问题，不重复记录已知问题，减少 baseline 文件膨胀
 
 ---
 
@@ -41,13 +41,13 @@
 - [x] **VS Code 插件**：发布 VS Code 扩展 `frontend-guardian.vscode`，支持实时问题下划线、hover 提示规则说明、一键修复
 - [x] **增量诊断**：文件保存时增量扫描当前文件，100ms 内返回结果
 
-### P1 — 尽量完成
+### P1 — 尽量完成（已延期至 v4.0 后）
 
 - [ ] **WebStorm / IntelliJ 插件**：基于 LSP 的 JetBrains 插件支持
 - [ ] **Neovim 集成**：通过 LSP 支持 Neovim 的 `null-ls` / `nvim-lint`
 - [ ] **代码 lens**：在问题行上方显示 inline 提示（如"⚠️ useEffect 缺少依赖"）
 
-### P2 — 排期实现
+### P2 — 排期实现（已延期至 v4.0 后）
 
 - [ ] **AI 实时建议**：IDE 中直接展示 AI 修复建议，一键应用
 - [ ] **类型检查联动**：与 TypeScript LSP 联动，在类型错误位置同时展示 guardian 规则提示
@@ -60,21 +60,25 @@
 
 **预计发布**：2026-06-24
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅
 
-- [ ] **规则模板生成器**：`--create-rule` CLI 命令，交互式生成规则模板（含测试模板）
-- [ ] **规则市场索引**：维护公开规则包索引（类似 eslint-plugin 生态），支持 `extends: market:package-name`
-- [ ] **规则评分系统**：基于使用率、准确率、修复成功率对规则打分，帮助用户选择高质量规则
+- [x] **规则模板生成器**：`--create-rule` CLI 命令，交互式生成规则模板（含测试模板）
+- [x] **规则市场索引**：维护公开规则包索引（类似 eslint-plugin 生态），支持 `extends: market:package-name`
+- [x] **规则评分系统**：基于使用率、准确率、修复成功率对规则打分，帮助用户选择高质量规则
 
-### P1 — 尽量完成
+### P1 — 尽量完成 ✅
 
-- [ ] **自定义规则热重载**：开发自定义规则时，规则文件修改后自动重载（类似 watch 模式）
-- [ ] **规则文档自动生成**：从规则源码自动生成 Markdown 文档（含示例、配置参数说明）
-- [ ] **规则兼容性检查**：检测规则间的冲突（如两个规则可能给出矛盾的建议）
+- [x] **自定义规则热重载**：开发自定义规则时，规则文件修改后自动重载（类似 watch 模式）
+- [x] **规则文档自动生成**：从规则源码自动生成 Markdown 文档（含示例、配置参数说明）
+- [x] **规则兼容性检查**：检测规则间的冲突（如两个规则可能给出矛盾的建议）
 
-### P2 — 排期实现
+### P2 — 已交付 ✅
 
-- [ ] **更多语言支持**：扩展扫描器到 CSS/SCSS、JSON/YAML、Markdown 等非 JS 文件
+- [x] **更多语言支持 — CSS/SCSS**：新增 CSS/SCSS 扫描器（v3.18.0）
+- [x] **更多语言支持 — JSON/YAML/Markdown**：新增 data 扫描器（v3.19.0）
+
+### P2 — 排期实现（已拆分为 v3.20.0，v4.0 前最后补充）
+
 - [ ] **后端语言扫描**：提供 Node.js / Go / Rust 后端代码的基础扫描（安全、命名规范等）
 
 ---
@@ -91,13 +95,13 @@
 - [x] **扫描结果通知**：扫描完成后通过 webhook / 企业微信 / 钉钉 / Slack 发送通知（`--notify`，环境变量自动检测）
 - [x] **问题指派**：Issue 可指派给团队成员（通过代码所有者 `CODEOWNERS` 自动推断，`--assign`）
 
-### P1 — 尽量完成
+### P1 — 尽量完成 ✅
 
 - [x] **治理看板服务端**：部署服务端收集多项目扫描数据，统一展示团队治理趋势
 - [x] **扫描策略分级**：支持 `strict` / `standard` / `loose` 三种预设策略，适配不同严格度要求
 - [x] **合规报告**：生成符合 SOC2 / ISO27001 要求的代码质量合规报告
 
-### P2 — 排期实现
+### P2 — 排期实现（已延期至 v4.0 后）
 
 - [ ] **SSO 集成**：企业 SSO 登录，团队权限管理
 - [ ] **扫描调度中心**：集中管理多个项目的扫描计划、报告归档、告警阈值
@@ -123,10 +127,10 @@
 - [x] **测试骨架生成器**：根据接口文档（Markdown）自动生成 Playwright 测试代码骨架
 - [x] **测试报告质量分析**：解析 Playwright/Cypress JSON 报告，发现 flaky 测试、慢测试、未覆盖页面
 
-### P2 — 排期实现
+### P2 — 排期实现（已延期至 v4.0 后）
 
 - [ ] **智能测试补全建议**：基于缺口检测结果，AI 生成测试用例建议
-- [ ] **多框架支持**：除 Playwright 外，支持 Cypress、Selenium、Katalon 的测试代码扫描
+- [x] **多框架支持**：除 Playwright 外，支持 Cypress、Selenium、Katalon 的测试代码扫描与运行集成（v3.16.0）
 
 ---
 
@@ -312,6 +316,41 @@
 
 ---
 
+## ✅ v3.15.0 — 扫描体验与性能分析（已交付 2026-07-01，802 测试通过，3 个 skip）
+
+**目标**：补齐 v3.2.0 遗留的扫描体验与性能分析能力，让大项目扫描更可控、更可观测。
+
+### 已完成（v3.15.0）
+
+- [x] **扫描耗时分析**：新增 `--profile`，`RuleEngine.scan()` 返回 `ScanResult.profile`
+  - 记录每条规则的 `totalMs / avgMs / maxMs / count`
+  - 记录每个文件的 `totalMs / ruleCount`
+  - 终端输出 Top 10 规则与 Top 10 文件耗时排名
+- [x] **实时进度条**：长扫描任务默认显示进度条（已扫描文件数 / 总文件数 / ETA）
+  - TTY 环境下自动启用；`--no-progress` 可关闭
+  - 非 TTY / `--json` / silent 模式下静默
+- [x] **Watch 模式增量优化**：`--watch` 文件变更后，根据变更文件类型推断相关模块
+  - 只扫描推断出的模块，而非全量重新扫描所有模块
+  - CSS/SCSS 变更 → performance/a11y；i18n/locale 路径 → i18n；test/spec/e2e → e2e；源码 → 全模块
+- [x] **智能配置推荐**：新增 `--recommend-config`
+  - 根据项目规模、框架、文件结构推荐 `scan.includeExtensions`、`excludeDirs`、`concurrency`、`cacheTtlHours`、`strategy`、`modules`
+  - 输出可直接写入 `.frontend-guardian.yml` 的 YAML 配置
+- [x] **增量 baseline**：`saveBaseline` / `--generate-baseline` 自动与已有 baseline 合并去重
+  - 避免重复记录已知问题，减少 baseline 文件膨胀
+- [x] **测试覆盖**：新增 `lib/tests/v3.15.0-scan-experience.test.ts`（6 个测试）
+  - `lib/tests/baseline.test.ts` 增加增量 baseline 测试
+
+### 关键文件
+
+- `lib/src/engine/rule-engine.ts`（profile 收集、进度条、ScanProfile 类型）
+- `lib/src/types.ts`（`ScanProfile` / `ScanProfileRuleTiming` / `ScanProfileFileTiming`）
+- `lib/src/utils/config-recommender.ts`（配置推荐）
+- `lib/src/utils/baseline.ts`（增量 baseline 合并）
+- `lib/bin/watch-mode.js`（模块推断与增量扫描）
+- `lib/bin/fg-core.js`（CLI flags 透传与输出）
+
+---
+
 ## ✅ v3.9.0 — 智能测试推荐（Intelligent Test Recommendation）（已交付 2026-06-18，642 测试通过）
 
 **目标**：基于代码变更影响分析，自动推荐需要重新运行的测试，减少 CI 耗时。
@@ -331,9 +370,8 @@
   - 失败率 / 状态翻转率双阈值检测
   - `--recommend-tests` 输出 flaky 风险提示
 
-### P2 — 排期实现
+### P2 — 排期实现（已延期至 v4.0 后）
 
-- [ ] **可视化影响图**：Web 看板中展示"组件 → 页面 → 测试"的依赖关系图（Canvas/SVG）
 - [ ] **预测性扫描**：基于代码变更模式预测可能引入的问题，在提交前预警
 
 ---
@@ -569,6 +607,30 @@
 
 ---
 
+## ✅ v3.16.0 — 智能测试推荐补全（已交付 2026-07-01，822 测试通过，3 个 skip）
+
+**目标**：补齐 v3.9.0 P2「可视化影响图」与 v3.6.0 P2「多框架 E2E 支持」，完成 v3.x 智能测试推荐闭环。
+
+### v3.16.0 P0 — 必须完成 ✅
+
+- [x] **可视化影响图**：`lib/src/utils/impact-graph.ts`
+  - 构建「变更文件 → 模块 → 路由 → 测试」的影响图
+  - 支持 `json` / `mermaid` / `dot` 三种输出格式
+  - `recommendTests({ includeImpactGraph: true })` 返回 `impactGraph`
+  - CLI：`fg-core . --recommend-tests --impact-graph --impact-graph-format mermaid`
+- [x] **多框架 E2E 运行集成**：`--e2e-run --e2e-tool <auto|playwright|cypress|selenium|katalon>`
+  - 新增 `cypressIntegration`、`seleniumIntegration`、`katalonIntegration`
+  - `auto` 保持 Playwright 优先，兼容旧默认
+  - 解析各框架 JSON/stdout 失败用例为统一 `Issue`
+
+### v3.16.0 P1 — 尽量完成 ✅
+
+- [x] **E2E 框架识别扩展**：`e2e-gap-detector.ts` 新增 Cypress/Selenium/Katalon URL 提取、框架检测、测试目录发现
+- [x] **MCP 工具同步**：`recommend-tests` 新增 `impactGraph` / `impactGraphFormat`；`e2e-run` 新增 `tool`
+- [x] **测试覆盖**：新增 `v3.16.0-impact-graph.test.ts`、`v3.16.0-e2e-frameworks.test.ts`
+
+---
+
 ## 🚧 v4.0.0 — 移动端应用测试（Mobile App Testing）
 
 **目标**：将治理能力从 Web / 小程序延伸到原生移动端应用（iOS / Android），支持 React Native / Flutter / 原生 App 的测试。
@@ -615,44 +677,103 @@
 
 ---
 
-## 🎯 下一步建议（2026-06-09 更新）
+## 🚧 v3.20.0 — 后端语言扫描（Backend Language Scanning）
 
-当前已交付到 **v3.7.6**，下一步推荐方向：
+**目标**：将 frontend-guardian 从纯前端工具扩展为"全栈代码治理入口"，为 Node.js / Go / Rust 后端代码提供基础治理规则。
 
-### 路线 D（推荐）—— 页面测试 → 小程序 → 移动端（按序迭代）
+**预计发布**：2026-07-08
+**状态**：v4.0 前最后补充，完成后即进入 v4.0.0
 
-这是用户最关心的方向，覆盖 Web → 小程序 → App 的完整测试链路：
+### P0 — 必须完成 ✅
 
-1. **v3.10.0 页面测试进阶**（预计 2 周）
-   - 像素级视觉回归（pixelmatch）替代 SHA256 哈希
-   - Lighthouse 性能指标采集
-   - 动态内容遮罩降低误报
-   - 这是 v3.7.x 页面健康检查的自然延伸，市场需求最明确
+- [x] **Node.js 后端扫描**：覆盖 Express / Koa / Nest.js 常见反模式
+  - 未处理的异步错误（`await` 缺失 try/catch）
+  - 直接使用 `eval` / `new Function`
+  - 敏感信息硬编码（secrets、API key、数据库密码）
+- [x] **Go 后端扫描**：基于文本/正则的基础治理
+  - `panic` 在 HTTP handler 中滥用
+  - 敏感信息硬编码
+  - 错误未处理（`_, err :=` 后未判断）
+- [x] **Rust 后端扫描**：基于文本/正则的基础治理
+  - `unwrap()` / `expect()` 在异步/请求路径滥用
+  - 敏感信息硬编码
+  - 不安全代码块 `unsafe { }` 使用
 
-2. **v3.11.0 小程序测试**（预计 2 周）
-   - 微信开发者工具 CLI 自动化
-   - 小程序页面健康检查（白屏、控制台、包体积）
-   - 支付宝 + 抖音扩展
-   - 填补小程序无法被 Playwright 覆盖的空白
+### P1 — 尽量完成 ✅
 
-3. **v4.0.0 移动端应用测试**（预计 3 周）
-   - Maestro + Appium 双方案
-   - 移动端页面健康检查
-   - 真机云测集成
-   - 覆盖 React Native / Flutter / 原生 App
+- [x] **统一后端规则抽象**：后端规则与前端规则共用 `Rule` 接口，`category: "backend"`
+- [x] **文件类型识别**：新增默认扩展名 `.go`、`.rs`、Node.js 相关 `.js`/`.ts`
+- [x] **CLI 模块注册**：`--module backend` 扫描全部后端语言，或 `--module node` / `--module go` / `--module rust`
 
-### 路线 E — 并行推进
+### P2 — 排期实现（可延至 v4.0 后）
 
-如果资源充足，可并行开发：
-- 主线 A：v3.10.0 页面测试进阶 + v3.11.0 小程序测试（有依赖关系，页面测试框架可复用）
-- 主线 B：v3.8.0 MCP Server（AI Agent 集成，与测试方向不冲突）
+- [ ] **类型级分析**：调用 TypeScript AST / Go parser / Rust parser 做更深层的控制流检测
+- [ ] **后端框架专用规则**：针对 gRPC、GraphQL、消息队列等场景的治理规则
 
-### 各版本价值
+---
 
-| 版本 | 核心价值 | 目标用户 |
-|------|---------|---------|
-| v3.10.0 | 视觉回归 + 性能度量 | 前端团队、UI 工程师 |
-| v3.11.0 | 小程序自动化测试 | 小程序开发者、跨端团队 |
-| v4.0.0 | 移动端 App 测试 | 移动端团队、RN/Flutter 开发者 |
+## 🎯 下一步建议（2026-07-01 更新）
 
-**你说继续我就继续，或者你选一个版本开始。**
+当前已交付到 **v3.19.0**。根据重新梳理的优先级，**v4.0 之前只剩最后一个版本 v3.20.0**。
+
+### v4.0 前必须完成
+
+1. **v3.20.0 后端语言扫描**（v4.0 前最后补充，预计 1–1.5 周）
+   - 目标：为 Node.js / Go / Rust 后端代码提供基础治理规则
+   - 覆盖：安全（ secrets / eval 类误用）、命名规范、简单结构检查
+   - 价值：让 frontend-guardian 从纯前端工具扩展为"全栈代码治理入口"
+   - 完成后即可进入 v4.0.0
+
+### v4.0 之后（已明确延期）
+
+以下能力已判定为 v4.0 后实现：
+
+- IDE AI 实时建议、WebStorm/Neovim 插件、TypeScript LSP 联动
+- 企业 SSO、扫描调度中心
+- 智能测试补全建议的进一步增强
+- 预测性扫描与生产链路关联分析
+
+### v4.0.0 大版本方向
+
+- **移动端应用测试**：Maestro + Appium 双方案，覆盖 React Native / Flutter / 原生 App
+- 作为大版本升级，与 v3.x 的扫描/页面测试体系形成完整矩阵
+
+**建议：立即开始 v3.20.0 后端语言扫描，完成后发布 v4.0.0 移动端应用测试。**
+
+---
+
+## ✅ v3.17.0 — 规则生态与扩展补齐（Rule Ecosystem Completion）（已交付 2026-07-01，837 测试通过，3 个 skip）
+
+**目标**：补齐 roadmap v3.4.0 长期未完成的 P0 与低风险 P1，建立规则分享、复用和持续改进机制。
+
+> 注：为保持版本号连续，本迭代以 `v3.17.0` 发布，对应 roadmap 中的 v3.4.0 规则生态能力。
+
+### 已完成（v3.17.0）
+
+- [x] **规则模板生成器**：新增 `--create-rule <id>`，一键生成规则文件 + 测试文件模板
+  - 支持 JS/TS 模板（`--create-rule-lang js|ts`）
+  - 可选包含 `fix` 示例（`--create-rule-fix`）
+  - 支持指定分类、严重级别、输出目录
+- [x] **规则市场索引**：`lib/market/index.json` 维护本地默认索引，支持远程覆盖
+  - CLI：`--market-index` / `--market-index-json` / `--market-index-url <url>`
+  - 配置文件支持 `extends: market:<alias>`，解析为对应 npm 包后复用现有插件加载逻辑
+- [x] **规则评分系统**：基于本地扫描历史与持久化评分数据计算规则综合得分
+  - 维度：使用率（40%）、准确率（30%）、修复成功率（20%）、用户评分（10%）
+  - CLI：`--rule-scores` / `--rule-scores-json`
+  - 数据本地存储：`.frontend-guardian/rule-scores.json`，不上传遥测
+- [x] **自定义规则热重载**：`--watch` 模式下自动监听 `customRules` 文件变更
+  - 变更后调用 `RuleEngine.reloadCustomRule()` 并防抖重扫
+- [x] **测试覆盖**：新增 `lib/tests/v3.17.0-rule-ecosystem.test.ts`（15 个测试）
+
+### 关键文件
+
+- `lib/src/utils/rule-template-generator.ts`
+- `lib/src/utils/market-index.ts`
+- `lib/src/utils/rule-scoring.ts`
+- `lib/src/utils/rule-hot-reload.ts`
+- `lib/market/index.json`
+- `lib/src/rules/registry.ts`（`reloadCustomRule`）
+- `lib/src/engine/rule-engine.ts`（`reloadCustomRule` 委托）
+- `lib/src/utils/config-loader.ts`（`market:` extends 支持）
+- `lib/bin/fg-core.js`（新增 CLI flags）
+- `lib/bin/watch-mode.js`（自定义规则 watcher）

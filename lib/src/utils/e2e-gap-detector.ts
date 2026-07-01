@@ -126,16 +126,6 @@ export function detectE2EGaps(options: E2EGapOptions): E2EGapResult {
     };
 }
 
-/** 查找 E2E 测试目录 */
-function findE2EDir(projectDir: string): string | null {
-    const candidates = ["tests/e2e", "e2e", "playwright-tests", "cypress/e2e", "src/e2e"];
-    for (const dir of candidates) {
-        const fullPath = join(projectDir, dir);
-        if (existsSync(fullPath)) return fullPath;
-    }
-    return null;
-}
-
 /** 收集所有测试文件 */
 export function collectTestFiles(dir: string): string[] {
     const files: string[] = [];
@@ -144,35 +134,100 @@ export function collectTestFiles(dir: string): string[] {
         const fullPath = join(dir, entry.name);
         if (entry.isDirectory()) {
             files.push(...collectTestFiles(fullPath));
-        } else if (/\.(spec|test|e2e)\.(ts|js|mjs)$/.test(entry.name)) {
+        } else if (/\.(spec|test|e2e|cy)\.(ts|js|mjs)$/.test(entry.name) || /\.(groovy|java)$/.test(entry.name)) {
             files.push(fullPath);
         }
     }
     return files;
 }
 
+/** 检测 E2E 测试框架 */
+export function detectE2EFramework(
+    filePath: string,
+    content: string
+): "playwright" | "cypress" | "selenium" | "katalon" | undefined {
+    const lowerPath = filePath.toLowerCase();
+    const lowerContent = content.toLowerCase();
+
+    if (/\.(groovy|java|kt)$/.test(lowerPath) || lowerContent.includes("webui.") || lowerContent.includes("katalon")) {
+        return "katalon";
+    }
+    if (lowerPath.includes("cypress") || lowerContent.includes("cy.visit") || lowerContent.includes("cy.intercept")) {
+        return "cypress";
+    }
+    if (
+        lowerPath.includes("selenium") ||
+        lowerPath.includes("wdio") ||
+        /\b(driver|browser)\.(get|url|navigate)/i.test(content) ||
+        lowerContent.includes("webdriverio") ||
+        lowerContent.includes("selenium-webdriver")
+    ) {
+        return "selenium";
+    }
+    if (lowerContent.includes("page.goto") || lowerContent.includes("playwright")) {
+        return "playwright";
+    }
+    return undefined;
+}
+
 /** 从测试文件内容提取覆盖的页面和接口 */
 export function extractCoveredPaths(content: string, pages: Set<string>, apis: Set<string>): void {
-    // 提取 page.goto / cy.visit 中的路径
-    const gotoRegex = /(?:page\.goto|cy\.visit)\s*\(\s*['"]([^'"]+)['"]/g;
+    // 1. 提取 page.goto / cy.visit / driver.get / browser.get / WebUI.navigateToUrl 中的路径
+    const gotoRegex =
+        /(?:page\.goto|cy\.visit|driver\.get|browser\.get|browser\.url|WebUI\.navigateToUrl|Mobile\.startApplication)\s*\(\s*['"]([^'"]+)['"]/g;
     let match;
     while ((match = gotoRegex.exec(content)) !== null) {
         pages.add(match[1]);
     }
 
-    // 提取 waitForResponse / cy.intercept 中的接口路径
+    // 2. Selenium driver.navigate().to('...')
+    const navigateRegex = /(?:driver|browser)\.navigate\(\)\.to\s*\(\s*['"]([^'"]+)['"]/g;
+    while ((match = navigateRegex.exec(content)) !== null) {
+        pages.add(match[1]);
+    }
+
+    // 3. 提取 waitForResponse / cy.intercept / WS.sendRequest 中的接口路径
     const apiRegex =
-        /(?:waitForResponse|cy\.intercept)\s*\([^)]*(?:url\s*=>\s*)?['"]([^'"]*(?:api|graphql|rest)[^'"]*)['"]/gi;
+        /(?:waitForResponse|cy\.intercept|WS\.sendRequest)\s*\([^)]*(?:url\s*=>\s*)?['"]([^'"]*(?:api|graphql|rest)[^'"]*)['"]/gi;
     while ((match = apiRegex.exec(content)) !== null) {
         apis.add(match[1]);
     }
 
-    // 提取字符串中的 URL 路径（简化匹配）
+    // 4. Katalon API 测试中的 REST/SOAP 服务 URL
+    const katalonApiRegex = /WebUI\.callTestCase|WS\.sendRequest\s*\(\s*findTestObject\s*\(\s*['"]([^'"]+)['"]/g;
+    while ((match = katalonApiRegex.exec(content)) !== null) {
+        apis.add(match[1]);
+    }
+
+    // 5. 提取字符串中的 URL 路径（简化匹配）
     const urlRegex = /['"]\/(?:api|graphql|rest)[^'"]*['"]/g;
     while ((match = urlRegex.exec(content)) !== null) {
         const url = match[0].replace(/['"]/g, "");
         if (url.length > 4) apis.add(url);
     }
+}
+
+/** 查找 E2E 测试目录 */
+function findE2EDir(projectDir: string): string | null {
+    const candidates = [
+        "tests/e2e",
+        "e2e",
+        "playwright-tests",
+        "cypress/e2e",
+        "cypress/integration",
+        "src/e2e",
+        "selenium-tests",
+        "wdio",
+        "katalon-tests",
+        "Test Cases",
+        "Scripts",
+        "src/test/java",
+    ];
+    for (const dir of candidates) {
+        const fullPath = join(projectDir, dir);
+        if (existsSync(fullPath)) return fullPath;
+    }
+    return null;
 }
 
 /** 收集项目中的所有页面 */

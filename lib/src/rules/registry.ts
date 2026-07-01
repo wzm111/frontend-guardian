@@ -10,7 +10,8 @@
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Rule, RuleConfig, RuleCategory, Severity, ScanStrategy } from "@/types.js";
+import type { Rule, RuleConfig, RuleCategory, Severity, ScanStrategy, RuleCompatibilityReport } from "@/types.js";
+import { checkRuleCompatibility } from "@/utils/rule-compatibility.js";
 import pc from "picocolors";
 
 /** 规则注册中心 */
@@ -123,6 +124,28 @@ export class RuleRegistry {
         return { loaded, failed };
     }
 
+    /** v3.17.0: 重新加载单个自定义规则文件（用于 watch 热重载） */
+    reloadCustomRule(filePath: string, projectDir?: string): boolean {
+        // loadCustomRule 内部已清除 require cache
+        return this.loadCustomRule(filePath, projectDir);
+    }
+
+    /** v3.17.0: 重新加载多个自定义规则文件 */
+    reloadCustomRules(paths: string[], projectDir?: string): { loaded: string[]; failed: string[] } {
+        const loaded: string[] = [];
+        const failed: string[] = [];
+
+        for (const p of paths) {
+            if (this.reloadCustomRule(p, projectDir)) {
+                loaded.push(p);
+            } else {
+                failed.push(p);
+            }
+        }
+
+        return { loaded, failed };
+    }
+
     /** ───────────────────────────────────────────────────────────────────────── */
     /** 规则取用                                                                      */
     /** ───────────────────────────────────────────────────────────────────────── */
@@ -197,6 +220,13 @@ export class RuleRegistry {
     /** 清除所有自定义规则 */
     clearCustomRules(): void {
         this.customRules.clear();
+    }
+
+    /**
+     * v3.18.0: 获取当前启用规则集的兼容性报告
+     */
+    getCompatibilityReport(): RuleCompatibilityReport {
+        return checkRuleCompatibility(this.getActiveRules());
     }
 
     /**

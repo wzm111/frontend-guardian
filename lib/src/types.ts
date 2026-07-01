@@ -93,6 +93,43 @@ export interface Position {
     column: number;
 }
 
+export interface ScanProfileRuleTiming {
+    /** Rule ID */
+    ruleId: string;
+    /** Total execution time in ms */
+    totalMs: number;
+    /** Number of files scanned by this rule */
+    count: number;
+    /** Average execution time in ms */
+    avgMs: number;
+    /** Max execution time on a single file in ms */
+    maxMs: number;
+}
+
+export interface ScanProfileFileTiming {
+    /** File path */
+    filePath: string;
+    /** Total scan time for this file in ms */
+    totalMs: number;
+    /** Number of rules executed on this file */
+    ruleCount: number;
+}
+
+export interface ScanProfile {
+    /** Module name */
+    module: string;
+    /** Number of files scanned */
+    filesScanned: number;
+    /** Rule timing indexed by ruleId */
+    rulesTimed: Record<string, ScanProfileRuleTiming>;
+    /** File timing indexed by filePath */
+    fileTimings: Record<string, ScanProfileFileTiming>;
+    /** Top slowest rules (sorted by totalMs desc) */
+    topRules: ScanProfileRuleTiming[];
+    /** Top slowest files (sorted by totalMs desc) */
+    topFiles: ScanProfileFileTiming[];
+}
+
 export interface ScanResult {
     /** Module name */
     module: string;
@@ -106,6 +143,8 @@ export interface ScanResult {
     filesScanned: number;
     /** Files with issues */
     filesWithIssues: number;
+    /** v3.15.0: Optional scan performance profile */
+    profile?: ScanProfile;
     /** Optional extra metadata */
     meta?: Record<string, unknown>;
 }
@@ -133,6 +172,12 @@ export interface Rule {
     meta?: Record<string, unknown>;
     /** 规则文档链接 */
     docsUrl?: string;
+    /** 与此规则冲突的规则 ID 列表 */
+    conflictsWith?: string[];
+    /** 启用此规则前必须启用的规则 ID 列表 */
+    requires?: string[];
+    /** 被此规则取代的旧规则 ID 列表 */
+    supersedes?: string[];
     /** Execute rule on a file */
     execute(context: RuleContext): Issue[] | Promise<Issue[]>;
 }
@@ -147,7 +192,9 @@ export type RuleCategory =
     | "security"
     | "style"
     | "architecture"
-    | "e2e";
+    | "e2e"
+    | "data"
+    | "backend";
 
 export interface RuleContext {
     /** Absolute path to the file being analyzed */
@@ -211,11 +258,107 @@ export interface CustomRuleConfig {
     path: string;
 }
 
+/** v3.17.0: 规则市场包信息 */
+export interface MarketPackage {
+    /** 市场别名（如 react-hooks） */
+    name: string;
+    /** 对应 npm 包名 */
+    npmName: string;
+    /** 描述 */
+    description: string;
+    /** 作者/组织 */
+    author?: string;
+    /** 标签 */
+    tags?: string[];
+    /** 最低引擎版本 */
+    minEngineVersion?: string;
+    /** 覆盖的分类 */
+    categories?: RuleCategory[];
+    /** 默认导出的规则 ID 列表 */
+    rules?: string[];
+    /** 文档链接 */
+    docsUrl?: string;
+}
+
+/** v3.17.0: 规则市场索引 */
+export interface MarketIndex {
+    /** 索引 schema 版本 */
+    version: string;
+    /** 更新时间 ISO 8601 */
+    updatedAt: string;
+    /** 市场包列表 */
+    packages: MarketPackage[];
+}
+
+/** v3.17.0: 单条规则评分 */
+export interface RuleScore {
+    /** 规则 ID */
+    ruleId: string;
+    /** 综合得分 0-100 */
+    score: number;
+    /** 命中次数（作为使用率代理） */
+    usageCount: number;
+    /** 准确率 0-1 */
+    accuracy?: number;
+    /** 修复成功率 0-1 */
+    fixSuccessRate?: number;
+    /** 用户评分 1-5 */
+    userRating?: number;
+    /** 更新时间 */
+    updatedAt: string;
+}
+
+/** v3.17.0: 规则评分汇总 */
+export interface RuleScoreSummary {
+    /** 各规则评分 */
+    scores: Record<string, RuleScore>;
+    /** 参与统计的扫描次数 */
+    totalScans: number;
+}
+
+/** v3.17.0: 生成规则模板选项 */
+export interface CreateRuleOptions {
+    /** 输出目录 */
+    targetDir: string;
+    /** 规则 ID（kebab-case） */
+    ruleId: string;
+    /** 规则分类 */
+    category: RuleCategory;
+    /** 默认严重级别 */
+    severity: Severity;
+    /** 是否包含 fix 示例 */
+    includeFix: boolean;
+    /** 模板语言 */
+    language: "js" | "ts";
+}
+
+/** v3.18.0: 生成规则文档选项 */
+export interface GenerateRuleDocsOptions {
+    /** 输出目录 */
+    outputDir: string;
+    /** 规则列表，未提供时自动生成空索引 */
+    rules?: Rule[];
+    /** 是否包含示例 */
+    includeExamples?: boolean;
+}
+
+/** v3.18.0: 规则兼容性报告 */
+export interface RuleCompatibilityReport {
+    /** 同时启用的冲突规则对 */
+    conflicts: Array<{ ruleId: string; conflictsWith: string; reason?: string }>;
+    /** 缺少前置依赖的规则 */
+    missingRequirements: Array<{ ruleId: string; requires: string }>;
+    /** 被取代但仍启用的旧规则 */
+    superseded: Array<{ ruleId: string; supersededBy: string }>;
+}
+
 export interface ProjectConfig {
     /** Config file path */
     configFile?: string;
     /** 继承的组织级基线配置（URL 或本地路径） */
     extends?: string;
+    /** v3.17.0: 规则市场索引配置 */
+    marketIndex?: { url?: string; offline?: boolean };
     /** i18n configuration */
     i18n?: I18nConfig;
     /** Component configuration */
@@ -407,7 +550,7 @@ export type Bundler =
     | "farm"
     | "rspack"
     | "wmr";
-export type TestFramework = "jest" | "vitest" | "cypress" | "playwright" | "mocha" | "karma" | "ava" | "node:test";
+export type TestFramework = "jest" | "vitest" | "cypress" | "playwright" | "selenium" | "katalon" | "mocha" | "karma" | "ava" | "node:test";
 export type StateManager = "redux" | "mobx" | "zustand" | "recoil" | "jotai" | "pinia" | "vuex" | "valtio";
 export type StylingSolution =
     | "tailwindcss"

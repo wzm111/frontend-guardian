@@ -18,6 +18,10 @@ export {
 
 // v3.6.1: Playwright E2E 测试集成
 import { playwrightIntegration as _playwrightIntegration } from "./playwright.js";
+// v3.16.0: Cypress / Selenium / Katalon E2E 测试集成
+import { cypressIntegration as _cypressIntegration } from "./cypress.js";
+import { katalonIntegration as _katalonIntegration } from "./katalon.js";
+import { seleniumIntegration as _seleniumIntegration } from "./selenium.js";
 
 export type { CoreWebVitalsResult, CWVThresholds } from "../utils/lighthouse-metrics.js";
 export {
@@ -63,6 +67,9 @@ export {
     uploadPageHealthResult,
 } from "./page-health.js";
 export { _playwrightIntegration as playwrightIntegration };
+export { _cypressIntegration as cypressIntegration };
+export { _seleniumIntegration as seleniumIntegration };
+export { _katalonIntegration as katalonIntegration };
 export const allExternalTools = [
     _eslintIntegration,
     _typescriptIntegration,

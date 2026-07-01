@@ -29,8 +29,12 @@ import type {
     ProjectConfig,
     ProjectMeta,
     Rule,
+    RuleCompatibilityReport,
     RuleContext,
     RuleUtils,
+    ScanProfile,
+    ScanProfileFileTiming,
+    ScanProfileRuleTiming,
     ScanResult,
     Severity,
 } from "@/types.js";
@@ -80,6 +84,141 @@ export interface EngineOptions {
     strategy?: "strict" | "standard" | "loose";
     /** v3.8.0: 静默模式（禁止向 stdout 输出日志，供 MCP Server 等场景使用） */
     silent?: boolean;
+    /** v3.15.0: 启用扫描耗时分析 */
+    profile?: boolean;
+    /** v3.15.0: 显示实时进度条 */
+    showProgress?: boolean;
+}
+
+/** v3.15.0: 扫描耗时数据收集器 */
+class ScanProfileCollector {
+    moduleName: string;
+    rulesTimed = new Map<string, { totalMs: number; count: number; maxMs: number }>();
+    fileTimings = new Map<string, { totalMs: number; ruleCount: number }>();
+
+    constructor(moduleName: string) {
+        this.moduleName = moduleName;
+    }
+
+    recordRule(ruleId: string, ms: number): void {
+        const existing = this.rulesTimed.get(ruleId);
+        if (existing) {
+            existing.totalMs += ms;
+            existing.count += 1;
+            existing.maxMs = Math.max(existing.maxMs, ms);
+        } else {
+            this.rulesTimed.set(ruleId, { totalMs: ms, count: 1, maxMs: ms });
+        }
+    }
+
+    recordFile(filePath: string, ms: number, ruleCount: number): void {
+        this.fileTimings.set(filePath, { totalMs: ms, ruleCount });
+    }
+
+    toProfile(filesScanned: number): ScanProfile {
+        const rulesTimed: Record<string, ScanProfileRuleTiming> = {};
+        for (const [ruleId, data] of this.rulesTimed) {
+            rulesTimed[ruleId] = {
+                ruleId,
+                totalMs: data.totalMs,
+                count: data.count,
+                avgMs: Math.round(data.totalMs / data.count),
+                maxMs: data.maxMs,
+            };
+        }
+        const fileTimings: Record<string, ScanProfileFileTiming> = {};
+        for (const [filePath, data] of this.fileTimings) {
+            fileTimings[filePath] = {
+                filePath,
+                totalMs: data.totalMs,
+                ruleCount: data.ruleCount,
+            };
+        }
+        const topRules = Object.values(rulesTimed)
+            .sort((a, b) => b.totalMs - a.totalMs)
+            .slice(0, 10);
+        const topFiles = Object.values(fileTimings)
+            .sort((a, b) => b.totalMs - a.totalMs)
+            .slice(0, 10);
+        return {
+            module: this.moduleName,
+            filesScanned,
+            rulesTimed,
+            fileTimings,
+            topRules,
+            topFiles,
+        };
+    }
+}
+
+/** v3.15.0: 进度条状态 */
+interface ProgressState {
+    tick: () => void;
+    finish: () => void;
+}
+
+/** v3.15.0: 渲染进度条 */
+function renderProgressBar(percent: number, width = 20): string {
+    const filled = Math.round((percent / 100) * width);
+    const bar = "█".repeat(filled) + "░".repeat(width - filled);
+    return `[${bar}]`;
+}
+
+/** v3.15.0: 创建进度条状态 */
+function createProgressState(total: number): ProgressState {
+    let completed = 0;
+    const start = Date.now();
+    return {
+        tick: () => {
+            completed++;
+            const pct = Math.round((completed / total) * 100);
+            const elapsed = Date.now() - start;
+            const remaining = completed > 0 ? Math.round((elapsed / completed) * (total - completed)) : 0;
+            const bar = renderProgressBar(pct);
+            process.stdout.write(
+                `\r${pc.cyan("进度")} ${bar} ${completed}/${total} ${pct}% | ETA ${(remaining / 1000).toFixed(1)}s`
+            );
+        },
+        finish: () => {
+            process.stdout.write("\n");
+        },
+    };
+}
+
+/** v3.15.0: 格式化扫描耗时分析报告 */
+export function formatScanProfile(profile: ScanProfile, topN = 10): string {
+    const lines: string[] = [];
+    lines.push(pc.cyan(`📊 扫描耗时分析 — ${profile.module}`));
+    lines.push(pc.gray(`   扫描文件数: ${profile.filesScanned}`));
+    lines.push("");
+
+    lines.push(pc.cyan(`   最耗时的规则 (Top ${topN}):`));
+    if (profile.topRules.length === 0) {
+        lines.push(pc.gray("      暂无数据"));
+    } else {
+        for (const r of profile.topRules.slice(0, topN)) {
+            lines.push(
+                pc.gray(
+                    `      ${r.ruleId.padEnd(30)} total=${String(r.totalMs).padStart(5)}ms avg=${String(r.avgMs).padStart(3)}ms count=${r.count}`
+                )
+            );
+        }
+    }
+    lines.push("");
+
+    lines.push(pc.cyan(`   最耗时的文件 (Top ${topN}):`));
+    if (profile.topFiles.length === 0) {
+        lines.push(pc.gray("      暂无数据"));
+    } else {
+        for (const f of profile.topFiles.slice(0, topN)) {
+            lines.push(
+                pc.gray(
+                    `      ${f.filePath.slice(-50).padStart(50)} ${String(f.totalMs).padStart(5)}ms (${f.ruleCount} rules)`
+                )
+            );
+        }
+    }
+    return lines.join("\n");
 }
 
 export class RuleEngine {
@@ -175,9 +314,19 @@ export class RuleEngine {
         return this.registry.getActiveRules();
     }
 
+    /** v3.17.0: 重新加载单个自定义规则文件（热重载） */
+    reloadCustomRule(filePath: string): boolean {
+        return this.registry.reloadCustomRule(filePath, this.options.projectDir);
+    }
+
     /** 根据条件过滤规则 */
     filterRules(options?: { category?: string; framework?: string; platform?: string; componentLib?: string }): Rule[] {
         return this.registry.filterRules(options);
+    }
+
+    /** v3.18.0: 检查当前启用规则集的兼容性 */
+    checkRuleCompatibility(): RuleCompatibilityReport {
+        return this.registry.getCompatibilityReport();
     }
 
     /** 模块名到规则 category 的映射 */
@@ -186,6 +335,7 @@ export class RuleEngine {
             a11y: "accessibility",
             naming: "style",
             "cross-file": "architecture",
+            css: "style",
         };
         return map[module] || module;
     }
@@ -225,9 +375,21 @@ export class RuleEngine {
 
         this.log(pc.blue(`🔍 [${module}] 扫描 ${files.length} 个文件，${activeRules.length} 条规则...`));
 
+        // v3.15.0: 扫描耗时分析收集器
+        const profileCollector = this.options.profile ? new ScanProfileCollector(module) : undefined;
+
+        // v3.15.0: 实时进度条
+        const showProgress = this.shouldShowProgress(files.length);
+        const progressState = showProgress ? createProgressState(files.length) : undefined;
+
         // v3.2.0: 自适应并发 — 根据文件数、规则数和 CPU 动态调整
         const concurrency = this.options.concurrency ?? getAdaptiveConcurrency(files.length, activeRules.length);
-        const fileResults = await concurrentMap(files, concurrency, (file) => this.scanFile(file, activeRules));
+        const fileResults = await concurrentMap(files, concurrency, (file) =>
+            this.scanFileWithProgress(file, activeRules, profileCollector, progressState)
+        );
+        if (progressState) {
+            progressState.finish();
+        }
 
         let filesSkipped = 0;
         for (const { issues: fileIssues, skipped } of fileResults) {
@@ -267,6 +429,7 @@ export class RuleEngine {
             duration: Date.now() - startTime,
             filesScanned,
             filesWithIssues,
+            profile: profileCollector?.toProfile(filesScanned),
         };
 
         // Phase 6: 记录扫描历史并输出趋势
@@ -319,7 +482,8 @@ export class RuleEngine {
     private async scanFile(
         filePath: string,
         rules: Rule[],
-        source?: string
+        source?: string,
+        onRuleComplete?: (ruleId: string, ms: number) => void
     ): Promise<{ issues: Issue[]; skipped?: boolean }> {
         try {
             const hasProvidedSource = source !== undefined;
@@ -369,7 +533,11 @@ export class RuleEngine {
 
             for (const rule of rules) {
                 try {
+                    const ruleStart = onRuleComplete ? Date.now() : 0;
                     const result = await rule.execute(context);
+                    if (onRuleComplete) {
+                        onRuleComplete(rule.id, Date.now() - ruleStart);
+                    }
                     // v2.4.0: 为每个 issue 注入 docsUrl
                     for (const issue of result) {
                         if (rule.docsUrl && !issue.docsUrl) {
@@ -426,7 +594,11 @@ export class RuleEngine {
         }
 
         if (this.options.files && this.options.files.length > 0) {
-            return this.options.files;
+            // v3.20.0: 支持 --files 传入 glob 模式（CLI 帮助文本中的用法）
+            return globby(this.options.files, {
+                cwd: this.options.projectDir,
+                absolute: true,
+            });
         }
 
         const include = this.config.scan?.includeExtensions || [".js", ".ts", ".jsx", ".tsx", ".vue"];
@@ -664,6 +836,40 @@ export class RuleEngine {
         } catch {
             return [];
         }
+    }
+
+    /**
+     * v3.15.0: 带进度与耗时分析的扫描包装
+     */
+    private async scanFileWithProgress(
+        filePath: string,
+        rules: Rule[],
+        profileCollector?: ScanProfileCollector,
+        progressState?: ProgressState
+    ): Promise<{ issues: Issue[]; skipped?: boolean }> {
+        const fileStart = profileCollector ? Date.now() : 0;
+        const result = await this.scanFile(
+            filePath,
+            rules,
+            undefined,
+            profileCollector ? (ruleId, ms) => profileCollector.recordRule(ruleId, ms) : undefined
+        );
+        if (profileCollector) {
+            profileCollector.recordFile(filePath, Date.now() - fileStart, rules.length);
+        }
+        progressState?.tick();
+        return result;
+    }
+
+    /** v3.15.0: 判断是否显示进度条 */
+    private shouldShowProgress(totalFiles: number): boolean {
+        return (
+            this.options.showProgress === true &&
+            totalFiles > 5 &&
+            !this.options.silent &&
+            typeof process !== "undefined" &&
+            process.stdout?.isTTY === true
+        );
     }
 
     /** 创建 RuleUtils */

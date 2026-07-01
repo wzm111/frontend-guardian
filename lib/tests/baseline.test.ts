@@ -65,8 +65,17 @@ describe("saveBaseline / loadBaseline", () => {
         expect(loaded!.meta!.toolVersion).toBe("2.3.0");
     });
 
-    it("加载不存在的文件返回 null", () => {
-        expect(loadBaseline(join(tempDir, "nonexistent.json"))).toBeNull();
+    it("v3.15.0: saveBaseline 应与已有 baseline 增量合并，避免重复记录", () => {
+        const issues1 = [makeIssue({ file: "a.tsx", line: 1 }), makeIssue({ file: "b.tsx", line: 2 })];
+        saveBaseline(baselinePath, issues1, { projectDir: tempDir });
+        expect(loadBaseline(baselinePath)!.issues).toHaveLength(2);
+
+        const issues2 = [makeIssue({ file: "b.tsx", line: 2 }), makeIssue({ file: "c.tsx", line: 3 })];
+        saveBaseline(baselinePath, issues2, { projectDir: tempDir });
+        const loaded = loadBaseline(baselinePath)!;
+        expect(loaded.issues).toHaveLength(3);
+        const files = loaded.issues.map((i) => i.file).sort();
+        expect(files).toEqual(["a.tsx", "b.tsx", "c.tsx"]);
     });
 
     it("加载无效 JSON 返回 null", () => {

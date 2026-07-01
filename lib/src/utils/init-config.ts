@@ -290,7 +290,10 @@ function getDefaultExtensions(framework?: Framework, hasTs = true): string[] {
         extensions.push(".tsx");
     }
 
-    extensions.push(".css", ".scss", ".less", ".json");
+    extensions.push(".css", ".scss", ".less", ".json", ".yaml", ".yml", ".md", ".markdown");
+
+    // v3.20.0: 后端语言默认扩展名
+    extensions.push(".go", ".rs");
 
     if (framework === "harmony") {
         extensions.push(".ets");

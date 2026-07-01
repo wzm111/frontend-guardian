@@ -91,6 +91,9 @@ Skill 会自动检测项目类型并加载对应规则：
 /frontend-guardian --module cross-file      # 跨文件分析
 /frontend-guardian --module svelte          # Svelte 专项检查
 /frontend-guardian --module e2e            # E2E 测试治理
+/frontend-guardian --module css            # CSS/SCSS 规范（v3.18.0）
+/frontend-guardian --module data           # JSON/YAML/Markdown 规范（v3.19.0）
+/frontend-guardian --module backend        # Node.js/Go/Rust 后端治理（v3.20.0）
 ```
 
 单模块支持 `--fix`、`--json`、`--severity`、`--staged`、`--diff`、`--external` 参数：
@@ -116,14 +119,26 @@ Skill 会自动检测项目类型并加载对应规则：
 # 运行外部工具（ESLint / TypeScript / Stylelint）
 /frontend-guardian --scan --external
 
-# Watch 模式（开发时自动扫描）
+# Watch 模式（开发时自动扫描，文件变更后只扫描相关模块）
 /frontend-guardian --scan --watch
+
+# 扫描耗时分析（定位慢规则/慢文件）
+/frontend-guardian --scan --profile
+
+# 禁用实时进度条
+/frontend-guardian --scan --no-progress
+
+# 智能配置推荐
+/frontend-guardian --recommend-config
 
 # 启动 MCP Server（供 AI Agent 调用）
 /frontend-guardian --mcp
 
 # 智能测试推荐（PR 阶段只跑相关测试）
 /frontend-guardian --recommend-tests --staged --json
+
+# 智能测试推荐并输出 Mermaid 影响图
+/frontend-guardian --recommend-tests --staged --impact-graph --impact-graph-format mermaid
 
 # 智能测试推荐并标记 flaky 风险（需先运行过 E2E 积累历史数据）
 /frontend-guardian --recommend-tests --staged \
@@ -165,8 +180,11 @@ fg-server --port 3456 --cors "*"
 # JSON 输出
 /frontend-guardian --e2e-detect-gaps --json
 
-# 运行 Playwright E2E 测试（skill 作为统一入口）
+# 运行 E2E 测试（skill 作为统一入口，auto 自动检测 Playwright/Cypress/Selenium/Katalon）
 /frontend-guardian --e2e-run
+/frontend-guardian --e2e-run --e2e-tool cypress
+/frontend-guardian --e2e-run --e2e-tool selenium --json
+/frontend-guardian --e2e-run --e2e-tool katalon
 # JSON 输出
 /frontend-guardian --e2e-run --json
 
@@ -220,6 +238,36 @@ fg-server --port 3456 --cors "*"
 
 # 生成 CI 配置（GitHub Actions）
 /frontend-guardian --init-ci
+
+# 规则模板生成器（v3.17.0）
+/frontend-guardian --create-rule no-implicit-any --create-rule-dir ./rules
+/frontend-guardian --create-rule prefer-const --create-rule-category style --create-rule-severity suggestion --create-rule-fix
+/frontend-guardian --create-rule ts-only-rule --create-rule-lang ts --create-rule-category naming
+
+# 规则市场索引（v3.17.0）
+/frontend-guardian --market-index
+/frontend-guardian --market-index-json
+/frontend-guardian --market-index-json --market-index-url https://example.com/fg-market/index.json
+
+# 规则评分（v3.17.0）
+/frontend-guardian --rule-scores
+/frontend-guardian --rule-scores-json
+
+# 规则文档自动生成（v3.18.0）
+/frontend-guardian --generate-rule-docs
+/frontend-guardian --generate-rule-docs --generate-rule-docs-dir ./docs/rules
+
+# 规则兼容性检查（v3.18.0）
+/frontend-guardian --check-rule-compat
+/frontend-guardian --check-rule-compat --json
+
+# CSS/SCSS 扫描（v3.18.0）
+/frontend-guardian --module css
+/frontend-guardian --module css --files "src/**/*.scss"
+
+# 使用市场包扩展配置
+# .frontend-guardian.yml:
+# extends: market:react-hooks
 ```
 
 ## MCP Server 集成
@@ -236,7 +284,7 @@ fg-server --port 3456 --cors "*"
 | ---- | ---- |
 | `scan` | 运行治理扫描，可指定模块、severity、staged 等 |
 | `fix` | 扫描并自动修复，支持 `dryRun` 预览 |
-| `e2e-run` | 运行 Playwright E2E 测试并返回失败 Issue |
+| `e2e-run` | 运行 E2E 测试并返回失败 Issue；支持 `tool`: `auto` / `playwright` / `cypress` / `selenium` / `katalon` |
 | `e2e-detect-gaps` | 检测 E2E 覆盖缺口 |
 | `list-rules` | 列出可用规则 |
 | `scan-file` | 单文件快速扫描 |
@@ -245,7 +293,7 @@ fg-server --port 3456 --cors "*"
 | `ai-fix` | 为无自动修复的问题生成 AI 建议 |
 | `get-project-meta` | 获取检测到的项目元数据 |
 | `index-project` | 查询/构建项目索引 |
-| `recommend-tests` | 基于变更文件智能推荐需要运行的测试，支持 flaky 风险预警 |
+| `recommend-tests` | 基于变更文件智能推荐需要运行的测试，支持 flaky 风险预警与可视化影响图 (`impactGraph` / `impactGraphFormat`) |
 | `register-agent` | 注册当前 Agent 会话，支持多 Agent 共享索引（v3.14.0） |
 | `list-agents` | 列出当前活跃 Agent（v3.14.0） |
 | `get-usage-guidance` | 获取 MCP 工具使用指引与最佳实践（v3.14.1） |
