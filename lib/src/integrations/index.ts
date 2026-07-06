@@ -77,6 +77,24 @@ export const allExternalTools = [
     _playwrightIntegration,
 ];
 
+// v4.0.0: 移动端测试集成（Maestro + Appium）
+import { appiumIntegration as _appiumIntegration } from "./appium.js";
+import { maestroIntegration as _maestroIntegration } from "./maestro.js";
+
+export type {
+    MobilePageHealthOptions,
+    MobilePageHealthResult,
+    CheckedMobilePage,
+} from "./mobile-page-health.js";
+export {
+    formatMobilePageHealthJson,
+    formatMobilePageHealthReport,
+    runMobilePageHealthCheck,
+    toScanResult as toMobilePageHealthScanResult,
+} from "./mobile-page-health.js";
+export { _appiumIntegration as appiumIntegration };
+export { _maestroIntegration as maestroIntegration };
+
 export type { FormatResult, FormatterTool } from "./formatter.js";
 // Phase 5+6: 格式化器集成
 export { detectFormatter, runFormat } from "./formatter.js";

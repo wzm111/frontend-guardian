@@ -288,3 +288,41 @@ describe("CLI — 其他参数", () => {
         expect(result.stdout).toContain("Frontend Guardian Core");
     });
 });
+
+describe("CLI — v4.0.0 移动端测试", () => {
+    it("--help 应包含移动端相关选项", () => {
+        const result = runCLI(["--help"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("--mobile");
+        expect(result.stdout).toContain("--maestro");
+        expect(result.stdout).toContain("--appium");
+        expect(result.stdout).toContain("--mobile-page-health");
+    });
+
+    it("--mobile --maestro 在未配置项目退出码 1", () => {
+        writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test" }), "utf-8");
+        const result = runCLI(["--mobile", "--maestro"]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stdout).toContain("未检测到 Maestro 配置或依赖");
+    });
+
+    it("--mobile --appium --json 在未配置项目退出码 1", () => {
+        writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test" }), "utf-8");
+        const result = runCLI(["--mobile", "--appium", "--json"]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stdout).toContain("未检测到 Appium 配置或依赖");
+    });
+
+    it("--mobile-page-health 在未配置项目提示未检测到移动工具", () => {
+        writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test" }), "utf-8");
+        const result = runCLI([
+            "--mobile-page-health",
+            "--mobile-app-id",
+            "com.example.app",
+            "--mobile-routes",
+            "home,profile",
+        ]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("未检测到 Maestro 或 Appium");
+    });
+});

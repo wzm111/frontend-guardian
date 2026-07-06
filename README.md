@@ -2,7 +2,7 @@
 
 > 自动扫描前端项目中的潜在问题：硬编码文案、性能隐患、安全漏洞、可访问性缺陷等。
 >
-> **当前版本：v3.20.0** · 支持 React / Vue / 小程序 / 鸿蒙等主流技术栈
+> **当前版本：v4.0.0** · 支持 React / Vue / 小程序 / 鸿蒙 / 移动端 App 等主流技术栈
 
 ## 核心能力
 
@@ -18,6 +18,8 @@ frontend-guardian 是一个**前端统一治理工具**，覆盖代码质量、�
 | **♿ 运行时无障碍检测** | 注入 axe-core 检测渲染后 DOM 的可访问性问题 | `fg-core . --page-health --a11y` |
 | **🌐 跨浏览器基线** | 支持 Chromium / Firefox / WebKit 三套独立基线，检测浏览器渲染差异 | `fg-core . --page-health --browser all` |
 | **📱 移动端视口模拟** | 使用 Playwright 设备预设或自定义视口，发现响应式布局问题 | `fg-core . --page-health --device "iPhone 14 Pro"` |
+| **🤖 移动端 App 测试** | 集成 Maestro / Appium，无需写脚本即可运行已有 flow/spec 并输出治理报告 | `fg-core . --mobile --maestro` |
+| **📱 移动端页面健康** | 驱动 App 遍历关键页面，检测白屏、崩溃、ANR、截图基线差异 | `fg-core . --mobile-page-health --mobile-app-id com.example.app --mobile-routes home,profile` |
 | **👁️ AI 视觉降噪** | 调用 LLM Vision 判断截图差异是否为有意义 UI 变更，过滤字体/滚动条/anti-aliasing 噪声 | `fg-core . --page-health --page-health-ai-vision` |
 | **🎥 失败录屏回放** | 页面健康检查时录制操作视频，失败路由附带回放路径 | `fg-core . --page-health --page-health-record-video` |
 | **⏱️ 扫描耗时分析** | `--profile` 输出规则/文件耗时排名，快速定位性能瓶颈 | `fg-core . --scan --profile` |
@@ -66,6 +68,15 @@ fg-core . --page-health --serve "npm run dev" --browser all --update-baseline
 
 # 移动端视口模拟（使用 Playwright 设备预设）
 fg-core . --page-health --serve "npm run dev" --device "iPhone 14 Pro"
+
+# 移动端 App 测试（Maestro）
+fg-core . --mobile --maestro
+
+# 移动端 App 测试（Appium + WebdriverIO）
+fg-core . --mobile --appium
+
+# 移动端页面健康检查：截图/白屏/崩溃/ANR
+fg-core . --mobile-page-health --mobile-app-id com.example.app --mobile-routes home,profile
 
 # 自定义视口尺寸
 fg-core . --page-health --serve "npm run dev" --viewport 390x844
@@ -955,6 +966,19 @@ platform:
 ---
 
 ## 版本演进
+
+### v4.0.0 — 移动端应用测试（Maestro + Appium）
+
+- **移动端 App 测试**：新增 `--mobile` / `--maestro` / `--appium`，集成 Maestro 与 Appium（WebdriverIO）运行已有测试并输出治理报告
+  - `lib/src/integrations/maestro.ts`：检测 `.maestro/`、`maestro.yaml`、JUnit XML 报告解析
+  - `lib/src/integrations/appium.ts`：检测 `wdio.conf.*`、WebdriverIO JSON 报告解析
+  - Issue rule IDs：`maestro-test-failed`、`maestro-cli-missing`、`maestro-report-unparseable`、`appium-test-failed`、`appium-no-wdio-config`、`appium-wdio-output-unparseable`
+- **移动端页面健康检查**：新增 `--mobile-page-health`，生成临时 Maestro flow / WebdriverIO spec 驱动 App，截图并检测白屏、崩溃、ANR、截图基线差异
+  - CLI：`--mobile-app-id`、`-routes`、`-screenshot-dir`、`-update-baseline`、`-concurrency`、`-timeout`
+  - Issue rule IDs：`mobile-page-health-crash`、`mobile-page-health-anr`、`mobile-page-health-white-screen`、`mobile-page-health-screenshot-changed`、`mobile-page-health-tool-missing`
+- **类型扩展**：`RuleCategory` 增加 `"mobile"`，`ProjectConfig` 增加 `mobile` 配置，`--create-rule-category mobile` 可用
+- **版本同步**：`lib/package.json` 与 CLI/MCP/Server/LSP 版本升级到 `4.0.0`
+- **测试覆盖**：新增 `lib/tests/maestro-integration.test.ts`、`lib/tests/appium-integration.test.ts`、`lib/tests/mobile-page-health.test.ts`、`lib/tests/cli-entry.test.ts` 移动端 CLI 用例
 
 ### v3.12.0 — 多平台截图差异对比（已交付，目标 756–760 测试通过）
 

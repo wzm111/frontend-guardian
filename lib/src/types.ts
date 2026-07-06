@@ -194,7 +194,8 @@ export type RuleCategory =
     | "architecture"
     | "e2e"
     | "data"
-    | "backend";
+    | "backend"
+    | "mobile";
 
 export interface RuleContext {
     /** Absolute path to the file being analyzed */
@@ -384,6 +385,15 @@ export interface ProjectConfig {
     __pluginRules?: Rule[];
     /** v3.5.0: 扫描策略分级 strict | standard | loose */
     strategy?: ScanStrategy;
+    /** v4.0.0: 移动端页面健康检查配置 */
+    mobile?: MobilePageHealthConfig;
+}
+
+export interface MobilePageHealthConfig {
+    appId?: string;
+    routes?: string[];
+    screenshotDir?: string;
+    baselineDir?: string;
 }
 
 export interface I18nConfig {

@@ -32,6 +32,7 @@ function validateOptions(options: CreateRuleOptions): void {
         "style",
         "architecture",
         "e2e",
+        "mobile",
     ];
     if (!validCategories.includes(options.category)) {
         throw new Error(`不支持的规则分类: ${options.category}`);

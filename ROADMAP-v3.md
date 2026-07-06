@@ -1,6 +1,6 @@
 # frontend-guardian Roadmap v3 — 进阶方向
 
-> ROADMAP v2 已全部完成。**v3.x 已全部交付**（最新 v3.20.0，后端语言扫描器）。当前唯一主线是 **v4.0.0 移动端应用测试**。
+> ROADMAP v2 已全部完成。**v3.x 已全部交付，v4.0.0 已交付**（移动端应用测试，Maestro + Appium + 页面健康检查）。当前建议进入 **v4.1.0 移动端性能与真机云测**。
 
 ---
 
@@ -639,18 +639,18 @@
 
 > **市场参考**：2026 年移动端测试双雄格局：Appium（成熟、跨平台、真机支持，但学习曲线陡峭、flakiness 10-15%）vs Maestro（新兴、YAML 声明式、快 2-3 倍、flakiness <1%，但 iOS 真机支持有限）。推荐双方案覆盖不同场景。
 
-### P0 — 必须完成
+### P0 — 必须完成 ✅
 
-- [ ] **Maestro 集成**：`lib/src/integrations/maestro.ts`
+- [x] **Maestro 集成**：`lib/src/integrations/maestro.ts`
   - 检测项目中的 `.maestro/` 目录或 `maestro.yaml` 文件
   - `fg-core . --mobile --maestro` 调用 `maestro test` 执行测试
   - 解析 Maestro JUnit/XML 报告，转换为统一 Issue 格式
   - 零额外依赖：Maestro 由项目自行安装，skill 只作为统一调用入口
-- [ ] **Appium 集成**：`lib/src/integrations/appium.ts`
+- [x] **Appium 集成**：`lib/src/integrations/appium.ts`
   - 检测项目中的 Appium 配置（`wdio.conf.js`、`appium:capabilities` 等）
   - `fg-core . --mobile --appium` 调用 Appium 测试套件
   - 解析 Appium JSON/XML 报告，提取 failed/skipped 用例为 Issue
-- [ ] **移动端页面健康检查**：`--mobile --page-health`
+- [x] **移动端页面健康检查**：`--mobile --page-health`
   - 启动 Appium/Maestro 打开 App，遍历关键页面路径
   - 截图保存到 `.frontend-guardian/screenshots/mobile/`
   - 检测白屏、崩溃、ANR（Application Not Responding）
@@ -663,7 +663,7 @@
 - [ ] **真机云测集成**：对接 BrowserStack / Sauce Labs / Firebase Test Lab
   - `--mobile --cloud browserstack` 在云端真机上运行测试
   - 环境变量自动检测：`FG_BROWSERSTACK_USERNAME`、`FG_BROWSERSTACK_KEY`
-- [ ] **移动端截图对比**：保存移动端页面基线，检测 UI 回退
+- [x] **移动端截图对比**：保存移动端页面基线，检测 UI 回退
   - 区分 iOS / Android 基线（系统字体、阴影渲染差异）
   - 支持设备型号维度：iPhone 14 Pro / Pixel 7 独立基线
 
@@ -674,6 +674,27 @@
   - 手势失败时截图 + 录屏留存证据
 - [ ] **离线/弱网测试**：模拟无网络 / 2G / 3G 环境，验证 App 的降级表现
   - 配合 Maestro 的 `network` 条件或 Appium 的网络模拟能力
+
+---
+
+## 🚧 v4.1.0 — 移动端性能与真机云测（建议下一版本）
+
+**目标**：在 v4.0.0 基础上补齐移动端性能指标与真机云测能力。
+
+### P0 — 必须完成
+
+- [ ] **移动端性能指标**：启动时间、帧率、内存占用，生成 warning Issue
+- [ ] **真机云测集成**：BrowserStack / Sauce Labs / Firebase Test Lab
+
+### P1 — 尽量完成
+
+- [ ] **手势操作测试模板**：下拉刷新、左滑删除、轮播图滑动
+- [ ] **离线/弱网测试**：2G/3G/无网络降级验证
+
+### P2 — 排期实现
+
+- [ ] **移动端录屏回放**：失败路由附带视频回放路径
+- [ ] **iOS 真机支持完善**：Maestro iOS 真机运行指导与兜底
 
 ---
 
@@ -714,29 +735,29 @@
 
 ## 🎯 下一步建议（2026-07-06 更新）
 
-当前 **v3.x 已全部交付完成**（最新 v3.20.0，后端语言扫描器，892 测试通过，3 个 skip）。**v4.0.0 移动端应用测试是当前唯一主线**。
+当前 **v3.x 已全部交付完成，v4.0.0 已交付**（移动端应用测试，Maestro + Appium + 页面健康检查，测试全部通过）。**v4.1.0 移动端性能与真机云测是当前建议主线**。
 
-### 路线 F（唯一推荐）—— 进入 v4.0.0
+### 路线 G（唯一推荐）—— 进入 v4.1.0
 
-1. **P0 必须完成**：Maestro + Appium 双方案集成 + 移动端页面健康检查
-   - 这是把前端治理从 Web/小程序延伸到原生 App 的关键版本
-   - 复用现有 `RuleEngine` 与 `page-health` 框架，零额外重型依赖
+1. **P0 必须完成**：移动端性能指标 + 真机云测集成
+   - 这是把移动端治理从“能跑”推进到“跑得好”的关键版本
+   - 性能指标依赖 v4.0.0 页面健康检查框架，真机云测可复用现有 ExternalTool 模式
 
-2. **P1 尽量完成**：移动端性能指标、真机云测、移动端截图基线
-   - 顺序建议：性能指标 → 截图对比 → 真机云测
-   - 性能指标依赖页面健康检查框架，截图对比可复用 pixelmatch 能力
+2. **P1 尽量完成**：手势操作测试模板、离线/弱网测试
+   - 顺序建议：手势模板 → 弱网测试
+   - 手势模板可基于 Maestro YAML / Appium spec 预生成
 
-3. **P2 排期实现**：手势操作测试、离线/弱网测试
-   - 可拆分为 v4.1.0 / v4.2.0 后续迭代
+3. **P2 排期实现**：移动端录屏回放、iOS 真机支持完善
+   - 可拆分为 v4.2.0 / v4.3.0 后续迭代
 
 ### 版本价值
 
 | 版本 | 核心价值 | 目标用户 |
 |------|---------|---------|
-| v3.20.0 | 后端语言扫描（Node.js/Go/Rust） | 全栈/后端开发者 |
-| v4.0.0 | 移动端 App 测试（Maestro + Appium） | 移动端团队、RN/Flutter 开发者 |
+| v4.0.0 | 移动端 App 测试（Maestro + Appium + 页面健康检查） | 移动端团队、RN/Flutter 开发者 |
+| v4.1.0 | 移动端性能指标 + 真机云测 | 移动端团队、QA、DevOps |
 
-**v4.0.0 是当前阶段唯一建议开启的版本。**
+**v4.1.0 是当前阶段唯一建议开启的版本。**
 
 ---
 
